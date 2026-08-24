@@ -1,3 +1,5 @@
+import { getSmsGatewayBalance, getSmsGatewayCredentials } from "@/lib/api/integration-credentials";
+import { ApiError, NetworkError } from "@/lib/api/types";
 import type { SmsAccount } from "@/lib/mock/sms-account";
 
 export type { SmsAccount } from "@/lib/mock/sms-account";
@@ -17,18 +19,44 @@ export interface SmsAccountWithStatus extends SmsAccount {
 }
 
 /**
- * The SMS gateway is generic (see Settings → API Credentials) — the admin
- * supplies any provider's send-SMS URL, but there's no equivalently generic
- * balance-check convention across providers the way there is for sending,
- * so this deliberately never calls out to check one. Always returns a
- * fixed "not available" state rather than a live value.
+ * Fetches the current SMS balance (live, from the configured gateway's
+ * balance endpoint — see Settings → API Credentials) and pricing (the
+ * admin-configured rate override) for cost estimation. Never throws — the
+ * campaigns dashboard awaits this inside `Promise.all` in a server
+ * component, so a provider-side failure (no balance URL configured, bad
+ * key, unreachable) surfaces as `balanceError` instead of a broken page
+ * render.
  */
 export async function getSmsAccount(): Promise<SmsAccountWithStatus> {
+  function toErrorMessage(err: unknown): string {
+    return err instanceof ApiError || err instanceof NetworkError
+      ? err.message
+      : "Unable to reach the API server.";
+  }
+
+  const [balanceResult, ratePerSegmentBdt] = await Promise.all([
+    getSmsGatewayBalance().catch((err: unknown) => ({
+      balance: null,
+      success: false,
+      httpStatus: 0,
+      message: toErrorMessage(err),
+    })),
+    getSmsGatewayCredentials()
+      .then((credentials) => Number(credentials.ratePerSegmentBdt.value ?? 0))
+      .catch(() => 0),
+  ]);
+
+  // A successful call with no parseable balance (recognized field missing
+  // from the response) is still "we don't actually know the balance" —
+  // must not read as a real, alarming zero.
+  const balanceKnown = balanceResult.success && balanceResult.balance !== null;
+
   return {
-    balanceCredits: 0,
-    ratePerSegmentBdt: 0,
+    balanceCredits: balanceKnown ? (balanceResult.balance as number) : 0,
+    ratePerSegmentBdt,
     lowBalanceThreshold: LOW_BALANCE_THRESHOLD,
-    balanceError:
-      "Balance isn't available for a generic SMS gateway — check your provider's dashboard directly.",
+    balanceError: balanceKnown
+      ? null
+      : balanceResult.message || "Unable to fetch balance.",
   };
 }
