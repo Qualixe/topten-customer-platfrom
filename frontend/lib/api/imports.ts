@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiGet } from "@/lib/api/client";
+import { API_BASE_URL, apiGet, getAuthorizationHeader } from "@/lib/api/client";
 import { ApiError, NetworkError } from "@/lib/api/types";
 import type { CustomerType } from "@/lib/mock/customers";
 
@@ -112,8 +112,10 @@ export async function uploadCustomerImport(
 
   let response: Response;
   try {
+    const authHeader = await getAuthorizationHeader();
     response = await fetch(`${API_BASE_URL}/imports/customers`, {
       method: "POST",
+      headers: authHeader,
       body: formData,
     });
   } catch (error) {

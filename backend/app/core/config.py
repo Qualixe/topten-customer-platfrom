@@ -27,6 +27,18 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = "change-me-in-production"
 
+    # Auth: JWT signing reuses SECRET_KEY rather than a second secret — this
+    # is a single-app deployment, not multiple services that need
+    # independently rotatable keys. 7 days: a low-traffic internal admin
+    # tool favors not forcing frequent re-login over short-lived tokens.
+    JWT_EXPIRE_MINUTES: int = 60 * 24 * 7
+
+    # Bootstrap admin, created by scripts/seed_auth.py (not on every
+    # startup) — change these before running it against anything real.
+    INITIAL_ADMIN_EMAIL: str = "admin@topten.com.bd"
+    INITIAL_ADMIN_PASSWORD: str = "changeme123"
+    INITIAL_ADMIN_NAME: str = "Admin"
+
     # POS customer import settings.
     UPLOAD_DIR: str = "var/uploads/imports"
     IMPORT_CHUNK_SIZE: int = 500

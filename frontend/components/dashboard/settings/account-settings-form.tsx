@@ -1,117 +1,163 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Check } from "lucide-react";
 
-import { SettingsCard } from "@/components/dashboard/settings/settings-card";
 import { FormField } from "@/components/dashboard/form-field";
-import { SettingsSwitchRow } from "@/components/dashboard/settings/settings-switch-row";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { defaultAccountSettings } from "@/lib/mock/settings";
+import { changePassword, getCurrentUser, type AuthUser } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/types";
 
 export function AccountSettingsForm() {
-  const [settings, setSettings] = useState(defaultAccountSettings);
-  const [passwords, setPasswords] = useState({
-    current: "",
-    next: "",
-    confirm: "",
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser()
+      .then((data) => {
+        if (!cancelled) setUser(data);
+      })
+      .catch(() => {
+        // Header already covers the logged-out case; this card just stays empty.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
-      <SettingsCard
-        title="Account Settings"
-        description="Your profile information and security preferences"
-      >
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Account Settings</CardTitle>
+          <CardDescription>Your profile information</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <FormField htmlFor="full-name" label="Full Name">
-            <Input
-              id="full-name"
-              value={settings.fullName}
-              onChange={(event) =>
-                setSettings((prev) => ({ ...prev, fullName: event.target.value }))
-              }
-            />
+            <Input id="full-name" value={user?.name ?? ""} disabled />
           </FormField>
 
           <FormField htmlFor="role" label="Role">
-            <Input id="role" value={settings.role} disabled />
+            <Input id="role" value={user?.role ?? ""} disabled />
           </FormField>
 
           <FormField htmlFor="account-email" label="Email">
-            <Input
-              id="account-email"
-              type="email"
-              value={settings.email}
-              onChange={(event) =>
-                setSettings((prev) => ({ ...prev, email: event.target.value }))
-              }
-            />
+            <Input id="account-email" type="email" value={user?.email ?? ""} disabled />
           </FormField>
+        </CardContent>
+      </Card>
 
-          <FormField htmlFor="account-phone" label="Phone">
-            <Input
-              id="account-phone"
-              value={settings.phone}
-              onChange={(event) =>
-                setSettings((prev) => ({ ...prev, phone: event.target.value }))
-              }
-            />
-          </FormField>
-        </div>
-
-        <SettingsSwitchRow
-          id="two-factor-enabled"
-          label="Two-Factor Authentication"
-          description="Require a verification code in addition to your password."
-          checked={settings.twoFactorEnabled}
-          onCheckedChange={(checked) =>
-            setSettings((prev) => ({ ...prev, twoFactorEnabled: checked }))
-          }
-        />
-      </SettingsCard>
-
-      <SettingsCard
-        title="Change Password"
-        description="Update the password used to sign in to this dashboard"
-      >
-        <FormField htmlFor="current-password" label="Current Password">
-          <Input
-            id="current-password"
-            type="password"
-            autoComplete="current-password"
-            value={passwords.current}
-            onChange={(event) =>
-              setPasswords((prev) => ({ ...prev, current: event.target.value }))
-            }
-          />
-        </FormField>
-
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <FormField htmlFor="new-password" label="New Password">
-            <Input
-              id="new-password"
-              type="password"
-              autoComplete="new-password"
-              value={passwords.next}
-              onChange={(event) =>
-                setPasswords((prev) => ({ ...prev, next: event.target.value }))
-              }
-            />
-          </FormField>
-
-          <FormField htmlFor="confirm-password" label="Confirm New Password">
-            <Input
-              id="confirm-password"
-              type="password"
-              autoComplete="new-password"
-              value={passwords.confirm}
-              onChange={(event) =>
-                setPasswords((prev) => ({ ...prev, confirm: event.target.value }))
-              }
-            />
-          </FormField>
-        </div>
-      </SettingsCard>
+      <ChangePasswordCard />
     </div>
+  );
+}
+
+function ChangePasswordCard() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSaved(false);
+
+    if (next !== confirm) {
+      setError("New password and confirmation don't match.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await changePassword(current, next);
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      setSaved(true);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Unable to reach the API server. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Change Password</CardTitle>
+        <CardDescription>
+          Update the password used to sign in to this dashboard
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent className="flex flex-col gap-5">
+          <FormField htmlFor="current-password" label="Current Password">
+            <Input
+              id="current-password"
+              type="password"
+              autoComplete="current-password"
+              value={current}
+              onChange={(event) => setCurrent(event.target.value)}
+              required
+            />
+          </FormField>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <FormField htmlFor="new-password" label="New Password">
+              <Input
+                id="new-password"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                value={next}
+                onChange={(event) => setNext(event.target.value)}
+                required
+              />
+            </FormField>
+
+            <FormField htmlFor="confirm-password" label="Confirm New Password">
+              <Input
+                id="confirm-password"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                value={confirm}
+                onChange={(event) => setConfirm(event.target.value)}
+                required
+              />
+            </FormField>
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </CardContent>
+        <CardFooter className="justify-end gap-3">
+          {saved && (
+            <span className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+              <Check className="size-4" aria-hidden="true" />
+              Password updated
+            </span>
+          )}
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Updating…" : "Update password"}
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
   );
 }

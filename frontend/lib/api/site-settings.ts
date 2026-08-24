@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiDelete, apiGet } from "@/lib/api/client";
+import { API_BASE_URL, apiDelete, apiGet, getAuthorizationHeader } from "@/lib/api/client";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { ApiError, NetworkError } from "@/lib/api/types";
 
@@ -41,8 +41,10 @@ export async function uploadSiteLogo(file: File): Promise<SiteLogo> {
 
   let response: Response;
   try {
+    const authHeader = await getAuthorizationHeader();
     response = await fetch(`${API_BASE_URL}/settings/logo`, {
       method: "PUT",
+      headers: authHeader,
       body: formData,
     });
   } catch (error) {

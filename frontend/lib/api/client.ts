@@ -9,6 +9,42 @@ import { ApiError, NetworkError, type PaginatedResponse, type PaginationParams }
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
+/** Plain (non-httpOnly) cookie holding the JWT, so client components can
+ * both read it (to attach `Authorization: Bearer`) and Proxy can presence-
+ * check it. Kept here — not in `auth.ts` — so any module can reference the
+ * name without pulling in `next/headers`. */
+export const AUTH_COOKIE_NAME = "topten_auth_token";
+
+function readBrowserCookie(name: string): string | null {
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`)
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * Resolves the caller's auth token for both runtimes: `document.cookie` in
+ * the browser, `next/headers`'s `cookies()` on the server. The server branch
+ * uses a dynamic `import()` so this module — imported by both Server and
+ * Client Components — never statically pulls `next/headers` into the
+ * client bundle.
+ */
+export async function getAuthorizationHeader(): Promise<Record<string, string>> {
+  if (typeof window !== "undefined") {
+    const token = readBrowserCookie(AUTH_COOKIE_NAME);
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  try {
+    const { cookies } = await import("next/headers");
+    const store = await cookies();
+    const token = store.get(AUTH_COOKIE_NAME)?.value;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 const DEFAULT_MOCK_DELAY_MS = 300;
 
 /**
@@ -71,10 +107,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   let response: Response;
 
   try {
+    const authHeader = await getAuthorizationHeader();
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...authHeader,
         ...init?.headers,
       },
     });

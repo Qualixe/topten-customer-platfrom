@@ -26,6 +26,20 @@ class ValidationAppError(AppException):
         super().__init__(message, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
+class UnauthorizedError(AppException):
+    """Raised when a request has no valid, active-user access token."""
+
+    def __init__(self, message: str = "Not authenticated") -> None:
+        super().__init__(message, status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+class ForbiddenError(AppException):
+    """Raised when an authenticated user's role lacks a required permission."""
+
+    def __init__(self, message: str = "You do not have permission to do this") -> None:
+        super().__init__(message, status_code=status.HTTP_403_FORBIDDEN)
+
+
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 

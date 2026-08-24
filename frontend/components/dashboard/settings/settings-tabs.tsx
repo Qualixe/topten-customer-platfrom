@@ -10,6 +10,7 @@ import { GeneralSettingsForm } from "@/components/dashboard/settings/general-set
 import { NotificationSettingsForm } from "@/components/dashboard/settings/notification-settings-form";
 import { PathaoCredentialsForm } from "@/components/dashboard/settings/pathao-credentials-form";
 import { SmsGatewayCredentialsForm } from "@/components/dashboard/settings/sms-gateway-credentials-form";
+import { UsersSettings } from "@/components/dashboard/settings/users-settings";
 import { VipSettingsForm } from "@/components/dashboard/settings/vip-settings-form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -21,6 +22,7 @@ const SECTIONS = [
   { value: "notifications", label: "Notifications" },
   { value: "couriers", label: "Couriers" },
   { value: "integrations", label: "API Credentials" },
+  { value: "users", label: "Users" },
   { value: "account", label: "Account" },
 ] as const;
 
@@ -58,6 +60,9 @@ export function SettingsTabs() {
       <TabsContent value="integrations" keepMounted className="mt-2 flex flex-col gap-6">
         <SmsGatewayCredentialsForm />
         <PathaoCredentialsForm />
+      </TabsContent>
+      <TabsContent value="users" keepMounted className="mt-2">
+        <UsersSettings />
       </TabsContent>
       <TabsContent value="account" keepMounted className="mt-2">
         <AccountSettingsForm />

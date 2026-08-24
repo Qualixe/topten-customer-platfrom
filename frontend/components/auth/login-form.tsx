@@ -6,22 +6,34 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { login } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/types";
 
-/**
- * Frontend-only for now — there's no backend auth endpoint yet, so this
- * simulates signing in and moves on to the dashboard rather than actually
- * authenticating anything.
- */
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
-    router.push("/dashboard");
+    setError(null);
+
+    try {
+      await login(email, password);
+      const destination = new URLSearchParams(window.location.search).get("from") || "/dashboard";
+      router.push(destination);
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Unable to reach the API server. Please try again."
+      );
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -56,6 +68,8 @@ export function LoginForm() {
           required
         />
       </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Button type="submit" disabled={submitting} className="h-11 w-full text-base">
         {submitting ? "Signing in…" : "Sign In"}

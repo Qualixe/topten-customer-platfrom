@@ -9,7 +9,10 @@ from app.models.customer_profile_token import CustomerProfileToken
 from app.models.import_batch import ImportBatch, ImportBatchStatus
 from app.models.import_row_error import ImportRowError
 from app.models.integration_credential import IntegrationCredential
+from app.models.permission import Permission
+from app.models.role import Role, role_permissions
 from app.models.site_settings import SiteSettings
+from app.models.user import User
 
 __all__ = [
     "AudienceRuleType",
@@ -26,5 +29,9 @@ __all__ = [
     "ImportBatchStatus",
     "ImportRowError",
     "IntegrationCredential",
+    "Permission",
+    "Role",
     "SiteSettings",
+    "User",
+    "role_permissions",
 ]
