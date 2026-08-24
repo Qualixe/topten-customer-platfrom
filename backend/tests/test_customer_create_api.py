@@ -4,7 +4,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.customer import Customer
+from app.models.customer import Customer
 
 
 async def test_create_customer_persists_and_returns_it(

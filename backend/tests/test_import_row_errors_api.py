@@ -6,8 +6,8 @@ from pathlib import Path
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.import_batch import ImportBatch, ImportBatchStatus
-from app.modules.imports.tasks import _process_import_batch_async
+from app.models.import_batch import ImportBatch, ImportBatchStatus
+from app.tasks.imports import _process_import_batch_async
 from tests.conftest import TestSessionLocal
 
 

@@ -18,10 +18,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.campaign import Campaign
-from app.database.models.campaign_recipient import CampaignRecipient
-from app.database.models.customer import Customer
-from app.modules.sms_campaigns.tasks import resolve_campaign_audience_async
+from app.models.campaign import Campaign
+from app.models.campaign_recipient import CampaignRecipient
+from app.models.customer import Customer
+from app.tasks.sms_campaigns import resolve_campaign_audience_async
 from tests.conftest import TestSessionLocal
 
 DAY_1 = datetime(2026, 8, 19, 9, 0, tzinfo=UTC)

@@ -1,5 +1,5 @@
 """Shared helpers for storing/reading per-provider integration credentials
-(e.g. Bulk SMS BD, Pathao) — see `app.database.models.integration_credential`.
+(e.g. Bulk SMS BD, Pathao) — see `app.models.integration_credential`.
 """
 
 from pydantic import BaseModel
@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.integration_credential import IntegrationCredential
+from app.models.integration_credential import IntegrationCredential
 
 
 class SecretFieldStatus(BaseModel):

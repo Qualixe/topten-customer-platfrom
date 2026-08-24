@@ -3,7 +3,7 @@ later admin review instead."""
 
 from decimal import Decimal
 
-from app.modules.imports.validation import RowError, ValidRow, validate_row
+from app.services.imports_validation import RowError, ValidRow, validate_row
 
 
 def _validate(raw: dict[str, str]) -> RowError | ValidRow:

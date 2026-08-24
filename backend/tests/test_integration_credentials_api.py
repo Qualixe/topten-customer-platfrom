@@ -229,7 +229,7 @@ async def test_test_sms_sends_with_saved_credentials(client: AsyncClient) -> Non
 
     mock_result = sms_gateway_client.SendSmsResult(success=True, http_status=200, message="OK")
     with patch(
-        "app.api.v1.endpoints.notifications.send_sms",
+        "app.controllers.notifications.send_sms",
         new=AsyncMock(return_value=mock_result),
     ) as mock_send:
         response = await client.post(
@@ -287,7 +287,7 @@ async def test_test_sms_threads_saved_custom_field_mapping_to_the_client(
 
     mock_result = sms_gateway_client.SendSmsResult(success=False, http_status=200, message="")
     with patch(
-        "app.api.v1.endpoints.notifications.send_sms",
+        "app.controllers.notifications.send_sms",
         new=AsyncMock(return_value=mock_result),
     ) as mock_send:
         await client.post(
@@ -326,7 +326,7 @@ async def test_test_sms_surfaces_provider_failure(client: AsyncClient) -> None:
         success=False, http_status=401, message="Unauthorized"
     )
     with patch(
-        "app.api.v1.endpoints.notifications.send_sms",
+        "app.controllers.notifications.send_sms",
         new=AsyncMock(return_value=mock_result),
     ):
         response = await client.post(

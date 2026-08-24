@@ -6,7 +6,7 @@ celery_app = Celery(
     "topten",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["app.modules.imports.tasks", "app.modules.sms_campaigns.tasks"],
+    include=["app.tasks.imports", "app.tasks.sms_campaigns"],
 )
 
 celery_app.conf.update(

@@ -14,17 +14,17 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.campaign import Campaign
-from app.database.models.campaign_recipient import CampaignRecipient
-from app.database.models.customer import Customer
-from app.modules.sms_campaigns.tasks import resolve_campaign_audience_async
+from app.models.campaign import Campaign
+from app.models.campaign_recipient import CampaignRecipient
+from app.models.customer import Customer
+from app.tasks.sms_campaigns import resolve_campaign_audience_async
 from tests.conftest import TestSessionLocal
 
 
 @pytest.fixture(autouse=True)
 def _patch_celery_delay(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "app.api.v1.endpoints.sms_campaigns.resolve_campaign_audience.delay",
+        "app.controllers.sms_campaigns.resolve_campaign_audience.delay",
         lambda campaign_id: None,
     )
 

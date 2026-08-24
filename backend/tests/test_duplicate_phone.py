@@ -5,9 +5,9 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.customer import Customer
-from app.database.models.customer_monthly_spending import CustomerMonthlySpending
-from app.modules.imports import service
+from app.models.customer import Customer
+from app.models.customer_monthly_spending import CustomerMonthlySpending
+from app.services import imports as service
 from tests.support import create_batch, make_valid_row
 
 

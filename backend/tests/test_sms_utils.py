@@ -3,7 +3,7 @@ Mirrors that file's own test scenarios so both stay in sync."""
 
 from decimal import Decimal
 
-from app.modules.sms_campaigns.sms_utils import analyze_sms_message, estimate_sms_cost
+from app.services.sms_campaigns_sms_utils import analyze_sms_message, estimate_sms_cost
 
 
 def test_empty_message_has_zero_segments() -> None:

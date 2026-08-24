@@ -11,10 +11,10 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.customer import Customer
-from app.database.models.customer_monthly_spending import CustomerMonthlySpending
-from app.database.models.import_batch import ImportBatch, ImportBatchStatus
-from app.modules.imports.tasks import _process_import_batch_async
+from app.models.customer import Customer
+from app.models.customer_monthly_spending import CustomerMonthlySpending
+from app.models.import_batch import ImportBatch, ImportBatchStatus
+from app.tasks.imports import _process_import_batch_async
 from tests.conftest import TestSessionLocal
 
 

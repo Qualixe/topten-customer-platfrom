@@ -5,9 +5,9 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.phone import normalize_phone
-from app.database.models.customer import CustomerType
-from app.database.models.import_batch import ImportBatch, ImportBatchStatus
-from app.modules.imports.validation import ValidRow
+from app.models.customer import CustomerType
+from app.models.import_batch import ImportBatch, ImportBatchStatus
+from app.services.imports_validation import ValidRow
 
 
 def make_valid_row(name: str, phone: str, amount: str, row_number: int = 1) -> ValidRow:

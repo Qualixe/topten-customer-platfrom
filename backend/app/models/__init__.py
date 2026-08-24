@@ -1,0 +1,30 @@
+"""Import every model module here so Alembic autogenerate (via
+app.models.base.Base.metadata) can discover all tables."""
+
+from app.models.campaign import AudienceRuleType, Campaign, CampaignStatus, CampaignType
+from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientStatus
+from app.models.customer import Customer, CustomerStatus
+from app.models.customer_monthly_spending import CustomerMonthlySpending
+from app.models.customer_profile_token import CustomerProfileToken
+from app.models.import_batch import ImportBatch, ImportBatchStatus
+from app.models.import_row_error import ImportRowError
+from app.models.integration_credential import IntegrationCredential
+from app.models.site_settings import SiteSettings
+
+__all__ = [
+    "AudienceRuleType",
+    "Campaign",
+    "CampaignRecipient",
+    "CampaignRecipientStatus",
+    "CampaignStatus",
+    "CampaignType",
+    "Customer",
+    "CustomerStatus",
+    "CustomerMonthlySpending",
+    "CustomerProfileToken",
+    "ImportBatch",
+    "ImportBatchStatus",
+    "ImportRowError",
+    "IntegrationCredential",
+    "SiteSettings",
+]

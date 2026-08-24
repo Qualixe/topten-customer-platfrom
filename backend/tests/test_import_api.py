@@ -15,13 +15,13 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.import_batch import ImportBatch, ImportBatchStatus
+from app.models.import_batch import ImportBatch, ImportBatchStatus
 
 
 @pytest.fixture(autouse=True)
 def _patch_celery_delay(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "app.api.v1.endpoints.imports.process_import_batch.delay",
+        "app.controllers.imports.process_import_batch.delay",
         lambda import_batch_id: None,
     )
 

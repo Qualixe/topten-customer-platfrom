@@ -14,8 +14,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.customer import Customer
-from app.database.models.customer_profile_token import CustomerProfileToken
+from app.models.customer import Customer
+from app.models.customer_profile_token import CustomerProfileToken
 
 
 async def _create_customer(client: AsyncClient, **overrides) -> dict:

@@ -1,5 +1,5 @@
 """Audience rule resolution — every rule is a single SQL condition
-(`app.modules.sms_campaigns.audience.build_condition`), never a Python-side
+(`app.services.sms_campaigns_audience.build_condition`), never a Python-side
 loop over loaded customer rows. Covers every rule type in isolation; the
 "large dataset" / "snapshot freeze" scenarios live in
 test_campaign_recipient_snapshot.py since those need the actual resolution
@@ -10,11 +10,11 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.campaign import Campaign
-from app.database.models.campaign_recipient import CampaignRecipient
-from app.database.models.customer import Customer
-from app.modules.sms_campaigns.audience import AudienceRule, resolve_since_campaign
-from app.modules.sms_campaigns.service import count_audience
+from app.models.campaign import Campaign
+from app.models.campaign_recipient import CampaignRecipient
+from app.models.customer import Customer
+from app.services.sms_campaigns import count_audience
+from app.services.sms_campaigns_audience import AudienceRule, resolve_since_campaign
 
 
 async def _add_customer(
@@ -224,6 +224,6 @@ async def test_specific_customers(db_session: AsyncSession) -> None:
     assert await count_audience(db_session, rule) == 1
 
     # storage_params/from_stored round-trip, exactly as a real create+resolve
-    # would exercise it (see app.modules.sms_campaigns.tasks).
+    # would exercise it (see app.tasks.sms_campaigns).
     stored = AudienceRule.from_stored("SPECIFIC_CUSTOMERS", rule.storage_params())
     assert await count_audience(db_session, stored) == 1

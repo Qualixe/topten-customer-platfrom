@@ -7,10 +7,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.database.models.customer import Customer
-from app.database.models.customer_monthly_spending import CustomerMonthlySpending
-from app.database.models.import_batch import ImportBatch, ImportBatchStatus
-from app.modules.imports.tasks import _process_import_batch_async
+from app.models.customer import Customer
+from app.models.customer_monthly_spending import CustomerMonthlySpending
+from app.models.import_batch import ImportBatch, ImportBatchStatus
+from app.tasks.imports import _process_import_batch_async
 from tests.conftest import TestSessionLocal
 
 ROW_COUNT = 1200  # spans 3 chunks at the default chunk size of 500

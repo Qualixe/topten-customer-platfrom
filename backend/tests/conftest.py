@@ -19,16 +19,16 @@ from sqlalchemy.pool import NullPool
 
 from app.common.dependencies import get_db
 from app.core.config import settings
-from app.database.models.campaign import Campaign
-from app.database.models.campaign_recipient import CampaignRecipient
-from app.database.models.customer import Customer
-from app.database.models.customer_monthly_spending import CustomerMonthlySpending
-from app.database.models.customer_profile_token import CustomerProfileToken
-from app.database.models.import_batch import ImportBatch
-from app.database.models.import_row_error import ImportRowError
-from app.database.models.integration_credential import IntegrationCredential
-from app.database.models.site_settings import SiteSettings
 from app.main import app
+from app.models.campaign import Campaign
+from app.models.campaign_recipient import CampaignRecipient
+from app.models.customer import Customer
+from app.models.customer_monthly_spending import CustomerMonthlySpending
+from app.models.customer_profile_token import CustomerProfileToken
+from app.models.import_batch import ImportBatch
+from app.models.import_row_error import ImportRowError
+from app.models.integration_credential import IntegrationCredential
+from app.models.site_settings import SiteSettings
 
 TEST_DATABASE_URL = settings.DATABASE_URL.rsplit("/", 1)[0] + "/topten_test"
 

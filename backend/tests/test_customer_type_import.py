@@ -16,8 +16,8 @@ Covers the 10 scenarios from the task:
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.customer import Customer, CustomerType
-from app.modules.imports import service
+from app.models.customer import Customer, CustomerType
+from app.services import imports as service
 from tests.support import create_batch, make_valid_row
 
 

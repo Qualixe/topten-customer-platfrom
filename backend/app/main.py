@@ -4,9 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.v1.router import api_router
 from app.common.exceptions import AppException, app_exception_handler, unhandled_exception_handler
 from app.core.config import settings
+from app.router import api_router
 
 app = FastAPI(
     title=settings.APP_NAME,

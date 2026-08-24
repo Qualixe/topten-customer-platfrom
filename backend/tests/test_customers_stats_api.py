@@ -6,7 +6,7 @@ from decimal import Decimal
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models.customer import Customer
+from app.models.customer import Customer
 
 
 async def _add_customer(
