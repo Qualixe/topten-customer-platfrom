@@ -47,14 +47,16 @@ interface FieldMapping {
   successValue: string;
 }
 
-type PresetId = "common" | "ssl_wireless" | "custom";
+type PresetId = "bulk_sms_bd" | "ssl_wireless" | "custom";
 
-/** Picking a preset fills in every field below in one go — the whole point
- * is that almost nobody should ever need to type these by hand. "Custom" is
- * the escape hatch for a provider that matches neither. */
-const PRESETS: Record<Exclude<PresetId, "custom">, { label: string; mapping: FieldMapping }> = {
-  common: {
-    label: "Common (GET query string) — most BD resellers, e.g. bulksmsbd.net",
+/** Picking a preset fills in the API URL and every field below in one go —
+ * the whole point is that almost nobody should ever need to type these by
+ * hand for a known provider. "Custom" is the escape hatch for a provider
+ * that matches neither, and is the only mode where the API URL is editable. */
+const PRESETS: Record<Exclude<PresetId, "custom">, { label: string; apiUrl: string; mapping: FieldMapping }> = {
+  bulk_sms_bd: {
+    label: "Bulk SMS BD",
+    apiUrl: "http://bulksmsbd.net/api/smsapi",
     mapping: {
       requestStyle: "GET_QUERY",
       apiKeyField: "api_key",
@@ -62,7 +64,7 @@ const PRESETS: Record<Exclude<PresetId, "custom">, { label: string; mapping: Fie
       numberField: "number",
       messageField: "message",
       requestIdField: "",
-      // These gateways return HTTP 200 even on failure — response_code is
+      // This gateway returns HTTP 200 even on failure — response_code is
       // the real result. Without this, a failed send reads as "Sent".
       successField: "response_code",
       successValue: "202",
@@ -70,6 +72,7 @@ const PRESETS: Record<Exclude<PresetId, "custom">, { label: string; mapping: Fie
   },
   ssl_wireless: {
     label: "SSL Wireless SMS Plus",
+    apiUrl: "https://smsplus.sslwireless.com/api/v3/send-sms",
     mapping: {
       requestStyle: "POST_JSON",
       apiKeyField: "api_token",
@@ -96,9 +99,9 @@ function mappingsEqual(a: FieldMapping, b: FieldMapping): boolean {
   );
 }
 
-function detectPreset(mapping: FieldMapping): PresetId {
+function detectPreset(apiUrl: string, mapping: FieldMapping): PresetId {
   for (const [id, preset] of Object.entries(PRESETS) as [Exclude<PresetId, "custom">, (typeof PRESETS)[keyof typeof PRESETS]][]) {
-    if (mappingsEqual(mapping, preset.mapping)) return id;
+    if (apiUrl === preset.apiUrl && mappingsEqual(mapping, preset.mapping)) return id;
   }
   return "custom";
 }
@@ -111,12 +114,12 @@ const REQUEST_STYLE_LABELS: Record<RequestStyle, string> = {
 
 export function SmsGatewayCredentialsForm() {
   const [status, setStatus] = useState<SmsGatewayCredentials | null>(null);
-  const [apiUrl, setApiUrl] = useState("");
+  const [apiUrl, setApiUrl] = useState(PRESETS.bulk_sms_bd.apiUrl);
   const [apiKey, setApiKey] = useState("");
   const [senderId, setSenderId] = useState("");
   const [ratePerSegmentBdt, setRatePerSegmentBdt] = useState("");
-  const [preset, setPreset] = useState<PresetId>("common");
-  const [mapping, setMapping] = useState<FieldMapping>(PRESETS.common.mapping);
+  const [preset, setPreset] = useState<PresetId>("bulk_sms_bd");
+  const [mapping, setMapping] = useState<FieldMapping>(PRESETS.bulk_sms_bd.mapping);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,9 +132,17 @@ export function SmsGatewayCredentialsForm() {
       .then((data) => {
         if (cancelled) return;
         setStatus(data);
-        setApiUrl(data.apiUrl.value ?? "");
         setSenderId(data.senderId.value ?? "");
         setRatePerSegmentBdt(data.ratePerSegmentBdt.value ?? "");
+        if (data.apiUrl.value === null) {
+          // Nothing saved yet — keep the default "Bulk SMS BD" preset
+          // selection (and its URL/mapping) rather than running detection
+          // against the backend's raw unconfigured field defaults, which
+          // wouldn't exactly match any preset and would misreport as
+          // "Custom".
+          return;
+        }
+        setApiUrl(data.apiUrl.value);
         const loadedMapping: FieldMapping = {
           requestStyle: (data.requestStyle.value as RequestStyle | null) ?? "GET_QUERY",
           apiKeyField: data.apiKeyField.value ?? "api_key",
@@ -143,7 +154,7 @@ export function SmsGatewayCredentialsForm() {
           successValue: data.successValue.value ?? "",
         };
         setMapping(loadedMapping);
-        setPreset(detectPreset(loadedMapping));
+        setPreset(detectPreset(data.apiUrl.value, loadedMapping));
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -164,6 +175,7 @@ export function SmsGatewayCredentialsForm() {
   function handlePresetChange(nextPreset: PresetId) {
     setPreset(nextPreset);
     if (nextPreset !== "custom") {
+      setApiUrl(PRESETS[nextPreset].apiUrl);
       setMapping(PRESETS[nextPreset].mapping);
     }
   }
@@ -210,17 +222,36 @@ export function SmsGatewayCredentialsForm() {
         <CardHeader>
           <CardTitle>SMS Gateway</CardTitle>
           <CardDescription>
-            Works with any SMS provider — enter its URL and credentials, and
-            pick it from the list below (or choose Custom if it&apos;s not
-            listed).
+            Pick your provider below — for a known one, the API URL and
+            request format are filled in for you. Choose Custom / other if
+            yours isn&apos;t listed.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="flex flex-col gap-5">
+            <FormField htmlFor="sms-gateway-preset" label="Provider">
+              <Select value={preset} onValueChange={(value) => handlePresetChange((value as PresetId) ?? "bulk_sms_bd")}>
+                <SelectTrigger id="sms-gateway-preset" disabled={loading}>
+                  <SelectValue>
+                    {(value: PresetId) => (value === "custom" ? "Custom / other" : PRESETS[value].label)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bulk_sms_bd">{PRESETS.bulk_sms_bd.label}</SelectItem>
+                  <SelectItem value="ssl_wireless">{PRESETS.ssl_wireless.label}</SelectItem>
+                  <SelectItem value="custom">Custom / other</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
             <FormField
               htmlFor="sms-gateway-api-url"
               label="API URL"
-              description="Your provider's send-SMS endpoint, e.g. https://example.com/api/smsapi."
+              description={
+                preset === "custom"
+                  ? "Your provider's send-SMS endpoint, e.g. https://example.com/api/smsapi."
+                  : "Fixed for this provider — no need to enter it."
+              }
             >
               <Input
                 id="sms-gateway-api-url"
@@ -228,7 +259,7 @@ export function SmsGatewayCredentialsForm() {
                 value={apiUrl}
                 onChange={(event) => setApiUrl(event.target.value)}
                 placeholder="https://your-provider.com/api/smsapi"
-                disabled={loading}
+                disabled={loading || preset !== "custom"}
               />
             </FormField>
 
@@ -282,25 +313,6 @@ export function SmsGatewayCredentialsForm() {
                 placeholder="e.g. 0.45"
                 disabled={loading}
               />
-            </FormField>
-
-            <FormField
-              htmlFor="sms-gateway-preset"
-              label="Provider"
-              description="Fills in the request shape and field names below automatically."
-            >
-              <Select value={preset} onValueChange={(value) => handlePresetChange((value as PresetId) ?? "common")}>
-                <SelectTrigger id="sms-gateway-preset" disabled={loading}>
-                  <SelectValue>
-                    {(value: PresetId) => (value === "custom" ? "Custom / other" : PRESETS[value].label)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="common">{PRESETS.common.label}</SelectItem>
-                  <SelectItem value="ssl_wireless">{PRESETS.ssl_wireless.label}</SelectItem>
-                  <SelectItem value="custom">Custom / other</SelectItem>
-                </SelectContent>
-              </Select>
             </FormField>
 
             {preset === "custom" && (
