@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { AlertTriangle, Check, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { AlertTriangle, Check, Send } from "lucide-react";
 
 import { FormField } from "@/components/dashboard/form-field";
 import { Button } from "@/components/ui/button";
@@ -34,16 +34,80 @@ import { ApiError } from "@/lib/api/types";
 
 const MASKED_PLACEHOLDER = "••••••••••••";
 
+/** The request-shape fields a provider preset controls — everything past
+ * URL/key/sender ID/rate. */
+interface FieldMapping {
+  requestStyle: RequestStyle;
+  apiKeyField: string;
+  senderIdField: string;
+  numberField: string;
+  messageField: string;
+  requestIdField: string;
+  successField: string;
+  successValue: string;
+}
+
+type PresetId = "common" | "ssl_wireless" | "custom";
+
+/** Picking a preset fills in every field below in one go — the whole point
+ * is that almost nobody should ever need to type these by hand. "Custom" is
+ * the escape hatch for a provider that matches neither. */
+const PRESETS: Record<Exclude<PresetId, "custom">, { label: string; mapping: FieldMapping }> = {
+  common: {
+    label: "Common (GET query string) — most BD resellers, e.g. bulksmsbd.net",
+    mapping: {
+      requestStyle: "GET_QUERY",
+      apiKeyField: "api_key",
+      senderIdField: "senderid",
+      numberField: "number",
+      messageField: "message",
+      requestIdField: "",
+      // These gateways return HTTP 200 even on failure — response_code is
+      // the real result. Without this, a failed send reads as "Sent".
+      successField: "response_code",
+      successValue: "202",
+    },
+  },
+  ssl_wireless: {
+    label: "SSL Wireless SMS Plus",
+    mapping: {
+      requestStyle: "POST_JSON",
+      apiKeyField: "api_token",
+      senderIdField: "sid",
+      numberField: "msisdn",
+      messageField: "sms",
+      requestIdField: "csms_id",
+      successField: "status_code",
+      successValue: "200",
+    },
+  },
+};
+
+function mappingsEqual(a: FieldMapping, b: FieldMapping): boolean {
+  return (
+    a.requestStyle === b.requestStyle &&
+    a.apiKeyField === b.apiKeyField &&
+    a.senderIdField === b.senderIdField &&
+    a.numberField === b.numberField &&
+    a.messageField === b.messageField &&
+    a.requestIdField === b.requestIdField &&
+    a.successField === b.successField &&
+    a.successValue === b.successValue
+  );
+}
+
+function detectPreset(mapping: FieldMapping): PresetId {
+  for (const [id, preset] of Object.entries(PRESETS) as [Exclude<PresetId, "custom">, (typeof PRESETS)[keyof typeof PRESETS]][]) {
+    if (mappingsEqual(mapping, preset.mapping)) return id;
+  }
+  return "custom";
+}
+
 const REQUEST_STYLE_LABELS: Record<RequestStyle, string> = {
   GET_QUERY: "GET — query string",
   POST_JSON: "POST — JSON body",
   POST_FORM: "POST — form body",
 };
-
-const DEFAULT_API_KEY_FIELD = "api_key";
-const DEFAULT_SENDER_ID_FIELD = "senderid";
-const DEFAULT_NUMBER_FIELD = "number";
-const DEFAULT_MESSAGE_FIELD = "message";
 
 export function SmsGatewayCredentialsForm() {
   const [status, setStatus] = useState<SmsGatewayCredentials | null>(null);
@@ -51,15 +115,8 @@ export function SmsGatewayCredentialsForm() {
   const [apiKey, setApiKey] = useState("");
   const [senderId, setSenderId] = useState("");
   const [ratePerSegmentBdt, setRatePerSegmentBdt] = useState("");
-  const [requestStyle, setRequestStyle] = useState<RequestStyle>("GET_QUERY");
-  const [apiKeyField, setApiKeyField] = useState(DEFAULT_API_KEY_FIELD);
-  const [senderIdField, setSenderIdField] = useState(DEFAULT_SENDER_ID_FIELD);
-  const [numberField, setNumberField] = useState(DEFAULT_NUMBER_FIELD);
-  const [messageField, setMessageField] = useState(DEFAULT_MESSAGE_FIELD);
-  const [requestIdField, setRequestIdField] = useState("");
-  const [successField, setSuccessField] = useState("");
-  const [successValue, setSuccessValue] = useState("");
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [preset, setPreset] = useState<PresetId>("common");
+  const [mapping, setMapping] = useState<FieldMapping>(PRESETS.common.mapping);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,25 +132,18 @@ export function SmsGatewayCredentialsForm() {
         setApiUrl(data.apiUrl.value ?? "");
         setSenderId(data.senderId.value ?? "");
         setRatePerSegmentBdt(data.ratePerSegmentBdt.value ?? "");
-        setRequestStyle((data.requestStyle.value as RequestStyle | null) ?? "GET_QUERY");
-        setApiKeyField(data.apiKeyField.value ?? DEFAULT_API_KEY_FIELD);
-        setSenderIdField(data.senderIdField.value ?? DEFAULT_SENDER_ID_FIELD);
-        setNumberField(data.numberField.value ?? DEFAULT_NUMBER_FIELD);
-        setMessageField(data.messageField.value ?? DEFAULT_MESSAGE_FIELD);
-        setRequestIdField(data.requestIdField.value ?? "");
-        setSuccessField(data.successField.value ?? "");
-        setSuccessValue(data.successValue.value ?? "");
-        // Auto-expand for a returning admin who already customized this —
-        // otherwise their config would be hidden from them by default.
-        const hasCustomConfig =
-          (data.requestStyle.value ?? "GET_QUERY") !== "GET_QUERY" ||
-          (data.apiKeyField.value ?? DEFAULT_API_KEY_FIELD) !== DEFAULT_API_KEY_FIELD ||
-          (data.senderIdField.value ?? DEFAULT_SENDER_ID_FIELD) !== DEFAULT_SENDER_ID_FIELD ||
-          (data.numberField.value ?? DEFAULT_NUMBER_FIELD) !== DEFAULT_NUMBER_FIELD ||
-          (data.messageField.value ?? DEFAULT_MESSAGE_FIELD) !== DEFAULT_MESSAGE_FIELD ||
-          Boolean(data.requestIdField.value) ||
-          Boolean(data.successField.value);
-        if (hasCustomConfig) setShowAdvanced(true);
+        const loadedMapping: FieldMapping = {
+          requestStyle: (data.requestStyle.value as RequestStyle | null) ?? "GET_QUERY",
+          apiKeyField: data.apiKeyField.value ?? "api_key",
+          senderIdField: data.senderIdField.value ?? "senderid",
+          numberField: data.numberField.value ?? "number",
+          messageField: data.messageField.value ?? "message",
+          requestIdField: data.requestIdField.value ?? "",
+          successField: data.successField.value ?? "",
+          successValue: data.successValue.value ?? "",
+        };
+        setMapping(loadedMapping);
+        setPreset(detectPreset(loadedMapping));
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -111,6 +161,13 @@ export function SmsGatewayCredentialsForm() {
     };
   }, []);
 
+  function handlePresetChange(nextPreset: PresetId) {
+    setPreset(nextPreset);
+    if (nextPreset !== "custom") {
+      setMapping(PRESETS[nextPreset].mapping);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -123,14 +180,14 @@ export function SmsGatewayCredentialsForm() {
         apiKey: apiKey || undefined,
         senderId,
         ratePerSegmentBdt,
-        requestStyle,
-        apiKeyField: apiKeyField || undefined,
-        senderIdField: senderIdField || undefined,
-        numberField: numberField || undefined,
-        messageField: messageField || undefined,
-        requestIdField,
-        successField,
-        successValue,
+        requestStyle: mapping.requestStyle,
+        apiKeyField: mapping.apiKeyField || undefined,
+        senderIdField: mapping.senderIdField || undefined,
+        numberField: mapping.numberField || undefined,
+        messageField: mapping.messageField || undefined,
+        requestIdField: mapping.requestIdField,
+        successField: mapping.successField,
+        successValue: mapping.successValue,
       });
       setStatus(updated);
       setApiKey("");
@@ -153,9 +210,9 @@ export function SmsGatewayCredentialsForm() {
         <CardHeader>
           <CardTitle>SMS Gateway</CardTitle>
           <CardDescription>
-            Works with any SMS provider — configure the send-SMS URL and
-            credentials below, and (if your provider needs it) its exact
-            request shape and field names under Advanced.
+            Works with any SMS provider — enter its URL and credentials, and
+            pick it from the list below (or choose Custom if it&apos;s not
+            listed).
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -227,27 +284,30 @@ export function SmsGatewayCredentialsForm() {
               />
             </FormField>
 
-            <button
-              type="button"
-              onClick={() => setShowAdvanced((prev) => !prev)}
-              className="flex w-fit items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+            <FormField
+              htmlFor="sms-gateway-preset"
+              label="Provider"
+              description="Fills in the request shape and field names below automatically."
             >
-              {showAdvanced ? (
-                <ChevronUp className="size-4" aria-hidden="true" />
-              ) : (
-                <ChevronDown className="size-4" aria-hidden="true" />
-              )}
-              Advanced: request shape &amp; field names
-            </button>
+              <Select value={preset} onValueChange={(value) => handlePresetChange((value as PresetId) ?? "common")}>
+                <SelectTrigger id="sms-gateway-preset" disabled={loading}>
+                  <SelectValue>
+                    {(value: PresetId) => (value === "custom" ? "Custom / other" : PRESETS[value].label)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="common">{PRESETS.common.label}</SelectItem>
+                  <SelectItem value="ssl_wireless">{PRESETS.ssl_wireless.label}</SelectItem>
+                  <SelectItem value="custom">Custom / other</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
 
-            {showAdvanced && (
+            {preset === "custom" && (
               <div className="flex flex-col gap-5 rounded-lg border border-dashed p-4">
                 <p className="text-xs text-muted-foreground">
-                  Only needed if your provider doesn&apos;t use the common
-                  GET + <code>api_key</code>/<code>senderid</code>/
-                  <code>number</code>/<code>message</code> convention (e.g.
-                  SSL Wireless SMS Plus, which needs POST + JSON with
-                  different field names).
+                  Match your provider&apos;s exact API — the field names it
+                  expects and how it reports success.
                 </p>
 
                 <FormField
@@ -256,8 +316,10 @@ export function SmsGatewayCredentialsForm() {
                   description="How credentials/number/message are sent to the API URL."
                 >
                   <Select
-                    value={requestStyle}
-                    onValueChange={(value) => setRequestStyle((value as RequestStyle) ?? "GET_QUERY")}
+                    value={mapping.requestStyle}
+                    onValueChange={(value) =>
+                      setMapping((prev) => ({ ...prev, requestStyle: (value as RequestStyle) ?? "GET_QUERY" }))
+                    }
                   >
                     <SelectTrigger id="sms-gateway-request-style" disabled={loading}>
                       <SelectValue>
@@ -280,36 +342,44 @@ export function SmsGatewayCredentialsForm() {
                   <FormField htmlFor="sms-gateway-api-key-field" label="API key field name">
                     <Input
                       id="sms-gateway-api-key-field"
-                      value={apiKeyField}
-                      onChange={(event) => setApiKeyField(event.target.value)}
-                      placeholder={DEFAULT_API_KEY_FIELD}
+                      value={mapping.apiKeyField}
+                      onChange={(event) =>
+                        setMapping((prev) => ({ ...prev, apiKeyField: event.target.value }))
+                      }
+                      placeholder="api_key"
                       disabled={loading}
                     />
                   </FormField>
                   <FormField htmlFor="sms-gateway-sender-id-field" label="Sender ID field name">
                     <Input
                       id="sms-gateway-sender-id-field"
-                      value={senderIdField}
-                      onChange={(event) => setSenderIdField(event.target.value)}
-                      placeholder={DEFAULT_SENDER_ID_FIELD}
+                      value={mapping.senderIdField}
+                      onChange={(event) =>
+                        setMapping((prev) => ({ ...prev, senderIdField: event.target.value }))
+                      }
+                      placeholder="senderid"
                       disabled={loading}
                     />
                   </FormField>
                   <FormField htmlFor="sms-gateway-number-field" label="Phone number field name">
                     <Input
                       id="sms-gateway-number-field"
-                      value={numberField}
-                      onChange={(event) => setNumberField(event.target.value)}
-                      placeholder={DEFAULT_NUMBER_FIELD}
+                      value={mapping.numberField}
+                      onChange={(event) =>
+                        setMapping((prev) => ({ ...prev, numberField: event.target.value }))
+                      }
+                      placeholder="number"
                       disabled={loading}
                     />
                   </FormField>
                   <FormField htmlFor="sms-gateway-message-field" label="Message field name">
                     <Input
                       id="sms-gateway-message-field"
-                      value={messageField}
-                      onChange={(event) => setMessageField(event.target.value)}
-                      placeholder={DEFAULT_MESSAGE_FIELD}
+                      value={mapping.messageField}
+                      onChange={(event) =>
+                        setMapping((prev) => ({ ...prev, messageField: event.target.value }))
+                      }
+                      placeholder="message"
                       disabled={loading}
                     />
                   </FormField>
@@ -322,8 +392,10 @@ export function SmsGatewayCredentialsForm() {
                 >
                   <Input
                     id="sms-gateway-request-id-field"
-                    value={requestIdField}
-                    onChange={(event) => setRequestIdField(event.target.value)}
+                    value={mapping.requestIdField}
+                    onChange={(event) =>
+                      setMapping((prev) => ({ ...prev, requestIdField: event.target.value }))
+                    }
                     placeholder="e.g. csms_id"
                     disabled={loading}
                   />
@@ -337,8 +409,10 @@ export function SmsGatewayCredentialsForm() {
                   >
                     <Input
                       id="sms-gateway-success-field"
-                      value={successField}
-                      onChange={(event) => setSuccessField(event.target.value)}
+                      value={mapping.successField}
+                      onChange={(event) =>
+                        setMapping((prev) => ({ ...prev, successField: event.target.value }))
+                      }
                       placeholder="e.g. status_code"
                       disabled={loading}
                     />
@@ -350,8 +424,10 @@ export function SmsGatewayCredentialsForm() {
                   >
                     <Input
                       id="sms-gateway-success-value"
-                      value={successValue}
-                      onChange={(event) => setSuccessValue(event.target.value)}
+                      value={mapping.successValue}
+                      onChange={(event) =>
+                        setMapping((prev) => ({ ...prev, successValue: event.target.value }))
+                      }
                       placeholder="e.g. 200"
                       disabled={loading}
                     />
