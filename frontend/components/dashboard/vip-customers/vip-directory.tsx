@@ -1,0 +1,66 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+import { VipDetailsDialog } from "@/components/dashboard/vip-customers/vip-details-dialog";
+import { VipTable } from "@/components/dashboard/vip-customers/vip-table";
+import {
+  VipToolbar,
+  type LevelFilter,
+  type StatusFilter,
+} from "@/components/dashboard/vip-customers/vip-toolbar";
+import type { VipCustomer } from "@/lib/mock/vip-customers";
+
+export function VipDirectory({ customers }: { customers: VipCustomer[] }) {
+  const [search, setSearch] = useState("");
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [selectedCustomer, setSelectedCustomer] = useState<VipCustomer | null>(
+    null
+  );
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const filteredCustomers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return customers.filter((customer) => {
+      const matchesQuery =
+        query.length === 0 ||
+        customer.name.toLowerCase().includes(query) ||
+        customer.email.toLowerCase().includes(query) ||
+        customer.phone.includes(query);
+      const matchesLevel =
+        levelFilter === "all" || customer.vipLevel === levelFilter;
+      const matchesStatus =
+        statusFilter === "all" || customer.status === statusFilter;
+
+      return matchesQuery && matchesLevel && matchesStatus;
+    });
+  }, [customers, search, levelFilter, statusFilter]);
+
+  function handleViewCustomer(customer: VipCustomer) {
+    setSelectedCustomer(customer);
+    setDialogOpen(true);
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <VipToolbar
+        search={search}
+        onSearchChange={setSearch}
+        levelFilter={levelFilter}
+        onLevelFilterChange={setLevelFilter}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+      />
+
+      <VipTable customers={filteredCustomers} onViewCustomer={handleViewCustomer} />
+
+      <VipDetailsDialog
+        customer={selectedCustomer}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
+    </div>
+  );
+}
