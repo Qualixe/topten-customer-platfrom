@@ -9,13 +9,15 @@ from app.common.credentials import (
 )
 from app.common.dependencies import get_db
 from app.common.phone import InvalidPhoneNumberError, normalize_phone
-from app.common.sms_gateway_client import RequestStyle, send_sms
+from app.common.sms_gateway_client import RequestStyle, get_balance, send_sms
 from app.core.config import settings
 from app.views.notifications import (
     DEFAULT_API_KEY_FIELD,
     DEFAULT_MESSAGE_FIELD,
     DEFAULT_NUMBER_FIELD,
     DEFAULT_SENDER_ID_FIELD,
+    SmsBalance,
+    SmsBalanceResponse,
     SmsGatewayCredentialsResponse,
     SmsGatewayCredentialsStatus,
     SmsGatewayCredentialsUpdate,
@@ -49,6 +51,7 @@ def _to_status(data: dict[str, str | None]) -> SmsGatewayCredentialsStatus:
         request_id_field=PlainFieldStatus(value=data.get("request_id_field")),
         success_field=PlainFieldStatus(value=data.get("success_field")),
         success_value=PlainFieldStatus(value=data.get("success_value")),
+        balance_url=PlainFieldStatus(value=data.get("balance_url")),
     )
 
 
@@ -113,6 +116,46 @@ async def send_sms_gateway_test_sms(
     )
     return TestSmsResponse(
         data=TestSmsResult(
+            success=result.success,
+            http_status=result.http_status,
+            message=result.message,
+        )
+    )
+
+
+@router.get("/sms-gateway/balance", response_model=SmsBalanceResponse)
+async def get_sms_gateway_balance(db: AsyncSession = Depends(get_db)) -> SmsBalanceResponse:
+    """Live account balance from the configured gateway's balance endpoint.
+    Never raises for "not configured" or a provider-side failure — both
+    come back as `success: false` with a `message`, so a page built on this
+    can render a clear state instead of breaking."""
+    row = await get_or_create_credential_row(db, SMS_GATEWAY_PROVIDER)
+    balance_url = row.data.get("balance_url")
+    api_key = row.data.get("api_key")
+    sender_id = row.data.get("sender_id")
+    if not balance_url or not api_key or not sender_id:
+        return SmsBalanceResponse(
+            data=SmsBalance(
+                balance=None,
+                success=False,
+                http_status=0,
+                message="No balance URL configured for this provider.",
+            )
+        )
+
+    result = await get_balance(
+        balance_url=balance_url,
+        api_key=api_key,
+        sender_id=sender_id,
+        request_style=RequestStyle(row.data.get("request_style") or RequestStyle.GET_QUERY.value),
+        api_key_field=row.data.get("api_key_field") or DEFAULT_API_KEY_FIELD,
+        sender_id_field=row.data.get("sender_id_field") or DEFAULT_SENDER_ID_FIELD,
+        success_field=row.data.get("success_field"),
+        success_value=row.data.get("success_value"),
+    )
+    return SmsBalanceResponse(
+        data=SmsBalance(
+            balance=result.balance,
             success=result.success,
             http_status=result.http_status,
             message=result.message,

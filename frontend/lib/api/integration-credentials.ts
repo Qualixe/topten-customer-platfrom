@@ -40,6 +40,10 @@ export interface SmsGatewayCredentials {
    * "HTTP 2xx = success". */
   successField: PlainField;
   successValue: PlainField;
+  /** Optional — not every provider exposes a balance check. Reuses
+   * requestStyle/apiKeyField/senderIdField/successField/successValue
+   * above; only the URL differs from the send-SMS one. */
+  balanceUrl: PlainField;
 }
 
 export interface SmsGatewayCredentialsInput {
@@ -55,6 +59,7 @@ export interface SmsGatewayCredentialsInput {
   requestIdField?: string;
   successField?: string;
   successValue?: string;
+  balanceUrl?: string;
 }
 
 export async function getSmsGatewayCredentials(): Promise<SmsGatewayCredentials> {
@@ -82,6 +87,7 @@ export async function updateSmsGatewayCredentials(
       request_id_field: input.requestIdField,
       success_field: input.successField,
       success_value: input.successValue,
+      balance_url: input.balanceUrl,
     }
   );
   return envelope.data;
@@ -106,6 +112,24 @@ export async function sendSmsGatewayTestSms(input: {
     number: input.number,
     message: input.message,
   });
+  return envelope.data;
+}
+
+export interface SmsBalance {
+  /** Null when the provider call failed, or succeeded with a response
+   * shape this client didn't recognize — never a guessed zero. */
+  balance: number | null;
+  success: boolean;
+  httpStatus: number;
+  message: string;
+}
+
+/** Live account balance from the configured gateway's balance endpoint.
+ * Never throws for "not configured" or a provider-side failure — both
+ * come back as `success: false` with a `message`, so a page built on this
+ * can render a clear state instead of crashing. */
+export async function getSmsGatewayBalance(): Promise<SmsBalance> {
+  const envelope = await apiGet<ApiEnvelope<SmsBalance>>("/notifications/sms-gateway/balance");
   return envelope.data;
 }
 

@@ -28,6 +28,10 @@ class SmsGatewayCredentialsStatus(BaseModel):
     request_id_field: PlainFieldStatus
     success_field: PlainFieldStatus
     success_value: PlainFieldStatus
+    # Optional — not every provider exposes a balance check. Reuses
+    # request_style/api_key_field/sender_id_field/success_field/
+    # success_value above; only the URL differs from send-SMS.
+    balance_url: PlainFieldStatus
 
 
 class SmsGatewayCredentialsResponse(BaseModel):
@@ -54,6 +58,7 @@ class SmsGatewayCredentialsUpdate(BaseModel):
     request_id_field: str | None = None
     success_field: str | None = None
     success_value: str | None = None
+    balance_url: str | None = None
 
     @field_validator(
         "api_url",
@@ -66,6 +71,7 @@ class SmsGatewayCredentialsUpdate(BaseModel):
         "request_id_field",
         "success_field",
         "success_value",
+        "balance_url",
     )
     @classmethod
     def _blank_to_none(cls, value: str | None) -> str | None:
@@ -74,13 +80,13 @@ class SmsGatewayCredentialsUpdate(BaseModel):
         stripped = value.strip()
         return stripped or None
 
-    @field_validator("api_url")
+    @field_validator("api_url", "balance_url")
     @classmethod
     def _validate_url(cls, value: str | None) -> str | None:
         if value is None:
             return None
         if not (value.startswith("http://") or value.startswith("https://")):
-            raise ValueError("API URL must start with http:// or https://")
+            raise ValueError("URL must start with http:// or https://")
         return value
 
     @field_validator("rate_per_segment_bdt")
@@ -118,4 +124,22 @@ class TestSmsResult(BaseModel):
 class TestSmsResponse(BaseModel):
     success: bool = True
     data: TestSmsResult
+    meta: dict = {}
+
+
+class SmsBalance(BaseModel):
+    """`balance` is null when the provider call failed, or when it
+    succeeded but returned a response shape this client doesn't recognize —
+    never a guessed zero, since that would read as a real (and alarming)
+    account balance."""
+
+    balance: float | None
+    success: bool
+    http_status: int
+    message: str
+
+
+class SmsBalanceResponse(BaseModel):
+    success: bool = True
+    data: SmsBalance
     meta: dict = {}

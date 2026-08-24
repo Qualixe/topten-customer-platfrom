@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { AlertTriangle, Check, Send } from "lucide-react";
+import { AlertTriangle, Check, RefreshCw, Send, Wallet } from "lucide-react";
 
 import { FormField } from "@/components/dashboard/form-field";
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  getSmsGatewayBalance,
   getSmsGatewayCredentials,
   sendSmsGatewayTestSms,
   updateSmsGatewayCredentials,
   type RequestStyle,
+  type SmsBalance,
   type SmsGatewayCredentials,
   type TestSmsResult,
 } from "@/lib/api/integration-credentials";
@@ -53,10 +55,14 @@ type PresetId = "bulk_sms_bd" | "ssl_wireless" | "custom";
  * the whole point is that almost nobody should ever need to type these by
  * hand for a known provider. "Custom" is the escape hatch for a provider
  * that matches neither, and is the only mode where the API URL is editable. */
-const PRESETS: Record<Exclude<PresetId, "custom">, { label: string; apiUrl: string; mapping: FieldMapping }> = {
+const PRESETS: Record<
+  Exclude<PresetId, "custom">,
+  { label: string; apiUrl: string; balanceUrl: string; mapping: FieldMapping }
+> = {
   bulk_sms_bd: {
     label: "Bulk SMS BD",
     apiUrl: "http://bulksmsbd.net/api/smsapi",
+    balanceUrl: "http://bulksmsbd.net/api/getBalanceApi",
     mapping: {
       requestStyle: "GET_QUERY",
       apiKeyField: "api_key",
@@ -73,6 +79,7 @@ const PRESETS: Record<Exclude<PresetId, "custom">, { label: string; apiUrl: stri
   ssl_wireless: {
     label: "SSL Wireless SMS Plus",
     apiUrl: "https://smsplus.sslwireless.com/api/v3/send-sms",
+    balanceUrl: "https://smsplus.sslwireless.com/api/v3/balance",
     mapping: {
       requestStyle: "POST_JSON",
       apiKeyField: "api_token",
@@ -99,9 +106,15 @@ function mappingsEqual(a: FieldMapping, b: FieldMapping): boolean {
   );
 }
 
-function detectPreset(apiUrl: string, mapping: FieldMapping): PresetId {
+function detectPreset(apiUrl: string, balanceUrl: string, mapping: FieldMapping): PresetId {
   for (const [id, preset] of Object.entries(PRESETS) as [Exclude<PresetId, "custom">, (typeof PRESETS)[keyof typeof PRESETS]][]) {
-    if (apiUrl === preset.apiUrl && mappingsEqual(mapping, preset.mapping)) return id;
+    if (
+      apiUrl === preset.apiUrl &&
+      balanceUrl === preset.balanceUrl &&
+      mappingsEqual(mapping, preset.mapping)
+    ) {
+      return id;
+    }
   }
   return "custom";
 }
@@ -115,6 +128,7 @@ const REQUEST_STYLE_LABELS: Record<RequestStyle, string> = {
 export function SmsGatewayCredentialsForm() {
   const [status, setStatus] = useState<SmsGatewayCredentials | null>(null);
   const [apiUrl, setApiUrl] = useState(PRESETS.bulk_sms_bd.apiUrl);
+  const [balanceUrl, setBalanceUrl] = useState(PRESETS.bulk_sms_bd.balanceUrl);
   const [apiKey, setApiKey] = useState("");
   const [senderId, setSenderId] = useState("");
   const [ratePerSegmentBdt, setRatePerSegmentBdt] = useState("");
@@ -143,6 +157,8 @@ export function SmsGatewayCredentialsForm() {
           return;
         }
         setApiUrl(data.apiUrl.value);
+        const loadedBalanceUrl = data.balanceUrl.value ?? "";
+        setBalanceUrl(loadedBalanceUrl);
         const loadedMapping: FieldMapping = {
           requestStyle: (data.requestStyle.value as RequestStyle | null) ?? "GET_QUERY",
           apiKeyField: data.apiKeyField.value ?? "api_key",
@@ -154,7 +170,7 @@ export function SmsGatewayCredentialsForm() {
           successValue: data.successValue.value ?? "",
         };
         setMapping(loadedMapping);
-        setPreset(detectPreset(data.apiUrl.value, loadedMapping));
+        setPreset(detectPreset(data.apiUrl.value, loadedBalanceUrl, loadedMapping));
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -176,6 +192,7 @@ export function SmsGatewayCredentialsForm() {
     setPreset(nextPreset);
     if (nextPreset !== "custom") {
       setApiUrl(PRESETS[nextPreset].apiUrl);
+      setBalanceUrl(PRESETS[nextPreset].balanceUrl);
       setMapping(PRESETS[nextPreset].mapping);
     }
   }
@@ -189,6 +206,7 @@ export function SmsGatewayCredentialsForm() {
     try {
       const updated = await updateSmsGatewayCredentials({
         apiUrl,
+        balanceUrl,
         apiKey: apiKey || undefined,
         senderId,
         ratePerSegmentBdt,
@@ -259,6 +277,25 @@ export function SmsGatewayCredentialsForm() {
                 value={apiUrl}
                 onChange={(event) => setApiUrl(event.target.value)}
                 placeholder="https://your-provider.com/api/smsapi"
+                disabled={loading || preset !== "custom"}
+              />
+            </FormField>
+
+            <FormField
+              htmlFor="sms-gateway-balance-url"
+              label="Balance URL (optional)"
+              description={
+                preset === "custom"
+                  ? "Your provider's balance-check endpoint, if it has one. Leave blank if not."
+                  : "Fixed for this provider — no need to enter it."
+              }
+            >
+              <Input
+                id="sms-gateway-balance-url"
+                type="url"
+                value={balanceUrl}
+                onChange={(event) => setBalanceUrl(event.target.value)}
+                placeholder="https://your-provider.com/api/balance"
                 disabled={loading || preset !== "custom"}
               />
             </FormField>
@@ -464,8 +501,95 @@ export function SmsGatewayCredentialsForm() {
         </form>
       </Card>
 
+      <BalanceCard
+        balanceConfigured={!loading && Boolean(status?.apiKey.isSet && status?.balanceUrl.value)}
+      />
       <TestSmsCard credentialsSaved={!loading && Boolean(status?.apiKey.isSet && status?.apiUrl.value)} />
     </div>
+  );
+}
+
+function BalanceCard({ balanceConfigured }: { balanceConfigured: boolean }) {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<SmsBalance | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCheck() {
+    setChecking(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      setResult(await getSmsGatewayBalance());
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Unable to reach the API server. Please try again."
+      );
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Wallet className="size-4 text-muted-foreground" aria-hidden="true" />
+          Account balance
+        </CardTitle>
+        <CardDescription>
+          Checks your real balance with the configured gateway. Only
+          available if a balance URL is set above.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {!balanceConfigured && (
+          <p className="text-sm text-muted-foreground">
+            Save an API URL, balance URL, API key, and sender ID above
+            first.
+          </p>
+        )}
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {result && (
+          <div
+            className={
+              result.success
+                ? "flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400"
+                : "flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+            }
+          >
+            {result.success ? (
+              <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            )}
+            <span className="whitespace-pre-wrap break-words">
+              {result.success
+                ? result.balance !== null
+                  ? `Balance: ${result.balance}`
+                  : "Request succeeded, but the balance couldn't be read from the response."
+                : `Failed (HTTP ${result.httpStatus}) — `}
+              {!result.success && (result.message || "No response body returned.")}
+            </span>
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="justify-end">
+        <Button type="button" onClick={handleCheck} disabled={!balanceConfigured || checking}>
+          <RefreshCw className="size-4" aria-hidden="true" />
+          {checking ? "Checking…" : "Check balance"}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
 

@@ -20,6 +20,7 @@ DEFAULT_FIELD_MAPPING = {
     "request_id_field": {"is_secret": False, "value": None},
     "success_field": {"is_secret": False, "value": None},
     "success_value": {"is_secret": False, "value": None},
+    "balance_url": {"is_secret": False, "value": None},
 }
 
 
@@ -357,3 +358,101 @@ async def test_test_sms_rejects_invalid_number(client: AsyncClient) -> None:
         json={"number": "not-a-number", "message": "hi"},
     )
     assert response.status_code == 422
+
+
+async def test_balance_url_must_be_http_or_https(client: AsyncClient) -> None:
+    response = await client.put(
+        "/api/v1/notifications/sms-gateway/credentials",
+        json={"balance_url": "not-a-url"},
+    )
+    assert response.status_code == 422
+
+
+async def test_balance_without_balance_url_returns_not_configured(client: AsyncClient) -> None:
+    """Never a 4xx — a provider with no balance endpoint configured (or no
+    credentials saved yet) must still let a page built on this render, just
+    with a clear 'not configured' message instead of a real balance."""
+    await client.put(
+        "/api/v1/notifications/sms-gateway/credentials",
+        json={
+            "api_url": "http://bulksmsbd.net/api/smsapi",
+            "api_key": "abc123",
+            "sender_id": "TOPTEN",
+        },
+    )
+
+    response = await client.get("/api/v1/notifications/sms-gateway/balance")
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["success"] is False
+    assert data["balance"] is None
+
+
+async def test_balance_with_url_configured_calls_gateway(client: AsyncClient) -> None:
+    await client.put(
+        "/api/v1/notifications/sms-gateway/credentials",
+        json={
+            "api_url": "http://bulksmsbd.net/api/smsapi",
+            "balance_url": "http://bulksmsbd.net/api/getBalanceApi",
+            "api_key": "abc123",
+            "sender_id": "TOPTEN",
+            "success_field": "response_code",
+            "success_value": "202",
+        },
+    )
+
+    mock_result = sms_gateway_client.BalanceResult(
+        success=True, http_status=200, message="", balance=1234.5
+    )
+    with patch(
+        "app.controllers.notifications.get_balance",
+        new=AsyncMock(return_value=mock_result),
+    ) as mock_get_balance:
+        response = await client.get("/api/v1/notifications/sms-gateway/balance")
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {
+        "balance": 1234.5,
+        "success": True,
+        "http_status": 200,
+        "message": "",
+    }
+    mock_get_balance.assert_awaited_once_with(
+        balance_url="http://bulksmsbd.net/api/getBalanceApi",
+        api_key="abc123",
+        sender_id="TOPTEN",
+        request_style=sms_gateway_client.RequestStyle.GET_QUERY,
+        api_key_field="api_key",
+        sender_id_field="senderid",
+        success_field="response_code",
+        success_value="202",
+    )
+
+
+async def test_balance_surfaces_provider_failure(client: AsyncClient) -> None:
+    await client.put(
+        "/api/v1/notifications/sms-gateway/credentials",
+        json={
+            "api_url": "http://bulksmsbd.net/api/smsapi",
+            "balance_url": "http://bulksmsbd.net/api/getBalanceApi",
+            "api_key": "bad-key",
+            "sender_id": "TOPTEN",
+        },
+    )
+
+    mock_result = sms_gateway_client.BalanceResult(
+        success=False, http_status=200, message="user id not found", balance=None
+    )
+    with patch(
+        "app.controllers.notifications.get_balance",
+        new=AsyncMock(return_value=mock_result),
+    ):
+        response = await client.get("/api/v1/notifications/sms-gateway/balance")
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {
+        "balance": None,
+        "success": False,
+        "http_status": 200,
+        "message": "user id not found",
+    }
