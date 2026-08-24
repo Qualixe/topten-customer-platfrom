@@ -116,6 +116,37 @@ async def test_successful_send_marks_recipients_sent_and_campaign_completed(
     assert kwargs["message"] == "Hello!"
 
 
+async def test_message_template_is_personalized_per_recipient(db_session: AsyncSession) -> None:
+    """The bug this was built to fix: {{customer_name}} must be replaced
+    with each recipient's real name before sending, not sent literally."""
+    await _set_credentials(
+        db_session, {"api_url": "https://example.com/api/smsapi", "api_key": "key"}
+    )
+    customer_a = await _add_customer(db_session, name="Rahim Uddin", phone="+8801711000101")
+    customer_b = await _add_customer(db_session, name="Karim Ahmed", phone="+8801711000102")
+    campaign = await _create_resolved_campaign(db_session, [customer_a, customer_b])
+    campaign.message = "{{customer_name}} Hi How are you, this is for testing"
+    db_session.add(campaign)
+    await db_session.commit()
+
+    mock_result = SendSmsResult(success=True, http_status=200, message="OK")
+    with patch(
+        "app.tasks.sms_campaigns.gateway_send_sms", new=AsyncMock(return_value=mock_result)
+    ) as mock_send:
+        await send_campaign_messages_async(campaign.id, session_factory=TestSessionLocal)
+
+    sent_messages = {
+        call.kwargs["number"]: call.kwargs["message"] for call in mock_send.await_args_list
+    }
+    assert sent_messages["+8801711000101"] == "Rahim Uddin Hi How are you, this is for testing"
+    assert sent_messages["+8801711000102"] == "Karim Ahmed Hi How are you, this is for testing"
+
+    # The stored campaign.message stays the raw template — only what's
+    # actually sent is personalized.
+    await db_session.refresh(campaign)
+    assert campaign.message == "{{customer_name}} Hi How are you, this is for testing"
+
+
 async def test_provider_failure_marks_recipient_failed_without_stopping_others(
     db_session: AsyncSession,
 ) -> None:

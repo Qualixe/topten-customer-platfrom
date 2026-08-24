@@ -252,7 +252,12 @@ async def test_audience_preview_never_received_type(
     received = await _add_customer(db_session, name="Received", phone="+8801711000101")
     await _add_customer(db_session, name="NeverReceived", phone="+8801711000102")
     db_session.add(
-        CampaignRecipient(campaign_id=campaign.id, customer_id=received.id, phone=received.phone)
+        CampaignRecipient(
+            campaign_id=campaign.id,
+            customer_id=received.id,
+            phone=received.phone,
+            name=received.name,
+        )
     )
     await db_session.commit()
 

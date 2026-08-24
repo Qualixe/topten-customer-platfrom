@@ -177,7 +177,10 @@ async def test_duplicate_campaign_recipient_row_violates_unique_constraint(
 
     def _recipient() -> CampaignRecipient:
         return CampaignRecipient(
-            campaign_id=campaign.id, customer_id=customer.id, phone=customer.phone
+            campaign_id=campaign.id,
+            customer_id=customer.id,
+            phone=customer.phone,
+            name=customer.name,
         )
 
     db_session.add(_recipient())

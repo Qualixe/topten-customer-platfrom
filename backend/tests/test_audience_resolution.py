@@ -77,7 +77,7 @@ async def _add_recipient(
     created_at: datetime | None = None,
 ) -> CampaignRecipient:
     recipient = CampaignRecipient(
-        campaign_id=campaign.id, customer_id=customer.id, phone=customer.phone
+        campaign_id=campaign.id, customer_id=customer.id, phone=customer.phone, name=customer.name
     )
     db_session.add(recipient)
     await db_session.commit()

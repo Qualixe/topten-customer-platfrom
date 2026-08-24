@@ -20,10 +20,13 @@ class CampaignRecipient(Base):
     """
     One row per customer resolved into a campaign's audience snapshot, at
     the moment it was resolved (see
-    app.tasks.sms_campaigns.resolve_campaign_audience). `phone` is
-    copied from the customer at that moment rather than joined live, so the
-    recipient list is a true point-in-time snapshot even if the customer's
-    phone number is edited afterward.
+    app.tasks.sms_campaigns.resolve_campaign_audience). `phone` and `name`
+    are copied from the customer at that moment rather than joined live, so
+    the recipient list is a true point-in-time snapshot even if the
+    customer's phone number or name is edited afterward — `name` also
+    feeds `{{customer_name}}` personalization at send time (see
+    app.services.sms_campaigns_sms_utils.render_message), so a name change
+    mid-campaign can't retroactively alter an already-resolved message.
 
     The (campaign_id, customer_id) unique constraint is what makes snapshot
     creation idempotent: it's built via a single `INSERT ... SELECT ... ON
@@ -57,6 +60,7 @@ class CampaignRecipient(Base):
         ForeignKey("customers.id", ondelete="CASCADE"), nullable=False
     )
     phone: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     status: Mapped[str] = mapped_column(
         String(20),

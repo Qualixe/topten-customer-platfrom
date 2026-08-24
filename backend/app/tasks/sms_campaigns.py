@@ -41,6 +41,7 @@ from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientSt
 from app.models.customer import Customer
 from app.services.sms_campaigns import SMS_GATEWAY_PROVIDER, get_sms_rate_per_segment
 from app.services.sms_campaigns_audience import AudienceRule, build_condition
+from app.services.sms_campaigns_personalization import render_message
 from app.services.sms_campaigns_sms_utils import estimate_sms_cost
 from app.views.notifications import (
     DEFAULT_API_KEY_FIELD,
@@ -76,12 +77,13 @@ async def resolve_campaign_audience_async(
             literal(campaign.id),
             Customer.id,
             Customer.phone,
+            Customer.name,
             literal(CampaignRecipientStatus.PENDING.value),
             func.gen_random_uuid(),
         ).where(condition)
 
         insert_stmt = pg_insert(CampaignRecipient).from_select(
-            ["campaign_id", "customer_id", "phone", "status", "public_id"],
+            ["campaign_id", "customer_id", "phone", "name", "status", "public_id"],
             select_matching_customers,
         )
         insert_stmt = insert_stmt.on_conflict_do_nothing(
@@ -170,13 +172,14 @@ async def send_campaign_messages_async(
         ).scalars().all()
 
         for recipient in pending:
+            personalized_message = render_message(campaign.message, customer_name=recipient.name)
             try:
                 result = await gateway_send_sms(
                     api_url=api_url,
                     api_key=api_key,
                     sender_id=campaign.sender_id,
                     number=recipient.phone,
-                    message=campaign.message,
+                    message=personalized_message,
                     request_style=request_style,
                     api_key_field=api_key_field,
                     sender_id_field=sender_id_field,
