@@ -32,7 +32,7 @@ import {
   type SmsGatewayCredentials,
   type TestSmsResult,
 } from "@/lib/api/integration-credentials";
-import { ApiError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 
 const MASKED_PLACEHOLDER = "••••••••••••";
 
@@ -175,7 +175,7 @@ export function SmsGatewayCredentialsForm() {
       .catch((err: unknown) => {
         if (!cancelled) {
           setError(
-            err instanceof ApiError ? err.message : "Unable to load saved credentials."
+            getErrorMessage(err, "Unable to load saved credentials.")
           );
         }
       })
@@ -225,9 +225,7 @@ export function SmsGatewayCredentialsForm() {
       setSaved(true);
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
     } finally {
       setSaving(false);
@@ -523,9 +521,7 @@ function BalanceCard({ balanceConfigured }: { balanceConfigured: boolean }) {
       setResult(await getSmsGatewayBalance());
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
     } finally {
       setChecking(false);
@@ -612,9 +608,7 @@ function TestSmsCard({ credentialsSaved }: { credentialsSaved: boolean }) {
       setResult(await sendSmsGatewayTestSms({ number, message }));
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
     } finally {
       setSending(false);

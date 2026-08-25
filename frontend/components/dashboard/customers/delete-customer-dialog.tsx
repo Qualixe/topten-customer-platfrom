@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { deleteCustomer, type Customer } from "@/lib/api/customers";
-import { ApiError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 
 export function DeleteCustomerDialog({
   customer,
@@ -39,9 +39,7 @@ export function DeleteCustomerDialog({
       onOpenChange(false);
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
     } finally {
       setDeleting(false);

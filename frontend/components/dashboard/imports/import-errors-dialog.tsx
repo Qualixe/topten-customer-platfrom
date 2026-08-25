@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listImportRowErrors, type ImportRowError } from "@/lib/api/imports";
-import { ApiError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 
 const PAGE_SIZE = 50;
 
@@ -63,7 +63,7 @@ function ImportErrorsList({ importId }: { importId: string }) {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Unable to load invalid rows.");
+          setError(getErrorMessage(err, "Unable to load invalid rows."));
         }
       })
       .finally(() => {
@@ -81,7 +81,7 @@ function ImportErrorsList({ importId }: { importId: string }) {
       const { items } = await listImportRowErrors(importId, PAGE_SIZE, errors.length);
       setErrors((prev) => [...prev, ...items]);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to load more rows.");
+      setError(getErrorMessage(err, "Unable to load more rows."));
     } finally {
       setLoadingMore(false);
     }

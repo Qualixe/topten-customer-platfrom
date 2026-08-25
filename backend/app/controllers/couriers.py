@@ -7,14 +7,14 @@ from app.common.credentials import (
     get_or_create_credential_row,
     merge_credential_data,
 )
-from app.common.dependencies import get_db
+from app.common.dependencies import get_db, require_permission
 from app.views.couriers import (
     PathaoCredentialsResponse,
     PathaoCredentialsStatus,
     PathaoCredentialsUpdate,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_permission("couriers.manage"))])
 
 PATHAO_PROVIDER = "pathao"
 

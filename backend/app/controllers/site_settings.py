@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.dependencies import get_db
+from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import ValidationAppError
 from app.core.config import settings
 from app.models.site_settings import SiteSettings
@@ -44,7 +44,9 @@ async def get_site_logo(db: AsyncSession = Depends(get_db)) -> SiteLogoResponse:
 
 @router.put("/logo", response_model=SiteLogoResponse)
 async def upload_site_logo(
-    file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("settings.manage")),
 ) -> SiteLogoResponse:
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise ValidationAppError("Logo must be a PNG, JPEG, or WEBP image")
@@ -77,7 +79,10 @@ async def upload_site_logo(
 
 
 @router.delete("/logo", response_model=SiteLogoResponse)
-async def remove_site_logo(db: AsyncSession = Depends(get_db)) -> SiteLogoResponse:
+async def remove_site_logo(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("settings.manage")),
+) -> SiteLogoResponse:
     row = await _get_or_create_settings_row(db)
 
     if row.logo_path:

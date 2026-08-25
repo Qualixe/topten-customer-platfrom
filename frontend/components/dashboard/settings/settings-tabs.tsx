@@ -1,6 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Bell,
+  Cake,
+  Crown,
+  KeyRound,
+  SlidersHorizontal,
+  Truck,
+  User,
+  UserCog,
+  Users,
+} from "lucide-react";
 
 import { AccountSettingsForm } from "@/components/dashboard/settings/account-settings-form";
 import { BirthdaySettingsForm } from "@/components/dashboard/settings/birthday-settings-form";
@@ -15,56 +26,62 @@ import { VipSettingsForm } from "@/components/dashboard/settings/vip-settings-fo
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const SECTIONS = [
-  { value: "general", label: "General" },
-  { value: "customers", label: "Customers" },
-  { value: "birthdays", label: "Birthdays" },
-  { value: "vip", label: "VIP" },
-  { value: "notifications", label: "Notifications" },
-  { value: "couriers", label: "Couriers" },
-  { value: "integrations", label: "API Credentials" },
-  { value: "users", label: "Users" },
-  { value: "account", label: "Account" },
+  { value: "general", label: "General", icon: SlidersHorizontal },
+  { value: "customers", label: "Customers", icon: Users },
+  { value: "birthdays", label: "Birthdays", icon: Cake },
+  { value: "vip", label: "VIP", icon: Crown },
+  { value: "notifications", label: "Notifications", icon: Bell },
+  { value: "couriers", label: "Couriers", icon: Truck },
+  { value: "integrations", label: "API Credentials", icon: KeyRound },
+  { value: "users", label: "Users", icon: UserCog },
+  { value: "account", label: "Account", icon: User },
 ] as const;
 
 export function SettingsTabs() {
   const [tab, setTab] = useState<string>("general");
 
   return (
-    <Tabs value={tab} onValueChange={(value) => setTab(value as string)}>
-      <TabsList className="flex-wrap">
+    <Tabs
+      value={tab}
+      onValueChange={(value) => setTab(value as string)}
+      orientation="vertical"
+      className="items-start"
+    >
+      <TabsList className="w-48 shrink-0">
         {SECTIONS.map((section) => (
           <TabsTrigger key={section.value} value={section.value}>
+            <section.icon />
             {section.label}
           </TabsTrigger>
         ))}
       </TabsList>
 
-      <TabsContent value="general" keepMounted className="mt-2">
+      <TabsContent value="general" keepMounted>
         <GeneralSettingsForm />
       </TabsContent>
-      <TabsContent value="customers" keepMounted className="mt-2">
+      <TabsContent value="customers" keepMounted>
         <CustomerSettingsForm />
       </TabsContent>
-      <TabsContent value="birthdays" keepMounted className="mt-2">
+      <TabsContent value="birthdays" keepMounted>
         <BirthdaySettingsForm />
       </TabsContent>
-      <TabsContent value="vip" keepMounted className="mt-2">
+      <TabsContent value="vip" keepMounted>
         <VipSettingsForm />
       </TabsContent>
-      <TabsContent value="notifications" keepMounted className="mt-2">
+      <TabsContent value="notifications" keepMounted>
         <NotificationSettingsForm />
       </TabsContent>
-      <TabsContent value="couriers" keepMounted className="mt-2">
+      <TabsContent value="couriers" keepMounted>
         <CourierSettingsForm />
       </TabsContent>
-      <TabsContent value="integrations" keepMounted className="mt-2 flex flex-col gap-6">
+      <TabsContent value="integrations" keepMounted className="flex flex-col gap-6">
         <SmsGatewayCredentialsForm />
         <PathaoCredentialsForm />
       </TabsContent>
-      <TabsContent value="users" keepMounted className="mt-2">
+      <TabsContent value="users" keepMounted>
         <UsersSettings />
       </TabsContent>
-      <TabsContent value="account" keepMounted className="mt-2">
+      <TabsContent value="account" keepMounted>
         <AccountSettingsForm />
       </TabsContent>
     </Tabs>

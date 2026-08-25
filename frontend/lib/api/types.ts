@@ -52,3 +52,26 @@ export class NetworkError extends Error {
     this.name = "NetworkError";
   }
 }
+
+/**
+ * A single place to turn a caught error into UI copy, so every form shows
+ * the same friendly wording instead of raw backend/network text. A 403
+ * always means the same thing to a user regardless of which action tripped
+ * it, so it gets one consistent message rather than whatever string the
+ * backend happened to send.
+ */
+export function getErrorMessage(
+  err: unknown,
+  fallback: string = "Unable to reach the API server. Please try again."
+): string {
+  if (err instanceof ApiError) {
+    if (err.status === 403) {
+      return "You don't have permission to do this. Ask an admin if you think this is a mistake.";
+    }
+    return err.message;
+  }
+  if (err instanceof NetworkError) {
+    return err.message;
+  }
+  return fallback;
+}

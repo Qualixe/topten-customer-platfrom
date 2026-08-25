@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 
 export function LoginForm() {
   const router = useRouter();
@@ -28,9 +28,7 @@ export function LoginForm() {
       router.refresh();
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
       setSubmitting(false);
     }

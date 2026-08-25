@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { changePassword, getCurrentUser, type AuthUser } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 
 export function AccountSettingsForm() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -88,9 +88,7 @@ function ChangePasswordCard() {
       setSaved(true);
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
     } finally {
       setSubmitting(false);

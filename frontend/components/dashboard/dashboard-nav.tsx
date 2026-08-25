@@ -2,11 +2,15 @@
 
 import { NAV_ITEMS } from "@/components/dashboard/nav-config";
 import { NavLink } from "@/components/dashboard/nav-link";
+import { usePermissions } from "@/components/providers/permissions-provider";
 
 export function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
+  const { hasPermission } = usePermissions();
+  const items = NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission));
+
   return (
     <nav aria-label="Main" className="flex flex-col gap-1 p-3">
-      {NAV_ITEMS.map((item) => (
+      {items.map((item) => (
         <NavLink key={item.href} item={item} onNavigate={onNavigate} />
       ))}
     </nav>

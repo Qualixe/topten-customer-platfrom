@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { UserPlus } from "lucide-react";
 
 import { FormField } from "@/components/dashboard/form-field";
+import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,10 +21,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { createCustomer } from "@/lib/api/customers";
-import { ApiError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 
 export function AddCustomerDialog() {
   const [open, setOpen] = useState(false);
+  const { hasPermission } = usePermissions();
+
+  if (!hasPermission("customers.manage")) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -80,9 +84,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
       onClose();
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
     } finally {
       setSubmitting(false);

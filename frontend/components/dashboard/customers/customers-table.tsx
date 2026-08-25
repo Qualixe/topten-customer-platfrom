@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Pencil, Trash2, Users } from "luc
 import { CustomerStatusBadge } from "@/components/dashboard/customers/status-badge";
 import { CustomerTierBadge } from "@/components/dashboard/customers/tier-badge";
 import { CustomerTypeBadge } from "@/components/dashboard/customers/customer-type-badge";
+import { usePermissions } from "@/components/providers/permissions-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -71,6 +72,9 @@ export function CustomersTable({
   sortDir: SortDirection;
   onSort: (column: CustomersSortBy) => void;
 }) {
+  const { hasPermission } = usePermissions();
+  const canManage = hasPermission("customers.manage");
+
   return (
     <div className="rounded-lg border">
       <div className="max-h-[560px] overflow-y-auto">
@@ -162,22 +166,26 @@ export function CustomersTable({
                     >
                       <Eye />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Edit ${customer.name}`}
-                      onClick={() => onEditCustomer(customer)}
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Delete ${customer.name}`}
-                      onClick={() => onDeleteCustomer(customer)}
-                    >
-                      <Trash2 />
-                    </Button>
+                    {canManage && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Edit ${customer.name}`}
+                          onClick={() => onEditCustomer(customer)}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${customer.name}`}
+                          onClick={() => onDeleteCustomer(customer)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

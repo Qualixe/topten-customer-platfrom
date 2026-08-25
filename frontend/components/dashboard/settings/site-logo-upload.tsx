@@ -12,7 +12,7 @@ import {
   resolveLogoUrl,
   uploadSiteLogo,
 } from "@/lib/api/site-settings";
-import { ApiError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_SIZE_BYTES = 2 * 1024 * 1024;
@@ -33,7 +33,7 @@ export function SiteLogoUpload() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Unable to load the current logo.");
+          setError(getErrorMessage(err, "Unable to load the current logo."));
         }
       })
       .finally(() => {
@@ -66,7 +66,7 @@ export function SiteLogoUpload() {
       const result = await uploadSiteLogo(file);
       setLogoUrl(result.logoUrl);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to upload the logo. Please try again.");
+      setError(getErrorMessage(err, "Unable to upload the logo. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -79,7 +79,7 @@ export function SiteLogoUpload() {
       await removeSiteLogo();
       setLogoUrl(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to remove the logo. Please try again.");
+      setError(getErrorMessage(err, "Unable to remove the logo. Please try again."));
     } finally {
       setBusy(false);
     }

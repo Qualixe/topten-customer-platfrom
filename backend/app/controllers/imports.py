@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.dependencies import get_db
+from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import NotFoundError, ValidationAppError
 from app.core.config import settings
 from app.models.customer import CustomerType
@@ -23,7 +23,7 @@ from app.views.imports import (
     ImportRowErrorRead,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_permission("imports.manage"))])
 
 UPLOAD_READ_CHUNK_SIZE = 1024 * 1024  # 1 MB — streamed to disk, never buffered whole.
 

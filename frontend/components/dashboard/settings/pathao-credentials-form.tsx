@@ -19,7 +19,7 @@ import {
   updatePathaoCredentials,
   type PathaoCredentials,
 } from "@/lib/api/integration-credentials";
-import { ApiError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 
 const MASKED_PLACEHOLDER = "••••••••••••";
 
@@ -47,7 +47,7 @@ export function PathaoCredentialsForm() {
       .catch((err: unknown) => {
         if (!cancelled) {
           setError(
-            err instanceof ApiError ? err.message : "Unable to load saved credentials."
+            getErrorMessage(err, "Unable to load saved credentials.")
           );
         }
       })
@@ -79,9 +79,7 @@ export function PathaoCredentialsForm() {
       setSaved(true);
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
     } finally {
       setSaving(false);

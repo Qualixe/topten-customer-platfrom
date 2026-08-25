@@ -41,7 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getCurrentUser, type AuthUser } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 import {
   createUser,
   deleteUser,
@@ -98,9 +98,7 @@ export function UsersSettings() {
       setError(null);
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
     } finally {
       setLoading(false);
@@ -128,9 +126,7 @@ export function UsersSettings() {
       .catch((err: unknown) => {
         if (cancelled) return;
         setError(
-          err instanceof ApiError
-            ? err.message
-            : "Unable to reach the API server. Please try again."
+          getErrorMessage(err, "Unable to reach the API server. Please try again.")
         );
       })
       .finally(() => {
@@ -263,7 +259,7 @@ function DeleteUserButton({
       await deleteUser(user.id);
       onDeleted();
     } catch (err) {
-      window.alert(err instanceof ApiError ? err.message : "Unable to delete this user.");
+      window.alert(getErrorMessage(err, "Unable to delete this user."));
     } finally {
       setDeleting(false);
     }
@@ -374,9 +370,7 @@ function UserFormBody({
       onClose();
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to reach the API server. Please try again."
+        getErrorMessage(err, "Unable to reach the API server. Please try again.")
       );
     } finally {
       setSubmitting(false);
@@ -531,7 +525,7 @@ function RolePermissionsEditor({
       setSaved(true);
       onSaved();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to save permissions.");
+      setError(getErrorMessage(err, "Unable to save permissions."));
     } finally {
       setSaving(false);
     }

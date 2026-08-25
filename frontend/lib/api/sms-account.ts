@@ -1,5 +1,5 @@
 import { getSmsGatewayBalance, getSmsGatewayCredentials } from "@/lib/api/integration-credentials";
-import { ApiError, NetworkError } from "@/lib/api/types";
+import { getErrorMessage } from "@/lib/api/types";
 import type { SmsAccount } from "@/lib/mock/sms-account";
 
 export type { SmsAccount } from "@/lib/mock/sms-account";
@@ -28,18 +28,12 @@ export interface SmsAccountWithStatus extends SmsAccount {
  * render.
  */
 export async function getSmsAccount(): Promise<SmsAccountWithStatus> {
-  function toErrorMessage(err: unknown): string {
-    return err instanceof ApiError || err instanceof NetworkError
-      ? err.message
-      : "Unable to reach the API server.";
-  }
-
   const [balanceResult, ratePerSegmentBdt] = await Promise.all([
     getSmsGatewayBalance().catch((err: unknown) => ({
       balance: null,
       success: false,
       httpStatus: 0,
-      message: toErrorMessage(err),
+      message: getErrorMessage(err, "Unable to reach the API server."),
     })),
     getSmsGatewayCredentials()
       .then((credentials) => Number(credentials.ratePerSegmentBdt.value ?? 0))

@@ -7,7 +7,7 @@ from app.common.credentials import (
     get_or_create_credential_row,
     merge_credential_data,
 )
-from app.common.dependencies import get_db
+from app.common.dependencies import get_db, require_permission
 from app.common.phone import InvalidPhoneNumberError, normalize_phone
 from app.common.sms_gateway_client import RequestStyle, get_balance, send_sms
 from app.core.config import settings
@@ -26,7 +26,7 @@ from app.views.notifications import (
     TestSmsResult,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_permission("settings.manage"))])
 
 SMS_GATEWAY_PROVIDER = "sms_gateway"
 

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.dependencies import get_db
+from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import NotFoundError, ValidationAppError
 from app.common.phone import InvalidPhoneNumberError, normalize_phone
 from app.models.customer import Customer, CustomerStatus, CustomerType
@@ -64,7 +64,9 @@ async def _get_customer_or_404(db: AsyncSession, customer_id: UUID) -> Customer:
     "", response_model=CustomerCreateResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_customer(
-    payload: CustomerCreate, db: AsyncSession = Depends(get_db)
+    payload: CustomerCreate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.manage")),
 ) -> CustomerCreateResponse:
     try:
         normalized_phone = normalize_phone(payload.phone)
@@ -96,6 +98,7 @@ async def create_customer(
 @router.get("", response_model=CustomersListResponse)
 async def list_customers(
     db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None, description="Matches name, phone, or email"),
@@ -154,7 +157,10 @@ async def list_customers(
 
 
 @router.get("/stats", response_model=CustomerStatsResponse)
-async def get_customer_stats(db: AsyncSession = Depends(get_db)) -> CustomerStatsResponse:
+async def get_customer_stats(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+) -> CustomerStatsResponse:
     """Descriptive counts for the dashboard overview — reads existing columns
     only (is_vip, total_spent, date_of_birth); no VIP/birthday business logic
     lives here."""
@@ -195,6 +201,7 @@ async def get_customer_stats(db: AsyncSession = Depends(get_db)) -> CustomerStat
 @router.get("/upcoming-birthdays", response_model=UpcomingBirthdaysResponse)
 async def list_upcoming_birthdays(
     db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
     within_days: int = Query(30, ge=1, le=365),
 ) -> UpcomingBirthdaysResponse:
     """Customers with a known date of birth falling in the next `within_days`
@@ -227,7 +234,10 @@ async def list_upcoming_birthdays(
 
 @router.patch("/{customer_id}", response_model=CustomerCreateResponse)
 async def update_customer(
-    customer_id: UUID, payload: CustomerUpdate, db: AsyncSession = Depends(get_db)
+    customer_id: UUID,
+    payload: CustomerUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.manage")),
 ) -> CustomerCreateResponse:
     customer = await _get_customer_or_404(db, customer_id)
     updates = payload.model_dump(exclude_unset=True)
@@ -269,7 +279,11 @@ async def update_customer(
 
 
 @router.delete("/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_customer(customer_id: UUID, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_customer(
+    customer_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.manage")),
+) -> None:
     customer = await _get_customer_or_404(db, customer_id)
     await db.delete(customer)
     await db.commit()
@@ -281,7 +295,9 @@ async def delete_customer(customer_id: UUID, db: AsyncSession = Depends(get_db))
     status_code=status.HTTP_201_CREATED,
 )
 async def issue_customer_profile_token(
-    customer_id: UUID, db: AsyncSession = Depends(get_db)
+    customer_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.manage")),
 ) -> CustomerProfileTokenResponse:
     """Mints the secure link (`/customer/{token}`) an admin sends a customer
     so they can complete their own profile. Revokes any still-active token

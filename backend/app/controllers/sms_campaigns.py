@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.dependencies import get_db
+from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import NotFoundError
 from app.models.campaign import AudienceRuleType, Campaign, CampaignType
 from app.services import sms_campaigns as service
@@ -67,7 +67,10 @@ async def _get_campaign_or_404(db: AsyncSession, campaign_id: UUID) -> Campaign:
 # swallowed by the dynamic route as campaign_id="audience-counts" and fail
 # UUID parsing (422) instead of reaching the intended static route.
 @router.get("/audience-counts", response_model=AudienceCountsResponse)
-async def get_audience_counts(db: AsyncSession = Depends(get_db)) -> AudienceCountsResponse:
+async def get_audience_counts(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
+) -> AudienceCountsResponse:
     counts = await service.count_all_static_audiences(db)
     return AudienceCountsResponse(
         data=AudienceCounts(
@@ -85,6 +88,7 @@ async def get_audience_counts(db: AsyncSession = Depends(get_db)) -> AudienceCou
 async def get_audience_preview(
     rule: AudienceRule = Depends(_audience_rule_query),
     db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
 ) -> AudiencePreviewResponse:
     """Live count for any audience rule (including the parametrized ones —
     NEW_SINCE_DATE, NEVER_RECEIVED_TYPE, RECEIVED_TYPE_BEFORE_DATE), for
@@ -100,6 +104,7 @@ async def get_audience_preview_recipients(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
 ) -> AudiencePreviewRecipientsResponse:
     """A bounded, paginated peek at *which* customers a rule would match —
     for admin review before confirming a campaign. Nothing is created here;
@@ -118,7 +123,9 @@ async def get_audience_preview_recipients(
 
 @router.post("", response_model=CampaignResponse, status_code=http_status.HTTP_201_CREATED)
 async def create_campaign(
-    payload: CampaignCreate, db: AsyncSession = Depends(get_db)
+    payload: CampaignCreate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
 ) -> CampaignResponse:
     """Stores the audience rule and creates the campaign row immediately;
     the recipient snapshot is resolved and frozen in the background (see
@@ -151,6 +158,7 @@ async def create_campaign(
 @router.get("", response_model=CampaignsListResponse)
 async def list_campaigns(
     db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.view")),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: str | None = Query(None),
@@ -191,14 +199,21 @@ async def list_campaigns(
 
 
 @router.get("/{campaign_id}", response_model=CampaignResponse)
-async def get_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db)) -> CampaignResponse:
+async def get_campaign(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.view")),
+) -> CampaignResponse:
     campaign = await _get_campaign_or_404(db, campaign_id)
     return CampaignResponse(data=CampaignRead.model_validate(campaign))
 
 
 @router.patch("/{campaign_id}", response_model=CampaignResponse)
 async def update_campaign(
-    campaign_id: UUID, payload: CampaignUpdate, db: AsyncSession = Depends(get_db)
+    campaign_id: UUID,
+    payload: CampaignUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
 ) -> CampaignResponse:
     campaign = await _get_campaign_or_404(db, campaign_id)
     updates = payload.model_dump(exclude_unset=True)
@@ -224,7 +239,11 @@ async def update_campaign(
 
 
 @router.delete("/{campaign_id}", status_code=http_status.HTTP_204_NO_CONTENT)
-async def delete_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_campaign(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
+) -> None:
     campaign = await _get_campaign_or_404(db, campaign_id)
     await db.delete(campaign)
     await db.commit()
@@ -236,6 +255,7 @@ async def get_campaign_recipients(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.view")),
 ) -> CampaignRecipientsListResponse:
     """The frozen recipient snapshot — always reads `campaign_recipients`
     directly, never re-resolves the audience rule."""
@@ -253,7 +273,9 @@ async def get_campaign_recipients(
 
 @router.get("/{campaign_id}/stats", response_model=CampaignStatsResponse)
 async def get_campaign_stats(
-    campaign_id: UUID, db: AsyncSession = Depends(get_db)
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.view")),
 ) -> CampaignStatsResponse:
     campaign = await _get_campaign_or_404(db, campaign_id)
     stats = await service.get_campaign_stats(db, campaign.id)
