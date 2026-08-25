@@ -64,7 +64,7 @@ export default async function CampaignsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <SmsBalanceCard account={smsAccount} />
       </div>
-      <StatsGrid stats={statDefinitions} />
+      <StatsGrid stats={statDefinitions} columns={5} />
       <CampaignsDirectory campaigns={campaigns} />
     </div>
   );

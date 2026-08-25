@@ -123,6 +123,7 @@ class CustomerStatsResponse(BaseModel):
 class UpcomingBirthday(BaseModel):
     id: UUID
     name: str
+    email: str | None
     is_vip: bool
     date: date
     days_away: int

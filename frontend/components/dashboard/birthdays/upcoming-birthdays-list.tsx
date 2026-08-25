@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { BirthdayCustomer } from "@/lib/mock/birthdays";
+import type { BirthdayCustomer } from "@/lib/api/birthdays";
 
 function daysAwayLabel(daysAway: number) {
   if (daysAway === 1) return "Tomorrow";
@@ -25,14 +25,14 @@ export function UpcomingBirthdaysList({
     <Card>
       <CardHeader>
         <CardTitle>Upcoming Birthdays</CardTitle>
-        <CardDescription>Next 30 days, excluding today</CardDescription>
+        <CardDescription>This week, excluding today</CardDescription>
       </CardHeader>
       <CardContent>
         {customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-8 text-center">
             <Cake className="size-6 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              No upcoming birthdays in the next 30 days.
+              No upcoming birthdays this week.
             </p>
           </div>
         ) : (

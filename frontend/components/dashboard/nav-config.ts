@@ -26,7 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "Customers", href: "/dashboard/customers", icon: Users, permission: "customers.view" },
   { title: "Imports", href: "/dashboard/imports", icon: Upload, permission: "imports.manage" },
   { title: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone, permission: "campaigns.view" },
-  { title: "Birthdays", href: "/dashboard/birthdays", icon: Cake },
+  { title: "Birthdays", href: "/dashboard/birthdays", icon: Cake, permission: "customers.view" },
   { title: "VIP Customers", href: "/dashboard/vip-customers", icon: Crown },
   { title: "Gifts", href: "/dashboard/gifts", icon: Gift },
   { title: "Couriers", href: "/dashboard/couriers", icon: Truck },

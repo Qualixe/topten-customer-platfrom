@@ -16,7 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { BirthdayCustomer } from "@/lib/mock/birthdays";
+import type { BirthdayCustomer } from "@/lib/api/birthdays";
 
 function isSameDate(a: Date, b: Date) {
   return (

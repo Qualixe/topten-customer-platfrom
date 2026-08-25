@@ -223,6 +223,7 @@ async def list_upcoming_birthdays(
             UpcomingBirthday(
                 id=customer.public_id,
                 name=customer.name,
+                email=customer.email,
                 is_vip=customer.is_vip,
                 date=customer.date_of_birth,
                 days_away=days_away,

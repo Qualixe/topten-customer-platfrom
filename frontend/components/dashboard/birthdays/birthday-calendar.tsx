@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { REFERENCE_DATE, type BirthdayCustomer } from "@/lib/mock/birthdays";
+import type { BirthdayCustomer } from "@/lib/api/birthdays";
 
 export function BirthdayCalendar({
   customers,
@@ -52,7 +52,7 @@ export function BirthdayCalendar({
           mode="single"
           selected={selectedDate}
           onSelect={onSelectDate}
-          defaultMonth={REFERENCE_DATE}
+          defaultMonth={new Date()}
           modifiers={{ birthday: regularDates, vipBirthday: vipDates }}
           modifiersClassNames={{
             birthday:

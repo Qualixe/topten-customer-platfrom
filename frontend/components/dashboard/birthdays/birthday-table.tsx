@@ -11,16 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
-import type { BirthdayCustomer, GiftStatus } from "@/lib/mock/birthdays";
-
-const GIFT_STATUS_STYLES: Record<GiftStatus | "Not due yet", string> = {
-  Sent: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-400",
-  Scheduled:
-    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-400",
-  Pending: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400",
-  "Not due yet": "border-border bg-muted text-muted-foreground",
-};
+import type { BirthdayCustomer } from "@/lib/api/birthdays";
 
 function daysAwayLabel(daysAway: number) {
   if (daysAway === 0) return "Today";
@@ -43,13 +34,12 @@ export function BirthdayTable({
               <TableHead>Birthday</TableHead>
               <TableHead>Turning</TableHead>
               <TableHead>Days Away</TableHead>
-              <TableHead>Gift Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {customers.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="p-0">
+                <TableCell colSpan={4} className="p-0">
                   <EmptyState
                     icon={Cake}
                     title="No birthdays found"
@@ -78,7 +68,7 @@ export function BirthdayTable({
                         )}
                       </div>
                       <p className="truncate text-xs text-muted-foreground">
-                        {customer.email}
+                        {customer.email ?? "No email on file"}
                       </p>
                     </div>
                   </div>
@@ -93,16 +83,6 @@ export function BirthdayTable({
                   <Badge variant={customer.isToday ? "default" : "outline"}>
                     {daysAwayLabel(customer.daysAway)}
                   </Badge>
-                </TableCell>
-                <TableCell>
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-                      GIFT_STATUS_STYLES[customer.giftStatus]
-                    )}
-                  >
-                    {customer.giftStatus}
-                  </span>
                 </TableCell>
               </TableRow>
             ))}

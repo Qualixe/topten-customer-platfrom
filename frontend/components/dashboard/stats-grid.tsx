@@ -26,9 +26,22 @@ const TREND_ICONS: Record<StatTrend, LucideIcon> = {
   neutral: Minus,
 };
 
-export function StatsGrid({ stats }: { stats: StatDefinition[] }) {
+const COLUMNS_CLASS: Record<4 | 5, string> = {
+  4: "sm:grid-cols-2 lg:grid-cols-4",
+  5: "sm:grid-cols-2 lg:grid-cols-5",
+};
+
+export function StatsGrid({
+  stats,
+  columns = 4,
+}: {
+  stats: StatDefinition[];
+  /** Column count at the `lg` breakpoint — defaults to 4, matching every
+   * page except Campaigns, which has a 5th ("Failed") stat. */
+  columns?: 4 | 5;
+}) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className={cn("grid gap-4", COLUMNS_CLASS[columns])}>
       {stats.map((stat) => {
         const Icon = stat.icon;
         const TrendIcon = stat.trend ? TREND_ICONS[stat.trend] : null;

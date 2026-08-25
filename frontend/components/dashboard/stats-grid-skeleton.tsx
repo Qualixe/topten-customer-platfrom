@@ -1,13 +1,20 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 /**
  * Mirrors the `StatsGrid` card layout. Pass `count` to match the number of
- * stat cards on a given page (default 4).
+ * stat cards on a given page (default 4) — also controls the `lg` column
+ * count so the skeleton doesn't wrap differently than the real grid.
  */
 export function StatsGridSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div
+      className={cn(
+        "grid gap-4 sm:grid-cols-2",
+        count >= 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"
+      )}
+    >
       {Array.from({ length: count }, (_, i) => (
         <Card key={i}>
           <CardHeader>

@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MONTH_OPTIONS } from "@/lib/mock/birthdays";
+import { MONTH_OPTIONS } from "@/lib/api/birthdays";
 
 export type MonthFilter = string | "all";
 export type TierFilter = "all" | "VIP" | "Regular";

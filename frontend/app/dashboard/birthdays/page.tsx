@@ -4,41 +4,55 @@ import { BirthdaysExplorer } from "@/components/dashboard/birthdays/birthdays-ex
 import { BirthdaysPageHeader } from "@/components/dashboard/birthdays/page-header";
 import { TodayBirthdays } from "@/components/dashboard/birthdays/today-birthdays";
 import { UpcomingBirthdaysList } from "@/components/dashboard/birthdays/upcoming-birthdays-list";
+import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
-import { getBirthdaysOverview, listBirthdays } from "@/lib/api/birthdays";
+import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getBirthdaysOverview } from "@/lib/api/birthdays";
+
+// Real, per-request data (today's date, live customer birthdays) — must
+// not be statically cached.
+export const dynamic = "force-dynamic";
 
 export default async function BirthdaysPage() {
-  const [{ items: birthdays }, overview] = await Promise.all([
-    listBirthdays(),
-    getBirthdaysOverview(),
-  ]);
+  const user = await getCurrentUserSafe();
+  if (!user?.permissions.includes("customers.view")) {
+    return (
+      <div className="flex flex-col gap-6">
+        <BirthdaysPageHeader />
+        <PermissionDenied description="Ask an admin to grant you the View customers permission if you think this is a mistake." />
+      </div>
+    );
+  }
+
+  const { all: birthdays, today, upcoming, stats: birthdayStats } = await getBirthdaysOverview();
+  const currentMonthName = new Date().toLocaleDateString("en-US", { month: "long" });
 
   const stats: StatDefinition[] = [
     {
       key: "today",
       label: "Today's Birthdays",
-      value: overview.stats.todayCount,
+      value: birthdayStats.todayCount,
       caption: "Celebrating today",
       icon: PartyPopper,
     },
     {
       key: "this-month",
       label: "This Month",
-      value: overview.stats.thisMonthCount,
-      caption: "Birthdays in August",
+      value: birthdayStats.thisMonthCount,
+      caption: `Birthdays in ${currentMonthName}`,
       icon: Cake,
     },
     {
       key: "upcoming",
-      label: "Upcoming (30 days)",
-      value: overview.stats.upcomingCount,
+      label: "This Week",
+      value: birthdayStats.upcomingCount,
       caption: "Excluding today",
       icon: CalendarDays,
     },
     {
       key: "vip",
       label: "VIP Birthdays",
-      value: overview.stats.vipThisMonthCount,
+      value: birthdayStats.vipThisMonthCount,
       caption: "VIP customers this month",
       icon: Crown,
     },
@@ -49,8 +63,8 @@ export default async function BirthdaysPage() {
       <BirthdaysPageHeader />
       <StatsGrid stats={stats} />
       <div className="grid gap-4 lg:grid-cols-2">
-        <TodayBirthdays customers={overview.today} />
-        <UpcomingBirthdaysList customers={overview.upcoming} />
+        <TodayBirthdays customers={today} />
+        <UpcomingBirthdaysList customers={upcoming} />
       </div>
       <BirthdaysExplorer customers={birthdays} />
     </div>
