@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { formatCurrency, type GiftItem } from "@/lib/mock/gifts";
+import { formatCurrency, GIFT_CATEGORY_LABELS, type GiftItem } from "@/lib/api/gifts";
 
 export function GiftDetailsDialog({
   gift,
@@ -34,7 +34,7 @@ export function GiftDetailsDialog({
                 <div className="min-w-0">
                   <DialogTitle className="truncate">{gift.name}</DialogTitle>
                   <div className="mt-1 flex items-center gap-1.5">
-                    <Badge variant="outline">{gift.category}</Badge>
+                    <Badge variant="outline">{GIFT_CATEGORY_LABELS[gift.category]}</Badge>
                     <StockStatusBadge status={gift.stockStatus} />
                   </div>
                 </div>

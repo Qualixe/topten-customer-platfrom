@@ -164,7 +164,11 @@ async def test_user_permissions_default_to_their_role(
 
     response = await client.get(f"/api/v1/users/{user.public_id}")
     assert response.status_code == 200
-    assert sorted(response.json()["data"]["permissions"]) == ["campaigns.view", "customers.view"]
+    assert sorted(response.json()["data"]["permissions"]) == [
+        "campaigns.view",
+        "customers.view",
+        "gifts.view",
+    ]
 
 
 async def test_grant_extra_permission_to_one_user(
@@ -212,7 +216,11 @@ async def test_permission_override_is_scoped_to_one_user(
     )
 
     response = await client.get(f"/api/v1/users/{other.public_id}")
-    assert sorted(response.json()["data"]["permissions"]) == ["campaigns.view", "customers.view"]
+    assert sorted(response.json()["data"]["permissions"]) == [
+        "campaigns.view",
+        "customers.view",
+        "gifts.view",
+    ]
 
 
 async def test_update_user_permissions_rejects_unknown_key(

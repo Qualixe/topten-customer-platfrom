@@ -25,11 +25,13 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     ("couriers.manage", "Manage courier orders", "couriers"),
     ("settings.manage", "Manage site & integration settings", "settings"),
     ("users.manage", "Manage users and roles", "users"),
+    ("gifts.view", "View gifts", "gifts"),
+    ("gifts.manage", "Manage gifts", "gifts"),
 ]
 
 ALL_KEYS = [key for key, _, _ in PERMISSIONS]
 MANAGER_KEYS = [key for key in ALL_KEYS if key != "users.manage"]
-STAFF_KEYS = ["customers.view", "campaigns.view"]
+STAFF_KEYS = ["customers.view", "campaigns.view", "gifts.view"]
 
 # (name, description, permission keys)
 ROLES: list[tuple[str, str, list[str]]] = [
@@ -67,6 +69,18 @@ async def seed_auth(session_factory: async_sessionmaker = SessionLocal) -> None:
                 db.add(existing)
                 await db.flush()
                 print(f"created role: {name}")
+            else:
+                # Additive only — a newly added permission (e.g. a new
+                # feature's PERMISSIONS entry) is granted to roles that are
+                # supposed to have it, but anything an admin has since
+                # customized via the Roles & Permissions UI is left alone.
+                current_keys = {permission.key for permission in existing.permissions}
+                missing_keys = [key for key in keys if key not in current_keys]
+                if missing_keys:
+                    existing.permissions.extend(
+                        permissions_by_key[key] for key in missing_keys
+                    )
+                    print(f"granted to role {name}: {missing_keys}")
             roles_by_name[name] = existing
 
         admin_email = settings.INITIAL_ADMIN_EMAIL.strip().lower()

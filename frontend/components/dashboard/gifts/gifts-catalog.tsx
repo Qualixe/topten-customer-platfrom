@@ -1,14 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { EditGiftDialog } from "@/components/dashboard/gifts/edit-gift-dialog";
 import { GiftDetailsDialog } from "@/components/dashboard/gifts/gift-details-dialog";
+import { GiftsGrid } from "@/components/dashboard/gifts/gifts-grid";
 import {
   GiftsToolbar,
   type CategoryFilter,
   type StockFilter,
 } from "@/components/dashboard/gifts/gifts-toolbar";
-import { GiftsTable } from "@/components/dashboard/gifts/gifts-table";
 import {
   Card,
   CardContent,
@@ -16,14 +18,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { GiftItem } from "@/lib/mock/gifts";
+import { deleteGiftCatalogItem, type GiftItem } from "@/lib/api/gifts";
+import { getErrorMessage } from "@/lib/api/types";
 
 export function GiftsCatalog({ gifts }: { gifts: GiftItem[] }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [stockFilter, setStockFilter] = useState<StockFilter>("all");
   const [selectedGift, setSelectedGift] = useState<GiftItem | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editingGift, setEditingGift] = useState<GiftItem | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const filteredGifts = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -42,7 +48,22 @@ export function GiftsCatalog({ gifts }: { gifts: GiftItem[] }) {
 
   function handleViewGift(gift: GiftItem) {
     setSelectedGift(gift);
-    setDialogOpen(true);
+    setViewDialogOpen(true);
+  }
+
+  function handleEditGift(gift: GiftItem) {
+    setEditingGift(gift);
+    setEditDialogOpen(true);
+  }
+
+  async function handleDeleteGift(gift: GiftItem) {
+    if (!window.confirm(`Delete "${gift.name}" from the catalog? This can't be undone.`)) return;
+    try {
+      await deleteGiftCatalogItem(gift.id);
+      router.refresh();
+    } catch (err) {
+      window.alert(getErrorMessage(err, "Unable to delete this gift."));
+    }
   }
 
   return (
@@ -61,12 +82,23 @@ export function GiftsCatalog({ gifts }: { gifts: GiftItem[] }) {
           onStockFilterChange={setStockFilter}
         />
 
-        <GiftsTable gifts={filteredGifts} onViewGift={handleViewGift} />
+        <GiftsGrid
+          gifts={filteredGifts}
+          onViewGift={handleViewGift}
+          onEditGift={handleEditGift}
+          onDeleteGift={handleDeleteGift}
+        />
 
         <GiftDetailsDialog
           gift={selectedGift}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
+          open={viewDialogOpen}
+          onOpenChange={setViewDialogOpen}
+        />
+
+        <EditGiftDialog
+          gift={editingGift}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
         />
       </CardContent>
     </Card>

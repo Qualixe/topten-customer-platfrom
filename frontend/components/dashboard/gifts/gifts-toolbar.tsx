@@ -8,26 +8,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { GiftCategory, StockStatus } from "@/lib/mock/gifts";
+import {
+  GIFT_CATEGORY_LABELS,
+  STOCK_STATUS_LABELS,
+  type GiftCategory,
+  type StockStatus,
+} from "@/lib/api/gifts";
 
 export type CategoryFilter = GiftCategory | "all";
 export type StockFilter = StockStatus | "all";
 
 const CATEGORY_LABELS: Record<CategoryFilter, string> = {
   all: "All Categories",
-  "Food & Beverage": "Food & Beverage",
-  "Home & Living": "Home & Living",
-  "Beauty & Wellness": "Beauty & Wellness",
-  Electronics: "Electronics",
-  "Gift Vouchers": "Gift Vouchers",
-  "Kids & Toys": "Kids & Toys",
+  ...GIFT_CATEGORY_LABELS,
 };
 
 const STOCK_LABELS: Record<StockFilter, string> = {
   all: "All Stock",
-  "In Stock": "In Stock",
-  "Low Stock": "Low Stock",
-  "Out of Stock": "Out of Stock",
+  ...STOCK_STATUS_LABELS,
 };
 
 export function GiftsToolbar({
@@ -73,12 +71,13 @@ export function GiftsToolbar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="Food & Beverage">Food &amp; Beverage</SelectItem>
-            <SelectItem value="Home & Living">Home &amp; Living</SelectItem>
-            <SelectItem value="Beauty & Wellness">Beauty &amp; Wellness</SelectItem>
-            <SelectItem value="Electronics">Electronics</SelectItem>
-            <SelectItem value="Gift Vouchers">Gift Vouchers</SelectItem>
-            <SelectItem value="Kids & Toys">Kids &amp; Toys</SelectItem>
+            {(Object.entries(GIFT_CATEGORY_LABELS) as [GiftCategory, string][]).map(
+              ([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              )
+            )}
           </SelectContent>
         </Select>
 
@@ -91,9 +90,13 @@ export function GiftsToolbar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Stock</SelectItem>
-            <SelectItem value="In Stock">In Stock</SelectItem>
-            <SelectItem value="Low Stock">Low Stock</SelectItem>
-            <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+            {(Object.entries(STOCK_STATUS_LABELS) as [StockStatus, string][]).map(
+              ([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              )
+            )}
           </SelectContent>
         </Select>
       </div>
