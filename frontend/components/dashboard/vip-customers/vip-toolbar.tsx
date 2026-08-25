@@ -8,16 +8,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { VipLevel, VipStatus } from "@/lib/mock/vip-customers";
+import type { CustomerSegment, VipStatus } from "@/lib/api/vip-customers";
 
-export type LevelFilter = VipLevel | "all";
+export type SegmentFilter = CustomerSegment | "all";
 export type StatusFilter = VipStatus | "all";
 
-const LEVEL_LABELS: Record<LevelFilter, string> = {
-  all: "All Levels",
-  Platinum: "Platinum",
-  Gold: "Gold",
-  Silver: "Silver",
+const SEGMENT_LABELS: Record<SegmentFilter, string> = {
+  all: "All Segments",
+  GENERAL: "General",
+  VIP: "VIP",
+  VVIP: "VVIP",
 };
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
@@ -30,15 +30,15 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 export function VipToolbar({
   search,
   onSearchChange,
-  levelFilter,
-  onLevelFilterChange,
+  segmentFilter,
+  onSegmentFilterChange,
   statusFilter,
   onStatusFilterChange,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
-  levelFilter: LevelFilter;
-  onLevelFilterChange: (value: LevelFilter) => void;
+  segmentFilter: SegmentFilter;
+  onSegmentFilterChange: (value: SegmentFilter) => void;
   statusFilter: StatusFilter;
   onStatusFilterChange: (value: StatusFilter) => void;
 }) {
@@ -60,19 +60,19 @@ export function VipToolbar({
 
       <div className="flex items-center gap-2">
         <Select
-          value={levelFilter}
-          onValueChange={(value) => onLevelFilterChange(value as LevelFilter)}
+          value={segmentFilter}
+          onValueChange={(value) => onSegmentFilterChange(value as SegmentFilter)}
         >
-          <SelectTrigger className="w-full sm:w-36" aria-label="Filter by VIP level">
+          <SelectTrigger className="w-full sm:w-36" aria-label="Filter by segment">
             <SelectValue>
-              {(value: LevelFilter) => LEVEL_LABELS[value]}
+              {(value: SegmentFilter) => SEGMENT_LABELS[value]}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Levels</SelectItem>
-            <SelectItem value="Platinum">Platinum</SelectItem>
-            <SelectItem value="Gold">Gold</SelectItem>
-            <SelectItem value="Silver">Silver</SelectItem>
+            <SelectItem value="all">All Segments</SelectItem>
+            <SelectItem value="GENERAL">General</SelectItem>
+            <SelectItem value="VIP">VIP</SelectItem>
+            <SelectItem value="VVIP">VVIP</SelectItem>
           </SelectContent>
         </Select>
 

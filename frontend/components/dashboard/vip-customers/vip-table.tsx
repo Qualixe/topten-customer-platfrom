@@ -1,6 +1,6 @@
 import { Crown, Eye } from "lucide-react";
 
-import { VipLevelBadge } from "@/components/dashboard/vip-customers/vip-level-badge";
+import { VipSegmentBadge } from "@/components/dashboard/vip-customers/vip-segment-badge";
 import { VipStatusBadge } from "@/components/dashboard/vip-customers/vip-status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency, type VipCustomer } from "@/lib/mock/vip-customers";
+import { formatCurrency, type VipCustomer } from "@/lib/api/vip-customers";
 
 export function VipTable({
   customers,
@@ -29,10 +29,10 @@ export function VipTable({
           <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow>
               <TableHead>Customer</TableHead>
-              <TableHead>VIP Level</TableHead>
+              <TableHead>Segment</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Spending</TableHead>
-              <TableHead>Activity</TableHead>
+              <TableHead>Total Spent</TableHead>
+              <TableHead>Last Purchase</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -60,13 +60,13 @@ export function VipTable({
                         {customer.name}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {customer.email}
+                        {customer.email ?? "No email on file"}
                       </p>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <VipLevelBadge level={customer.vipLevel} />
+                  <VipSegmentBadge segment={customer.segment} />
                 </TableCell>
                 <TableCell>
                   <VipStatusBadge status={customer.status} />
@@ -75,16 +75,10 @@ export function VipTable({
                   <p className="text-sm font-medium">
                     {formatCurrency(customer.totalSpent)}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Avg {formatCurrency(customer.avgOrderValue)}/order
-                  </p>
                 </TableCell>
                 <TableCell>
                   <p className="text-sm text-muted-foreground">
-                    {customer.totalOrders} orders
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Last: {customer.lastPurchaseAt}
+                    {customer.lastPurchaseLabel}
                   </p>
                 </TableCell>
                 <TableCell className="text-right">

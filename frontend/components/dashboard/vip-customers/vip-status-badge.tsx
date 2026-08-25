@@ -1,5 +1,5 @@
 import { StatusPill, type StatusTone } from "@/components/dashboard/status-pill";
-import type { VipStatus } from "@/lib/mock/vip-customers";
+import type { VipStatus } from "@/lib/api/vip-customers";
 
 const STATUS_TONE: Record<VipStatus, StatusTone> = {
   Active: "success",

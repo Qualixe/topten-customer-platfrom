@@ -1,15 +1,17 @@
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import ColumnElement, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import NotFoundError, ValidationAppError
 from app.common.phone import InvalidPhoneNumberError, normalize_phone
 from app.models.customer import Customer, CustomerStatus, CustomerType
+from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.customer_profile_token import CustomerProfileToken
 from app.views.customers import (
     CustomerCreate,
@@ -24,6 +26,10 @@ from app.views.customers import (
     CustomerUpdate,
     UpcomingBirthday,
     UpcomingBirthdaysResponse,
+    VipCustomerRead,
+    VipCustomersListResponse,
+    VipCustomerStats,
+    VipCustomerStatsResponse,
 )
 
 router = APIRouter()
@@ -230,6 +236,155 @@ async def list_upcoming_birthdays(
             )
             for customer, days_away in upcoming
         ]
+    )
+
+
+def _vip_latest_period_subquery():
+    """Per-customer most recent (year, month) with non-zero recorded
+    spending, encoded as `year * 12 + month` for easy comparison. Null for a
+    VIP customer with no spending history at all."""
+    period_expr = CustomerMonthlySpending.year * 12 + (CustomerMonthlySpending.month - 1)
+    return (
+        select(
+            CustomerMonthlySpending.customer_id.label("customer_id"),
+            func.max(period_expr).label("latest_period"),
+        )
+        .where(CustomerMonthlySpending.amount > 0)
+        .group_by(CustomerMonthlySpending.customer_id)
+        .subquery()
+    )
+
+
+def _vip_status_expr(latest_period_column, at_risk_cutoff: int):
+    """ACTIVE unless the customer is administratively non-active (INACTIVE),
+    or their latest recorded spending month is more than two calendar
+    months behind today (AT_RISK). A customer with no spending history at
+    all is left ACTIVE rather than flagged — that's "no data", not "slowing
+    down"."""
+    return case(
+        (Customer.status != CustomerStatus.ACTIVE.value, "INACTIVE"),
+        (
+            and_(latest_period_column.is_not(None), latest_period_column < at_risk_cutoff),
+            "AT_RISK",
+        ),
+        else_="ACTIVE",
+    )
+
+
+@router.get("/vip", response_model=VipCustomersListResponse)
+async def list_vip_customers(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, description="Matches name, phone, or email"),
+    vip_status: str | None = Query(None, description="ACTIVE, AT_RISK, or INACTIVE"),
+) -> VipCustomersListResponse:
+    today = date.today()
+    current_period = today.year * 12 + (today.month - 1)
+    at_risk_cutoff = current_period - 2
+
+    latest_period_subq = _vip_latest_period_subquery()
+    status_expr = _vip_status_expr(latest_period_subq.c.latest_period, at_risk_cutoff)
+
+    filters: list[ColumnElement] = [Customer.is_vip.is_(True)]
+    search = (search or "").strip()
+    if search:
+        pattern = f"%{search}%"
+        filters.append(
+            or_(
+                Customer.name.ilike(pattern),
+                Customer.phone.ilike(pattern),
+                Customer.email.ilike(pattern),
+            )
+        )
+    if vip_status and vip_status != "all":
+        valid_statuses = {"ACTIVE", "AT_RISK", "INACTIVE"}
+        if vip_status not in valid_statuses:
+            raise ValidationAppError(
+                f"Invalid status {vip_status!r}; expected one of {sorted(valid_statuses)}"
+            )
+        filters.append(status_expr == vip_status)
+
+    base_from = select(Customer, latest_period_subq.c.latest_period, status_expr).outerjoin(
+        latest_period_subq, Customer.id == latest_period_subq.c.customer_id
+    )
+    count_query = (
+        select(func.count())
+        .select_from(Customer)
+        .outerjoin(latest_period_subq, Customer.id == latest_period_subq.c.customer_id)
+    )
+    for condition in filters:
+        base_from = base_from.where(condition)
+        count_query = count_query.where(condition)
+
+    total = (await db.execute(count_query)).scalar_one()
+
+    list_query = (
+        base_from.order_by(Customer.total_spent.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    rows = (await db.execute(list_query)).all()
+    total_pages = max(1, -(-total // page_size))
+
+    data = [
+        VipCustomerRead(
+            id=customer.public_id,
+            name=customer.name,
+            email=customer.email,
+            phone=customer.phone,
+            address=customer.address,
+            customer_type=customer.customer_type,
+            status=row_status,
+            total_spent=customer.total_spent,
+            last_purchase_year=latest_period // 12 if latest_period is not None else None,
+            last_purchase_month=(latest_period % 12) + 1 if latest_period is not None else None,
+            member_since=customer.created_at,
+        )
+        for customer, latest_period, row_status in rows
+    ]
+
+    return VipCustomersListResponse(
+        data=data,
+        meta=CustomersMeta(page=page, page_size=page_size, total=total, total_pages=total_pages),
+    )
+
+
+@router.get("/vip/stats", response_model=VipCustomerStatsResponse)
+async def get_vip_customer_stats(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+) -> VipCustomerStatsResponse:
+    today = date.today()
+    current_period = today.year * 12 + (today.month - 1)
+    at_risk_cutoff = current_period - 2
+
+    latest_period_subq = _vip_latest_period_subquery()
+    status_expr = _vip_status_expr(latest_period_subq.c.latest_period, at_risk_cutoff)
+
+    stats_query = (
+        select(
+            func.count().label("total"),
+            func.coalesce(func.sum(Customer.total_spent), 0).label("total_revenue"),
+            func.count().filter(status_expr == "AT_RISK").label("at_risk"),
+        )
+        .select_from(Customer)
+        .outerjoin(latest_period_subq, Customer.id == latest_period_subq.c.customer_id)
+        .where(Customer.is_vip.is_(True))
+    )
+    row = (await db.execute(stats_query)).one()
+    average_spend = (
+        (row.total_revenue / row.total).quantize(Decimal("0.01")) if row.total else Decimal("0")
+    )
+
+    return VipCustomerStatsResponse(
+        data=VipCustomerStats(
+            total_vip_customers=row.total,
+            total_vip_revenue=row.total_revenue,
+            average_spend=average_spend,
+            at_risk_count=row.at_risk,
+        )
     )
 
 

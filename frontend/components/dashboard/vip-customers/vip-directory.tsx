@@ -6,14 +6,14 @@ import { VipDetailsDialog } from "@/components/dashboard/vip-customers/vip-detai
 import { VipTable } from "@/components/dashboard/vip-customers/vip-table";
 import {
   VipToolbar,
-  type LevelFilter,
+  type SegmentFilter,
   type StatusFilter,
 } from "@/components/dashboard/vip-customers/vip-toolbar";
-import type { VipCustomer } from "@/lib/mock/vip-customers";
+import type { VipCustomer } from "@/lib/api/vip-customers";
 
 export function VipDirectory({ customers }: { customers: VipCustomer[] }) {
   const [search, setSearch] = useState("");
-  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
+  const [segmentFilter, setSegmentFilter] = useState<SegmentFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedCustomer, setSelectedCustomer] = useState<VipCustomer | null>(
     null
@@ -27,16 +27,16 @@ export function VipDirectory({ customers }: { customers: VipCustomer[] }) {
       const matchesQuery =
         query.length === 0 ||
         customer.name.toLowerCase().includes(query) ||
-        customer.email.toLowerCase().includes(query) ||
+        (customer.email?.toLowerCase().includes(query) ?? false) ||
         customer.phone.includes(query);
-      const matchesLevel =
-        levelFilter === "all" || customer.vipLevel === levelFilter;
+      const matchesSegment =
+        segmentFilter === "all" || customer.segment === segmentFilter;
       const matchesStatus =
         statusFilter === "all" || customer.status === statusFilter;
 
-      return matchesQuery && matchesLevel && matchesStatus;
+      return matchesQuery && matchesSegment && matchesStatus;
     });
-  }, [customers, search, levelFilter, statusFilter]);
+  }, [customers, search, segmentFilter, statusFilter]);
 
   function handleViewCustomer(customer: VipCustomer) {
     setSelectedCustomer(customer);
@@ -48,8 +48,8 @@ export function VipDirectory({ customers }: { customers: VipCustomer[] }) {
       <VipToolbar
         search={search}
         onSearchChange={setSearch}
-        levelFilter={levelFilter}
-        onLevelFilterChange={setLevelFilter}
+        segmentFilter={segmentFilter}
+        onSegmentFilterChange={setSegmentFilter}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
       />

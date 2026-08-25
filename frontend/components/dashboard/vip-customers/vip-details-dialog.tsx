@@ -1,6 +1,5 @@
 import {
   Calendar,
-  Heart,
   Mail,
   MapPin,
   Phone,
@@ -8,7 +7,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { VipLevelBadge } from "@/components/dashboard/vip-customers/vip-level-badge";
+import { VipSegmentBadge } from "@/components/dashboard/vip-customers/vip-segment-badge";
 import { VipStatusBadge } from "@/components/dashboard/vip-customers/vip-status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -18,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { formatCurrency, type VipCustomer } from "@/lib/mock/vip-customers";
+import { formatCurrency, type VipCustomer } from "@/lib/api/vip-customers";
 
 function DetailRow({
   icon: Icon,
@@ -62,7 +61,7 @@ export function VipDetailsDialog({
                 <div className="min-w-0">
                   <DialogTitle className="truncate">{customer.name}</DialogTitle>
                   <div className="mt-1 flex items-center gap-1.5">
-                    <VipLevelBadge level={customer.vipLevel} />
+                    <VipSegmentBadge segment={customer.segment} />
                     <VipStatusBadge status={customer.status} />
                   </div>
                 </div>
@@ -72,7 +71,7 @@ export function VipDetailsDialog({
             <Separator />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <DetailRow icon={Mail} label="Email" value={customer.email} />
+              <DetailRow icon={Mail} label="Email" value={customer.email ?? "No email on file"} />
               <DetailRow icon={Phone} label="Phone" value={customer.phone} />
               <DetailRow icon={MapPin} label="City" value={customer.city} />
               <DetailRow
@@ -86,9 +85,9 @@ export function VipDetailsDialog({
 
             <div>
               <p className="mb-2 text-xs font-medium text-muted-foreground">
-                Spending &amp; Activity Summary
+                Spending Summary
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-muted p-3">
                   <p className="text-xs text-muted-foreground">Total Spent</p>
                   <p className="mt-1 text-base font-semibold">
@@ -96,15 +95,9 @@ export function VipDetailsDialog({
                   </p>
                 </div>
                 <div className="rounded-lg bg-muted p-3">
-                  <p className="text-xs text-muted-foreground">Orders</p>
+                  <p className="text-xs text-muted-foreground">Last Purchase</p>
                   <p className="mt-1 text-base font-semibold">
-                    {customer.totalOrders}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-muted p-3">
-                  <p className="text-xs text-muted-foreground">Avg. Order</p>
-                  <p className="mt-1 text-base font-semibold">
-                    {formatCurrency(customer.avgOrderValue)}
+                    {customer.lastPurchaseLabel}
                   </p>
                 </div>
               </div>
@@ -115,15 +108,9 @@ export function VipDetailsDialog({
                 className="mt-0.5 size-4 shrink-0 text-muted-foreground"
                 aria-hidden="true"
               />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">
-                  Last purchase {customer.lastPurchaseAt}
-                </p>
-                <p className="mt-1 flex items-center gap-1.5 text-sm">
-                  <Heart className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                  Favorite category: {customer.favoriteCategory}
-                </p>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                Total spend is calculated from all recorded POS purchases.
+              </p>
             </div>
           </>
         )}

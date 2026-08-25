@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -146,4 +147,52 @@ class CustomerProfileTokenResponse(BaseModel):
 
     success: bool = True
     data: CustomerProfileTokenIssued
+    meta: dict = {}
+
+
+class VipCustomerRead(BaseModel):
+    """A customer flagged `is_vip`, enriched with a derived engagement status.
+
+    `customer_type` is the customer's separate POS-import-driven segment
+    (GENERAL/VIP/VVIP) — it isn't kept in sync with `is_vip` (a customer can
+    be manually flagged VIP while still POS-classified GENERAL), so it's
+    surfaced here as-is rather than treated as a "VIP level" of the flag.
+
+    `status` is computed, not stored: ACTIVE unless the customer's
+    administrative `Customer.status` isn't "active" (-> INACTIVE), or their
+    most recent non-zero `customer_monthly_spending` row is more than two
+    calendar months old (-> AT_RISK). `last_purchase_year`/`_month` reflect
+    that same most-recent spending row and are both null if the customer
+    has no recorded spending history yet.
+    """
+
+    id: UUID
+    name: str
+    email: str | None
+    phone: str
+    address: str | None
+    customer_type: CustomerType
+    status: Literal["ACTIVE", "AT_RISK", "INACTIVE"]
+    total_spent: Decimal
+    last_purchase_year: int | None
+    last_purchase_month: int | None
+    member_since: datetime
+
+
+class VipCustomersListResponse(BaseModel):
+    success: bool = True
+    data: list[VipCustomerRead]
+    meta: CustomersMeta
+
+
+class VipCustomerStats(BaseModel):
+    total_vip_customers: int
+    total_vip_revenue: Decimal
+    average_spend: Decimal
+    at_risk_count: int
+
+
+class VipCustomerStatsResponse(BaseModel):
+    success: bool = True
+    data: VipCustomerStats
     meta: dict = {}

@@ -28,10 +28,10 @@ function VipDirectorySkeleton() {
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow>
                 <TableHead>Customer</TableHead>
-                <TableHead>VIP Level</TableHead>
+                <TableHead>Segment</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Spending</TableHead>
-                <TableHead>Activity</TableHead>
+                <TableHead>Total Spent</TableHead>
+                <TableHead>Last Purchase</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -49,18 +49,8 @@ function VipDirectorySkeleton() {
                   </TableCell>
                   <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <Skeleton className="h-3.5 w-20" />
-                      <Skeleton className="h-3 w-28" />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <Skeleton className="h-3.5 w-16" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </TableCell>
+                  <TableCell><Skeleton className="h-3.5 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-3.5 w-16" /></TableCell>
                   <TableCell className="text-right">
                     <Skeleton className="ml-auto size-7 rounded-md" />
                   </TableCell>
