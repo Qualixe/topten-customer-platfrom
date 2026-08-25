@@ -49,9 +49,24 @@ import {
   listUsers,
   updateRolePermissions,
   updateUser,
+  updateUserPermissions,
   type AppUser,
+  type Permission,
   type Role,
 } from "@/lib/api/users";
+
+/** Every permission that exists, deduped across roles and grouped by
+ * category — the shared shape both the role editor and the per-user
+ * permission checklist render from. */
+function groupPermissionsByCategory(roles: Role[]): Record<string, Permission[]> {
+  const allPermissions = Array.from(
+    new Map(roles.flatMap((role) => role.permissions).map((p) => [p.key, p])).values()
+  );
+  return allPermissions.reduce<Record<string, Permission[]>>((acc, permission) => {
+    (acc[permission.category] ??= []).push(permission);
+    return acc;
+  }, {});
+}
 
 function getInitials(name: string): string {
   const initials = name
@@ -139,6 +154,7 @@ export function UsersSettings() {
   }, []);
 
   const canManageUsers = currentUser?.permissions.includes("users.manage") ?? false;
+  const permissionsByCategory = groupPermissionsByCategory(roles);
 
   if (!loading && currentUser && !canManageUsers) {
     return (
@@ -167,7 +183,11 @@ export function UsersSettings() {
             People who can sign in to this dashboard, and what they&apos;re allowed to do.
           </CardDescription>
           <CardAction>
-            <UserFormDialog roles={roles} onSaved={reload} />
+            <UserFormDialog
+              roles={roles}
+              permissionsByCategory={permissionsByCategory}
+              onSaved={reload}
+            />
           </CardAction>
         </CardHeader>
         <CardContent>
@@ -213,6 +233,7 @@ export function UsersSettings() {
                       <div className="flex justify-end gap-1.5">
                         <UserFormDialog
                           roles={roles}
+                          permissionsByCategory={permissionsByCategory}
                           existingUser={user}
                           onSaved={reload}
                           trigger={
@@ -236,7 +257,11 @@ export function UsersSettings() {
         </CardContent>
       </Card>
 
-      <RolePermissionsCard roles={roles} onSaved={reload} />
+      <RolePermissionsCard
+        roles={roles}
+        permissionsByCategory={permissionsByCategory}
+        onSaved={reload}
+      />
     </div>
   );
 }
@@ -280,11 +305,13 @@ function DeleteUserButton({
 
 function UserFormDialog({
   roles,
+  permissionsByCategory,
   existingUser,
   onSaved,
   trigger,
 }: {
   roles: Role[];
+  permissionsByCategory: Record<string, Permission[]>;
   existingUser?: AppUser;
   onSaved: () => void;
   trigger?: ReactElement;
@@ -310,7 +337,7 @@ function UserFormDialog({
           <DialogTitle>{isEdit ? "Edit User" : "Add User"}</DialogTitle>
           <DialogDescription>
             {isEdit
-              ? "Update this user's details, role, or password."
+              ? "Update this user's details, role, permissions, or password."
               : "Creates a real login for someone on your team."}
           </DialogDescription>
         </DialogHeader>
@@ -321,6 +348,7 @@ function UserFormDialog({
         <UserFormBody
           key={open ? (existingUser?.id ?? "new") : "closed"}
           roles={roles}
+          permissionsByCategory={permissionsByCategory}
           existingUser={existingUser}
           onSaved={onSaved}
           onClose={() => setOpen(false)}
@@ -332,11 +360,13 @@ function UserFormDialog({
 
 function UserFormBody({
   roles,
+  permissionsByCategory,
   existingUser,
   onSaved,
   onClose,
 }: {
   roles: Role[];
+  permissionsByCategory: Record<string, Permission[]>;
   existingUser?: AppUser;
   onSaved: () => void;
   onClose: () => void;
@@ -347,8 +377,26 @@ function UserFormBody({
   const [password, setPassword] = useState("");
   const [roleId, setRoleId] = useState(existingUser?.role.id ?? roles[0]?.id ?? "");
   const [isActive, setIsActive] = useState(existingUser?.isActive ?? true);
+  const [permissions, setPermissions] = useState<Set<string>>(
+    new Set(existingUser?.permissions ?? [])
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedRole = roles.find((role) => role.id === roleId);
+
+  function togglePermission(key: string, checked: boolean) {
+    setPermissions((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }
+
+  function resetPermissionsToRoleDefault() {
+    setPermissions(new Set(selectedRole?.permissions.map((p) => p.key) ?? []));
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -363,6 +411,7 @@ function UserFormBody({
           isActive,
           password: password || undefined,
         });
+        await updateUserPermissions(existingUser.id, Array.from(permissions));
       } else {
         await createUser({ name, email, password, roleId });
       }
@@ -444,6 +493,28 @@ function UserFormBody({
         </div>
       )}
 
+      {isEdit && (
+        <div className="flex flex-col gap-2 rounded-lg border p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Permissions for this person</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Starts from their role&apos;s defaults — check or uncheck anything to customize
+                it for just them, without changing the role itself.
+              </p>
+            </div>
+            <Button type="button" variant="ghost" size="sm" onClick={resetPermissionsToRoleDefault}>
+              Reset to role default
+            </Button>
+          </div>
+          <PermissionChecklist
+            permissionsByCategory={permissionsByCategory}
+            selected={permissions}
+            onToggle={togglePermission}
+          />
+        </div>
+      )}
+
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <DialogFooter showCloseButton>
@@ -455,18 +526,15 @@ function UserFormBody({
   );
 }
 
-function RolePermissionsCard({ roles, onSaved }: { roles: Role[]; onSaved: () => void }) {
-  const allPermissions = Array.from(
-    new Map(roles.flatMap((role) => role.permissions).map((p) => [p.key, p])).values()
-  );
-  const permissionsByCategory = allPermissions.reduce<Record<string, typeof allPermissions>>(
-    (acc, permission) => {
-      (acc[permission.category] ??= []).push(permission);
-      return acc;
-    },
-    {}
-  );
-
+function RolePermissionsCard({
+  roles,
+  permissionsByCategory,
+  onSaved,
+}: {
+  roles: Role[];
+  permissionsByCategory: Record<string, Permission[]>;
+  onSaved: () => void;
+}) {
   if (roles.length === 0) return null;
 
   return (
@@ -497,7 +565,7 @@ function RolePermissionsEditor({
   onSaved,
 }: {
   role: Role;
-  permissionsByCategory: Record<string, { key: string; label: string; category: string }[]>;
+  permissionsByCategory: Record<string, Permission[]>;
   onSaved: () => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(
@@ -555,24 +623,44 @@ function RolePermissionsEditor({
 
       {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {Object.entries(permissionsByCategory).map(([category, permissions]) => (
-          <div key={category} className="flex flex-col gap-2">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              {category}
-            </p>
-            {permissions.map((permission) => (
-              <label key={permission.key} className="flex items-center gap-2 text-sm">
-                <Switch
-                  checked={selected.has(permission.key)}
-                  onCheckedChange={(checked) => toggle(permission.key, checked)}
-                />
-                {permission.label}
-              </label>
-            ))}
-          </div>
-        ))}
-      </div>
+      <PermissionChecklist
+        permissionsByCategory={permissionsByCategory}
+        selected={selected}
+        onToggle={toggle}
+      />
+    </div>
+  );
+}
+
+/** The grouped-by-category checkbox grid shared by the role editor and the
+ * per-user permission editor below. */
+function PermissionChecklist({
+  permissionsByCategory,
+  selected,
+  onToggle,
+}: {
+  permissionsByCategory: Record<string, Permission[]>;
+  selected: Set<string>;
+  onToggle: (key: string, checked: boolean) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {Object.entries(permissionsByCategory).map(([category, permissions]) => (
+        <div key={category} className="flex flex-col gap-2">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            {category}
+          </p>
+          {permissions.map((permission) => (
+            <label key={permission.key} className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={selected.has(permission.key)}
+                onCheckedChange={(checked) => onToggle(permission.key, checked)}
+              />
+              {permission.label}
+            </label>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

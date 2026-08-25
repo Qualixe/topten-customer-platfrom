@@ -34,6 +34,7 @@ from app.models.permission import Permission
 from app.models.role import Role, role_permissions
 from app.models.site_settings import SiteSettings
 from app.models.user import User
+from app.models.user_permission_override import UserPermissionOverride
 from scripts.seed_auth import seed_auth
 
 TEST_DATABASE_URL = settings.DATABASE_URL.rsplit("/", 1)[0] + "/topten_test"
@@ -62,6 +63,7 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
             Customer,
             IntegrationCredential,
             SiteSettings,
+            UserPermissionOverride,
             User,
             Role,
             Permission,

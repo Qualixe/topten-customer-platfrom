@@ -41,5 +41,5 @@ def to_auth_user(user: User) -> AuthUser:
         email=user.email,
         name=user.name,
         role=user.role.name,
-        permissions=sorted(permission.key for permission in user.role.permissions),
+        permissions=user.effective_permission_keys,
     )

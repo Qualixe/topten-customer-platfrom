@@ -22,6 +22,10 @@ export interface AppUser {
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  /** This user's role permissions with their individual overrides applied
+   * — not the same as `role.permissions`, which is the role's own
+   * unmodified default set. */
+  permissions: string[];
 }
 
 export interface ListUsersResult {
@@ -79,6 +83,20 @@ export async function updateUser(id: string, input: UpdateUserInput): Promise<Ap
 
 export async function deleteUser(id: string): Promise<void> {
   await apiDelete<void>(`/users/${id}`);
+}
+
+/** Sets this user's *individual* permission overrides — pass the full
+ * desired effective set (their role's defaults plus/minus whatever's
+ * different for just them), not a delta. Only what actually differs from
+ * their role is stored, so other people with the same role are untouched. */
+export async function updateUserPermissions(
+  id: string,
+  permissionKeys: string[]
+): Promise<AppUser> {
+  const envelope = await apiPatch<ApiEnvelope<AppUser>>(`/users/${id}/permissions`, {
+    permission_keys: permissionKeys,
+  });
+  return envelope.data;
 }
 
 export async function listRoles(): Promise<Role[]> {

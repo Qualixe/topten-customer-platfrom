@@ -85,6 +85,19 @@ class UserRead(BaseModel):
     is_active: bool
     last_login_at: datetime | None
     created_at: datetime
+    # The role's permissions with this user's individual overrides applied
+    # — see `User.effective_permission_keys`. Not the same as
+    # `role.permissions`, which is the role's own unmodified default set.
+    permissions: list[str] = Field(validation_alias="effective_permission_keys")
+
+
+class UserPermissionsUpdate(BaseModel):
+    """PATCH body for one user's individual permission overrides — the
+    full desired *effective* set, not a delta. Anything already covered by
+    their role needs no override; anything else is stored as a grant or
+    revoke. See `services.users.set_user_permission_overrides`."""
+
+    permission_keys: list[str]
 
 
 class UserResponse(BaseModel):

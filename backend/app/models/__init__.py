@@ -13,6 +13,7 @@ from app.models.permission import Permission
 from app.models.role import Role, role_permissions
 from app.models.site_settings import SiteSettings
 from app.models.user import User
+from app.models.user_permission_override import UserPermissionOverride
 
 __all__ = [
     "AudienceRuleType",
@@ -33,5 +34,6 @@ __all__ = [
     "Role",
     "SiteSettings",
     "User",
+    "UserPermissionOverride",
     "role_permissions",
 ]

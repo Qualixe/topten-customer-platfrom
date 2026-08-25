@@ -1,11 +1,12 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import NotFoundError, ValidationAppError
 from app.core.security import hash_password
 from app.models import Permission, Role, User
+from app.models.user_permission_override import UserPermissionOverride
 
 
 async def get_user_or_404(db: AsyncSession, user_id: UUID) -> User:
@@ -100,3 +101,53 @@ async def update_role_permissions(
     await db.commit()
     await db.refresh(role)
     return role
+
+
+async def set_user_permission_overrides(
+    db: AsyncSession, user: User, *, permission_keys: list[str]
+) -> User:
+    """Sets `user`'s *effective* permission set to exactly `permission_keys`,
+    by storing the minimal diff against their role's own permissions as
+    overrides — a key already covered by the role needs no override at
+    all; a key the role doesn't grant becomes a `granted=True` row; a role
+    key deliberately left out becomes a `granted=False` row."""
+    desired = set(permission_keys)
+
+    if desired:
+        found = (
+            (await db.execute(select(Permission).where(Permission.key.in_(desired))))
+            .scalars()
+            .all()
+        )
+        by_key = {permission.key: permission for permission in found}
+        missing = desired - by_key.keys()
+        if missing:
+            raise ValidationAppError(f"Unknown permission keys: {sorted(missing)}")
+    else:
+        by_key = {}
+
+    role_keys = {permission.key for permission in user.role.permissions}
+    extra_grants = desired - role_keys
+    explicit_revokes = role_keys - desired
+
+    await db.execute(
+        delete(UserPermissionOverride).where(UserPermissionOverride.user_id == user.id)
+    )
+
+    all_permissions_by_key = by_key | {p.key: p for p in user.role.permissions}
+    for key in extra_grants:
+        db.add(
+            UserPermissionOverride(
+                user_id=user.id, permission_id=all_permissions_by_key[key].id, granted=True
+            )
+        )
+    for key in explicit_revokes:
+        db.add(
+            UserPermissionOverride(
+                user_id=user.id, permission_id=all_permissions_by_key[key].id, granted=False
+            )
+        )
+
+    await db.commit()
+    await db.refresh(user, attribute_names=["permission_overrides"])
+    return user

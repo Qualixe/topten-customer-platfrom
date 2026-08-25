@@ -6,9 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.dependencies import get_db, require_permission
 from app.models import User
-from app.services.users import create_user, delete_user, get_user_or_404, update_user
+from app.services.users import (
+    create_user,
+    delete_user,
+    get_user_or_404,
+    set_user_permission_overrides,
+    update_user,
+)
 from app.views.users import (
     UserCreate,
+    UserPermissionsUpdate,
     UserRead,
     UserResponse,
     UsersListResponse,
@@ -47,6 +54,12 @@ async def list_users(
     )
 
 
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user_endpoint(user_id: UUID, db: AsyncSession = Depends(get_db)) -> UserResponse:
+    user = await get_user_or_404(db, user_id)
+    return UserResponse(data=UserRead.model_validate(user))
+
+
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(
     payload: UserCreate, db: AsyncSession = Depends(get_db)
@@ -75,6 +88,18 @@ async def update_user_endpoint(
         is_active=payload.is_active,
         password=payload.password,
     )
+    return UserResponse(data=UserRead.model_validate(user))
+
+
+@router.patch("/{user_id}/permissions", response_model=UserResponse)
+async def update_user_permissions_endpoint(
+    user_id: UUID,
+    payload: UserPermissionsUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission("users.manage")),
+) -> UserResponse:
+    user = await get_user_or_404(db, user_id)
+    user = await set_user_permission_overrides(db, user, permission_keys=payload.permission_keys)
     return UserResponse(data=UserRead.model_validate(user))
 
 

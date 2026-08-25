@@ -46,10 +46,11 @@ async def get_current_user(
 
 
 def require_permission(key: str) -> Callable[[User], Coroutine[Any, Any, User]]:
-    """Dependency factory: gates a route on the caller's role having `key`."""
+    """Dependency factory: gates a route on the caller's *effective*
+    permissions — their role's, with their individual overrides applied."""
 
     async def check(user: User = Depends(get_current_user)) -> User:
-        if key not in {permission.key for permission in user.role.permissions}:
+        if key not in user.effective_permission_keys:
             raise ForbiddenError()
         return user
 
