@@ -1,7 +1,10 @@
 "use client";
 
-import { AddGiftDialog } from "@/components/dashboard/gifts/add-gift-dialog";
+import Link from "next/link";
+import { Gift, Plus } from "lucide-react";
+
 import { usePermissions } from "@/components/providers/permissions-provider";
+import { Button } from "@/components/ui/button";
 
 export function GiftsPageHeader() {
   const { hasPermission } = usePermissions();
@@ -14,7 +17,22 @@ export function GiftsPageHeader() {
           Manage the gift catalog and track redemption orders.
         </p>
       </div>
-      {hasPermission("gifts.manage") && <AddGiftDialog />}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          nativeButton={false}
+          render={<Link href="/dashboard/gifts/catalog" />}
+        >
+          <Gift />
+          View Catalog
+        </Button>
+        {hasPermission("gifts.manage") && (
+          <Button nativeButton={false} render={<Link href="/dashboard/gifts/new" />}>
+            <Plus />
+            Add Gift
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

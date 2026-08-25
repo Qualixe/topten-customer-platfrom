@@ -7,6 +7,7 @@ so there's no batch to run in the background."""
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 from uuid import UUID
 
 import httpx
@@ -18,7 +19,8 @@ from app.common.exceptions import NotFoundError, ValidationAppError
 from app.common.sms_gateway_client import RequestStyle
 from app.common.sms_gateway_client import send_sms as gateway_send_sms
 from app.models.customer import Customer
-from app.models.gift_catalog_item import GiftCatalogItem, GiftCategory
+from app.models.gift_catalog_item import GiftCatalogItem
+from app.models.gift_category import GiftCategory
 from app.models.gift_order import GiftOccasion, GiftOrder, GiftOrderStatus
 from app.services.sms_campaigns import SMS_GATEWAY_PROVIDER
 from app.views.notifications import (
@@ -27,6 +29,65 @@ from app.views.notifications import (
     DEFAULT_NUMBER_FIELD,
     DEFAULT_SENDER_ID_FIELD,
 )
+
+
+async def get_category_or_404(db: AsyncSession, category_id: UUID) -> GiftCategory:
+    category = (
+        await db.execute(select(GiftCategory).where(GiftCategory.public_id == category_id))
+    ).scalar_one_or_none()
+    if category is None:
+        raise NotFoundError("Gift category not found")
+    return category
+
+
+async def list_categories(db: AsyncSession) -> list[GiftCategory]:
+    result = await db.execute(select(GiftCategory).order_by(GiftCategory.name))
+    return list(result.scalars().all())
+
+
+async def create_category(db: AsyncSession, *, name: str) -> GiftCategory:
+    existing = (
+        await db.execute(select(GiftCategory).where(GiftCategory.name == name))
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise ValidationAppError(f'A category named "{name}" already exists')
+
+    category = GiftCategory(name=name)
+    db.add(category)
+    await db.commit()
+    await db.refresh(category)
+    return category
+
+
+async def update_category(db: AsyncSession, category: GiftCategory, *, name: str) -> GiftCategory:
+    conflict = (
+        await db.execute(
+            select(GiftCategory).where(GiftCategory.name == name, GiftCategory.id != category.id)
+        )
+    ).scalar_one_or_none()
+    if conflict is not None:
+        raise ValidationAppError(f'A category named "{name}" already exists')
+
+    category.name = name
+    await db.commit()
+    await db.refresh(category)
+    return category
+
+
+async def delete_category(db: AsyncSession, category: GiftCategory) -> None:
+    in_use = (
+        await db.execute(
+            select(GiftCatalogItem).where(GiftCatalogItem.category_id == category.id).limit(1)
+        )
+    ).scalar_one_or_none()
+    if in_use is not None:
+        raise ValidationAppError(
+            f'Cannot delete "{category.name}" — it\'s still used by one or more gifts. '
+            "Move those gifts to another category first."
+        )
+
+    await db.delete(category)
+    await db.commit()
 
 
 async def get_catalog_item_or_404(db: AsyncSession, item_id: UUID) -> GiftCatalogItem:
@@ -42,7 +103,7 @@ async def create_catalog_item(
     db: AsyncSession,
     *,
     name: str,
-    category: GiftCategory,
+    category_id: int,
     description: str,
     points_cost: int,
     retail_value: Decimal,
@@ -50,7 +111,7 @@ async def create_catalog_item(
 ) -> GiftCatalogItem:
     item = GiftCatalogItem(
         name=name,
-        category=category.value,
+        category_id=category_id,
         description=description,
         points_cost=points_cost,
         retail_value=retail_value,
@@ -67,7 +128,7 @@ async def update_catalog_item(
     item: GiftCatalogItem,
     *,
     name: str | None,
-    category: GiftCategory | None,
+    category_id: int | None,
     description: str | None,
     points_cost: int | None,
     retail_value: Decimal | None,
@@ -75,8 +136,8 @@ async def update_catalog_item(
 ) -> GiftCatalogItem:
     if name is not None:
         item.name = name
-    if category is not None:
-        item.category = category.value
+    if category_id is not None:
+        item.category_id = category_id
     if description is not None:
         item.description = description
     if points_cost is not None:
@@ -92,8 +153,11 @@ async def update_catalog_item(
 
 
 async def delete_catalog_item(db: AsyncSession, item: GiftCatalogItem) -> None:
+    image_path = Path(item.image_path) if item.image_path else None
     await db.delete(item)
     await db.commit()
+    if image_path and image_path.exists():
+        image_path.unlink()
 
 
 async def get_gift_order_or_404(db: AsyncSession, order_id: UUID) -> GiftOrder:

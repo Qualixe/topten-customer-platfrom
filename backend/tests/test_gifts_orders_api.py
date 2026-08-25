@@ -2,12 +2,14 @@ from datetime import date, timedelta
 from unittest.mock import AsyncMock, patch
 
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.credentials import merge_credential_data
 from app.common.sms_gateway_client import SendSmsResult
 from app.models.customer import Customer
 from app.models.gift_catalog_item import GiftCatalogItem
+from app.models.gift_category import GiftCategory
 from app.models.gift_order import GiftOrder
 from app.services.sms_campaigns import SMS_GATEWAY_PROVIDER
 
@@ -22,12 +24,29 @@ async def _add_customer(
     return customer
 
 
+async def _get_or_create_category(
+    db_session: AsyncSession, *, name: str = "Test Category"
+) -> GiftCategory:
+    existing = (
+        await db_session.execute(select(GiftCategory).where(GiftCategory.name == name))
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    category = GiftCategory(name=name)
+    db_session.add(category)
+    await db_session.commit()
+    await db_session.refresh(category)
+    return category
+
+
 async def _add_catalog_item(
     db_session: AsyncSession, *, name: str = "Test Gift", stock_quantity: int = 10
 ) -> GiftCatalogItem:
+    category = await _get_or_create_category(db_session)
     item = GiftCatalogItem(
         name=name,
-        category="FOOD_AND_BEVERAGE",
+        category_id=category.id,
         description="A test gift",
         points_cost=100,
         retail_value="500.00",
@@ -271,3 +290,27 @@ async def test_list_orders_filters_by_status(client: AsyncClient, db_session: As
     response = await client.get("/api/v1/gifts/orders", params={"status": "PENDING"})
     statuses = {row["status"] for row in response.json()["data"]}
     assert statuses == {"PENDING"}
+
+
+async def test_list_orders_filters_by_catalog_item(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    customer = await _add_customer(db_session)
+    matching_item = await _add_catalog_item(db_session, name="Matching Gift")
+    other_item = await _add_catalog_item(db_session, name="Other Gift")
+    matching_order = GiftOrder(
+        customer_id=customer.id, catalog_item_id=matching_item.id,
+        gift_name=matching_item.name, points_cost=matching_item.points_cost, occasion="BIRTHDAY",
+    )
+    other_order = GiftOrder(
+        customer_id=customer.id, catalog_item_id=other_item.id,
+        gift_name=other_item.name, points_cost=other_item.points_cost, occasion="BIRTHDAY",
+    )
+    db_session.add_all([matching_order, other_order])
+    await db_session.commit()
+
+    response = await client.get(
+        "/api/v1/gifts/orders", params={"catalog_item_id": str(matching_item.public_id)}
+    )
+    names = {row["gift_name"] for row in response.json()["data"]}
+    assert names == {"Matching Gift"}

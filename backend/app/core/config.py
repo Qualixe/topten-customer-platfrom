@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # publicly downloadable.
     BRANDING_UPLOAD_DIR: str = "var/public/branding"
 
+    # Gift catalog item photos — publicly servable like branding, but kept in
+    # its own directory since it's unrelated content.
+    GIFT_IMAGE_UPLOAD_DIR: str = "var/public/gift-images"
+
     # SMS campaigns: a placeholder rate for cost estimation only — no real
     # BulkSMS BD billing is wired up yet. Matches the frontend's mock rate
     # (see frontend/lib/mock/sms-account.ts) so estimates stay consistent

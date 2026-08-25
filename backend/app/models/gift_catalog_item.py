@@ -3,20 +3,12 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Integer, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
-
-
-class GiftCategory(str, enum.Enum):
-    FOOD_AND_BEVERAGE = "FOOD_AND_BEVERAGE"
-    HOME_AND_LIVING = "HOME_AND_LIVING"
-    BEAUTY_AND_WELLNESS = "BEAUTY_AND_WELLNESS"
-    ELECTRONICS = "ELECTRONICS"
-    GIFT_VOUCHERS = "GIFT_VOUCHERS"
-    KIDS_AND_TOYS = "KIDS_AND_TOYS"
+from app.models.gift_category import GiftCategory
 
 
 class StockStatus(str, enum.Enum):
@@ -44,8 +36,12 @@ class GiftCatalogItem(Base):
     )
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    category: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    category_id: Mapped[int] = mapped_column(
+        ForeignKey("gift_categories.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    category: Mapped[GiftCategory] = relationship(lazy="selectin")
     description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     points_cost: Mapped[int] = mapped_column(Integer, nullable=False)
     retail_value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)

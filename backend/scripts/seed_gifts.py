@@ -11,16 +11,27 @@ import asyncio
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.database import SessionLocal
 from app.models import GiftCatalogItem, GiftCategory
 
-# (name, category, description, points_cost, retail_value, stock_quantity)
-CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
+# The starter category list — after this seed runs, these are just regular
+# rows in `gift_categories`; admins can rename/delete/add to them freely.
+CATEGORY_NAMES = [
+    "Food & Beverage",
+    "Home & Living",
+    "Beauty & Wellness",
+    "Electronics",
+    "Gift Vouchers",
+    "Kids & Toys",
+]
+
+# (name, category name, description, points_cost, retail_value, stock_quantity)
+CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
     (
         "Premium Tea Gift Box",
-        GiftCategory.FOOD_AND_BEVERAGE,
+        "Food & Beverage",
         "An assortment of premium loose-leaf teas in a keepsake box.",
         800,
         "1200",
@@ -28,7 +39,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Artisan Chocolate Hamper",
-        GiftCategory.FOOD_AND_BEVERAGE,
+        "Food & Beverage",
         "Handcrafted chocolates from local artisan makers.",
         950,
         "1450",
@@ -36,7 +47,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Scented Candle Set",
-        GiftCategory.HOME_AND_LIVING,
+        "Home & Living",
         "A set of three hand-poured scented candles.",
         700,
         "1100",
@@ -44,7 +55,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Cotton Bedsheet Set",
-        GiftCategory.HOME_AND_LIVING,
+        "Home & Living",
         "Soft cotton bedsheet set with two pillow covers.",
         1800,
         "3200",
@@ -52,7 +63,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Ceramic Dinnerware Set",
-        GiftCategory.HOME_AND_LIVING,
+        "Home & Living",
         "A 12-piece ceramic dinnerware set for four.",
         2400,
         "4500",
@@ -60,7 +71,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Skincare Essentials Kit",
-        GiftCategory.BEAUTY_AND_WELLNESS,
+        "Beauty & Wellness",
         "Cleanser, toner, and moisturizer travel-size kit.",
         1100,
         "1900",
@@ -68,7 +79,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Spa Relaxation Set",
-        GiftCategory.BEAUTY_AND_WELLNESS,
+        "Beauty & Wellness",
         "Bath salts, body oil, and a soft towel wrap.",
         1350,
         "2100",
@@ -76,7 +87,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Electric Kettle",
-        GiftCategory.ELECTRONICS,
+        "Electronics",
         "1.7L stainless steel electric kettle with auto shut-off.",
         2200,
         "3800",
@@ -84,7 +95,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Bluetooth Speaker",
-        GiftCategory.ELECTRONICS,
+        "Electronics",
         "Compact portable speaker with 10-hour battery life.",
         2600,
         "4200",
@@ -92,7 +103,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Wireless Earbuds",
-        GiftCategory.ELECTRONICS,
+        "Electronics",
         "Entry-level wireless earbuds with charging case.",
         3000,
         "5000",
@@ -100,7 +111,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "৳500 Shopping Voucher",
-        GiftCategory.GIFT_VOUCHERS,
+        "Gift Vouchers",
         "Redeemable in-store voucher worth ৳500.",
         500,
         "500",
@@ -108,7 +119,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "৳1000 Shopping Voucher",
-        GiftCategory.GIFT_VOUCHERS,
+        "Gift Vouchers",
         "Redeemable in-store voucher worth ৳1,000.",
         950,
         "1000",
@@ -116,7 +127,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "৳2000 Shopping Voucher",
-        GiftCategory.GIFT_VOUCHERS,
+        "Gift Vouchers",
         "Redeemable in-store voucher worth ৳2,000.",
         1850,
         "2000",
@@ -124,7 +135,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Building Blocks Set",
-        GiftCategory.KIDS_AND_TOYS,
+        "Kids & Toys",
         "150-piece colorful building block set for kids.",
         900,
         "1500",
@@ -132,7 +143,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Plush Toy Bundle",
-        GiftCategory.KIDS_AND_TOYS,
+        "Kids & Toys",
         "A bundle of three soft plush toys.",
         650,
         "1000",
@@ -140,7 +151,7 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
     ),
     (
         "Kids Art Supply Kit",
-        GiftCategory.KIDS_AND_TOYS,
+        "Kids & Toys",
         "Crayons, markers, and a sketchbook for young artists.",
         550,
         "850",
@@ -149,9 +160,26 @@ CATALOG_ITEMS: list[tuple[str, GiftCategory, str, int, str, int]] = [
 ]
 
 
+async def _get_or_create_category(db: AsyncSession, name: str) -> GiftCategory:
+    category = (
+        await db.execute(select(GiftCategory).where(GiftCategory.name == name))
+    ).scalar_one_or_none()
+    if category is None:
+        category = GiftCategory(name=name)
+        db.add(category)
+        await db.flush()
+        print(f"created category: {name}")
+    return category
+
+
 async def seed_gifts(session_factory: async_sessionmaker = SessionLocal) -> None:
     async with session_factory() as db:
-        for name, category, description, points_cost, retail_value, stock_quantity in CATALOG_ITEMS:
+        categories_by_name = {
+            name: await _get_or_create_category(db, name) for name in CATEGORY_NAMES
+        }
+
+        for row in CATALOG_ITEMS:
+            name, category_name, description, points_cost, retail_value, stock_quantity = row
             existing = (
                 await db.execute(select(GiftCatalogItem).where(GiftCatalogItem.name == name))
             ).scalar_one_or_none()
@@ -161,7 +189,7 @@ async def seed_gifts(session_factory: async_sessionmaker = SessionLocal) -> None
             db.add(
                 GiftCatalogItem(
                     name=name,
-                    category=category.value,
+                    category_id=categories_by_name[category_name].id,
                     description=description,
                     points_cost=points_cost,
                     retail_value=Decimal(retail_value),

@@ -1,3 +1,7 @@
+"use client";
+
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { MoreVertical, Pencil, Repeat2, Trash2 } from "lucide-react";
 
 import { StockStatusBadge } from "@/components/dashboard/gifts/stock-status-badge";
@@ -9,35 +13,37 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatCurrency, GIFT_CATEGORY_LABELS, type GiftItem } from "@/lib/api/gifts";
-import { GIFT_CATEGORY_VISUALS } from "@/lib/gift-category-visuals";
+import { formatCurrency, resolveGiftImageUrl, type GiftItem } from "@/lib/api/gifts";
+import { getGiftCategoryVisual } from "@/lib/gift-category-visuals";
 import { cn } from "@/lib/utils";
 
 export function GiftCard({
   gift,
   canManage,
-  onView,
-  onEdit,
   onDelete,
 }: {
   gift: GiftItem;
   canManage: boolean;
-  onView: (gift: GiftItem) => void;
-  onEdit: (gift: GiftItem) => void;
   onDelete: (gift: GiftItem) => void;
 }) {
-  const visual = GIFT_CATEGORY_VISUALS[gift.category];
+  const router = useRouter();
+  const visual = getGiftCategoryVisual(gift.category.name);
   const Icon = visual.icon;
+  const imageUrl = resolveGiftImageUrl(gift.imageUrl);
+
+  function goToDetail() {
+    router.push(`/dashboard/gifts/${gift.id}`);
+  }
 
   return (
     <Card
       role="button"
       tabIndex={0}
-      onClick={() => onView(gift)}
+      onClick={goToDetail}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          onView(gift);
+          goToDetail();
         }
       }}
       className="cursor-pointer transition-shadow hover:shadow-md hover:ring-foreground/15"
@@ -45,11 +51,21 @@ export function GiftCard({
       <CardContent className="flex flex-col gap-3">
         <div
           className={cn(
-            "relative flex h-24 items-center justify-center rounded-lg",
-            visual.tileClassName
+            "relative flex h-24 items-center justify-center overflow-hidden rounded-lg",
+            !imageUrl && visual.tileClassName
           )}
         >
-          <Icon className={cn("size-9", visual.iconClassName)} aria-hidden="true" />
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt=""
+              fill
+              unoptimized
+              className="object-cover"
+            />
+          ) : (
+            <Icon className={cn("size-9", visual.iconClassName)} aria-hidden="true" />
+          )}
 
           <div className="absolute top-2 left-2">
             <StockStatusBadge status={gift.stockStatus} />
@@ -74,7 +90,7 @@ export function GiftCard({
                   <MoreVertical className="size-3.5" aria-hidden="true" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEdit(gift)}>
+                  <DropdownMenuItem onClick={goToDetail}>
                     <Pencil /> Edit
                   </DropdownMenuItem>
                   <DropdownMenuItem variant="destructive" onClick={() => onDelete(gift)}>
@@ -87,9 +103,7 @@ export function GiftCard({
         </div>
 
         <div className="min-w-0">
-          <p className="text-xs font-medium text-muted-foreground">
-            {GIFT_CATEGORY_LABELS[gift.category]}
-          </p>
+          <p className="text-xs font-medium text-muted-foreground">{gift.category.name}</p>
           <h3 className="truncate text-sm font-semibold">{gift.name}</h3>
         </div>
 

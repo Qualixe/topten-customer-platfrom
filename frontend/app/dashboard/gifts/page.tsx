@@ -2,13 +2,12 @@ import { Clock, Gift, PackageCheck, Truck } from "lucide-react";
 
 import { UpcomingBirthdaysList } from "@/components/dashboard/birthdays/upcoming-birthdays-list";
 import { GiftOrdersCard } from "@/components/dashboard/gifts/gift-orders-card";
-import { GiftsCatalog } from "@/components/dashboard/gifts/gifts-catalog";
 import { GiftsPageHeader } from "@/components/dashboard/gifts/page-header";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
 import { getBirthdaysOverview, type BirthdayCustomer } from "@/lib/api/birthdays";
 import { getCurrentUserSafe } from "@/lib/api/auth";
-import { getGiftStats, listGiftCatalog, listGiftOrders } from "@/lib/api/gifts";
+import { getGiftStats, listGiftOrders } from "@/lib/api/gifts";
 
 // Real, frequently-changing backend data — must not be statically cached.
 export const dynamic = "force-dynamic";
@@ -26,8 +25,7 @@ export default async function GiftsPage() {
 
   const canViewBirthdays = user.permissions.includes("customers.view");
 
-  const [{ items: catalog }, { items: orders }, stats, upcomingBirthdays] = await Promise.all([
-    listGiftCatalog(),
+  const [{ items: orders }, stats, upcomingBirthdays] = await Promise.all([
     listGiftOrders({ pageSize: 100 }),
     getGiftStats(),
     canViewBirthdays
@@ -72,7 +70,6 @@ export default async function GiftsPage() {
       <StatsGrid stats={statDefinitions} />
       {canViewBirthdays && <UpcomingBirthdaysList customers={upcomingBirthdays} />}
       <GiftOrdersCard orders={orders} />
-      <GiftsCatalog gifts={catalog} />
     </div>
   );
 }

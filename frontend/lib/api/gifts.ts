@@ -1,22 +1,21 @@
-import { apiDelete, apiGet, apiPatch, apiPost, buildQueryString } from "@/lib/api/client";
+import {
+  API_BASE_URL,
+  apiDelete,
+  apiGet,
+  apiPatch,
+  apiPost,
+  buildQueryString,
+  getAuthorizationHeader,
+} from "@/lib/api/client";
 import type { ApiEnvelope, ApiListEnvelope } from "@/lib/api/types";
+import { ApiError, NetworkError } from "@/lib/api/types";
 
-export type GiftCategory =
-  | "FOOD_AND_BEVERAGE"
-  | "HOME_AND_LIVING"
-  | "BEAUTY_AND_WELLNESS"
-  | "ELECTRONICS"
-  | "GIFT_VOUCHERS"
-  | "KIDS_AND_TOYS";
-
-export const GIFT_CATEGORY_LABELS: Record<GiftCategory, string> = {
-  FOOD_AND_BEVERAGE: "Food & Beverage",
-  HOME_AND_LIVING: "Home & Living",
-  BEAUTY_AND_WELLNESS: "Beauty & Wellness",
-  ELECTRONICS: "Electronics",
-  GIFT_VOUCHERS: "Gift Vouchers",
-  KIDS_AND_TOYS: "Kids & Toys",
-};
+/** Categories are admin-managed rows (see `listGiftCategories` etc. below),
+ * not a fixed list — this is just the id/name shape a gift references. */
+export interface GiftCategoryOption {
+  id: string;
+  name: string;
+}
 
 export type StockStatus = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
 
@@ -43,8 +42,11 @@ export function formatCurrency(value: number): string {
 export interface GiftItem {
   id: string;
   name: string;
-  category: GiftCategory;
+  category: GiftCategoryOption;
   description: string;
+  /** API-relative, e.g. "/gift-images/abc.png" — resolve with
+   * `resolveGiftImageUrl` before rendering. Null if no photo was uploaded. */
+  imageUrl: string | null;
   pointsCost: number;
   retailValue: number;
   stockStatus: StockStatus;
@@ -55,8 +57,9 @@ export interface GiftItem {
 interface GiftItemDto {
   id: string;
   name: string;
-  category: GiftCategory;
+  category: GiftCategoryOption;
   description: string;
+  imageUrl: string | null;
   pointsCost: number;
   retailValue: string | number;
   stockStatus: StockStatus;
@@ -70,6 +73,7 @@ function mapDtoToGiftItem(dto: GiftItemDto): GiftItem {
     name: dto.name,
     category: dto.category,
     description: dto.description,
+    imageUrl: dto.imageUrl,
     pointsCost: dto.pointsCost,
     retailValue: Number(dto.retailValue),
     stockStatus: dto.stockStatus,
@@ -78,11 +82,45 @@ function mapDtoToGiftItem(dto: GiftItemDto): GiftItem {
   };
 }
 
+/** Fetches the admin-managed category list, sorted by name. */
+export async function listGiftCategories(): Promise<GiftCategoryOption[]> {
+  const envelope = await apiGet<ApiListEnvelope<GiftCategoryOption>>("/gifts/categories");
+  return envelope.data;
+}
+
+/** Throws `ApiError` (422) if the name is already taken. */
+export async function createGiftCategory(name: string): Promise<GiftCategoryOption> {
+  const envelope = await apiPost<ApiEnvelope<GiftCategoryOption>>("/gifts/categories", { name });
+  return envelope.data;
+}
+
+/** Throws `ApiError` (422) if the new name is already taken. */
+export async function updateGiftCategory(id: string, name: string): Promise<GiftCategoryOption> {
+  const envelope = await apiPatch<ApiEnvelope<GiftCategoryOption>>(`/gifts/categories/${id}`, {
+    name,
+  });
+  return envelope.data;
+}
+
+/** Throws `ApiError` (422) if any gift still uses this category. */
+export async function deleteGiftCategory(id: string): Promise<void> {
+  await apiDelete<void>(`/gifts/categories/${id}`);
+}
+
+/** Absolute URL for a gift photo path returned by the API (which is
+ * API-relative, e.g. "/gift-images/abc.png") so `<img src>` resolves
+ * against the backend, not the frontend's own origin. */
+export function resolveGiftImageUrl(imageUrl: string | null): string | null {
+  if (!imageUrl) return null;
+  const apiOrigin = new URL(API_BASE_URL).origin;
+  return `${apiOrigin}${imageUrl}`;
+}
+
 export interface ListGiftCatalogParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  category?: GiftCategory | "all";
+  categoryId?: string | "all";
 }
 
 export interface PaginatedGiftCatalog {
@@ -99,7 +137,7 @@ export async function listGiftCatalog(
     page: params.page ?? 1,
     page_size: params.pageSize ?? 50,
     search: params.search?.trim() || undefined,
-    category: params.category && params.category !== "all" ? params.category : undefined,
+    category_id: params.categoryId && params.categoryId !== "all" ? params.categoryId : undefined,
   });
 
   const envelope = await apiGet<ApiListEnvelope<GiftItemDto>>(`/gifts/catalog${query}`);
@@ -112,9 +150,16 @@ export async function listGiftCatalog(
   };
 }
 
+/** Fetches a single catalog item by id. Throws `ApiError` (404) if it
+ * doesn't exist. */
+export async function getGiftCatalogItem(id: string): Promise<GiftItem> {
+  const envelope = await apiGet<ApiEnvelope<GiftItemDto>>(`/gifts/catalog/${id}`);
+  return mapDtoToGiftItem(envelope.data);
+}
+
 export interface GiftCatalogItemInput {
   name: string;
-  category: GiftCategory;
+  categoryId: string;
   description?: string;
   pointsCost: number;
   retailValue: number;
@@ -124,7 +169,7 @@ export interface GiftCatalogItemInput {
 export async function createGiftCatalogItem(input: GiftCatalogItemInput): Promise<GiftItem> {
   const envelope = await apiPost<ApiEnvelope<GiftItemDto>>("/gifts/catalog", {
     name: input.name,
-    category: input.category,
+    category_id: input.categoryId,
     description: input.description ?? "",
     points_cost: input.pointsCost,
     retail_value: input.retailValue,
@@ -139,7 +184,7 @@ export async function updateGiftCatalogItem(
 ): Promise<GiftItem> {
   const body: Record<string, unknown> = {};
   if (input.name !== undefined) body.name = input.name;
-  if (input.category !== undefined) body.category = input.category;
+  if (input.categoryId !== undefined) body.category_id = input.categoryId;
   if (input.description !== undefined) body.description = input.description;
   if (input.pointsCost !== undefined) body.points_cost = input.pointsCost;
   if (input.retailValue !== undefined) body.retail_value = input.retailValue;
@@ -151,6 +196,45 @@ export async function updateGiftCatalogItem(
 
 export async function deleteGiftCatalogItem(id: string): Promise<void> {
   await apiDelete<void>(`/gifts/catalog/${id}`);
+}
+
+/** Uploads (or replaces) a gift's photo — multipart, not JSON. Throws
+ * `ApiError` (e.g. wrong type, over 2 MB) or `NetworkError` on failure. */
+export async function uploadGiftImage(id: string, file: File): Promise<GiftItem> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  let response: Response;
+  try {
+    const authHeader = await getAuthorizationHeader();
+    response = await fetch(`${API_BASE_URL}/gifts/catalog/${id}/image`, {
+      method: "PUT",
+      headers: authHeader,
+      body: formData,
+    });
+  } catch (error) {
+    throw new NetworkError(error instanceof Error ? error.message : undefined);
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    let message = body || response.statusText;
+    try {
+      const parsed = JSON.parse(body) as { detail?: string };
+      message = parsed.detail ?? message;
+    } catch {
+      // Not JSON — fall back to the raw text/status above.
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  const envelope = (await response.json()) as ApiEnvelope<GiftItemDto>;
+  return mapDtoToGiftItem(envelope.data);
+}
+
+export async function removeGiftImage(id: string): Promise<GiftItem> {
+  const envelope = await apiDelete<ApiEnvelope<GiftItemDto>>(`/gifts/catalog/${id}/image`);
+  return mapDtoToGiftItem(envelope.data);
 }
 
 export interface GiftOrder {
@@ -215,6 +299,7 @@ export interface ListGiftOrdersParams {
   page?: number;
   pageSize?: number;
   status?: GiftOrderStatus | "all";
+  catalogItemId?: string;
 }
 
 export interface PaginatedGiftOrders {
@@ -231,6 +316,7 @@ export async function listGiftOrders(
     page: params.page ?? 1,
     page_size: params.pageSize ?? 50,
     status: params.status && params.status !== "all" ? params.status : undefined,
+    catalog_item_id: params.catalogItemId,
   });
 
   const envelope = await apiGet<ApiListEnvelope<GiftOrderDto>>(`/gifts/orders${query}`);

@@ -12,6 +12,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+export type NavChildItem = {
+  title: string;
+  href: string;
+  /** Hidden unless the current user's role has this permission. */
+  permission?: string;
+};
+
 export type NavItem = {
   title: string;
   href: string;
@@ -19,6 +26,8 @@ export type NavItem = {
   /** Hidden unless the current user's role has this permission. Omitted
    * entirely for items with no real backend gate behind them yet. */
   permission?: string;
+  /** Sub-links shown indented beneath this item, e.g. a quick "Add" shortcut. */
+  children?: NavChildItem[];
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -33,7 +42,16 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Crown,
     permission: "customers.view",
   },
-  { title: "Gifts", href: "/dashboard/gifts", icon: Gift, permission: "gifts.view" },
+  {
+    title: "Gifts",
+    href: "/dashboard/gifts",
+    icon: Gift,
+    permission: "gifts.view",
+    children: [
+      { title: "Gift Catalog", href: "/dashboard/gifts/catalog" },
+      { title: "Add Gift", href: "/dashboard/gifts/new", permission: "gifts.manage" },
+    ],
+  },
   { title: "Couriers", href: "/dashboard/couriers", icon: Truck },
   { title: "Notifications", href: "/dashboard/notifications", icon: Bell },
   { title: "Settings", href: "/dashboard/settings", icon: Settings },

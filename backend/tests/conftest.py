@@ -27,6 +27,9 @@ from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
 from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.customer_profile_token import CustomerProfileToken
+from app.models.gift_catalog_item import GiftCatalogItem
+from app.models.gift_category import GiftCategory
+from app.models.gift_order import GiftOrder
 from app.models.import_batch import ImportBatch
 from app.models.import_row_error import ImportRowError
 from app.models.integration_credential import IntegrationCredential
@@ -60,6 +63,9 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
             ImportBatch,
             CampaignRecipient,
             Campaign,
+            GiftOrder,
+            GiftCatalogItem,
+            GiftCategory,
             Customer,
             IntegrationCredential,
             SiteSettings,

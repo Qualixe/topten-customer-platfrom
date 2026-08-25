@@ -7,13 +7,9 @@ import type { GiftItem } from "@/lib/api/gifts";
 
 export function GiftsGrid({
   gifts,
-  onViewGift,
-  onEditGift,
   onDeleteGift,
 }: {
   gifts: GiftItem[];
-  onViewGift: (gift: GiftItem) => void;
-  onEditGift: (gift: GiftItem) => void;
   onDeleteGift: (gift: GiftItem) => void;
 }) {
   const { hasPermission } = usePermissions();
@@ -38,8 +34,6 @@ export function GiftsGrid({
           key={gift.id}
           gift={gift}
           canManage={canManage}
-          onView={onViewGift}
-          onEdit={onEditGift}
           onDelete={onDeleteGift}
         />
       ))}

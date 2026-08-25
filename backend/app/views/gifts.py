@@ -4,13 +4,53 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.gift_catalog_item import GiftCategory
 from app.models.gift_order import GiftOccasion, GiftOrderStatus
+
+
+class GiftCategoryCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+
+    @field_validator("name")
+    @classmethod
+    def _name_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Category name cannot be blank")
+        return stripped
+
+
+class GiftCategoryUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+
+    @field_validator("name")
+    @classmethod
+    def _name_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Category name cannot be blank")
+        return stripped
+
+
+class GiftCategoryRead(BaseModel):
+    id: UUID
+    name: str
+
+
+class GiftCategoryResponse(BaseModel):
+    success: bool = True
+    data: GiftCategoryRead
+    meta: dict = {}
+
+
+class GiftCategoriesListResponse(BaseModel):
+    success: bool = True
+    data: list[GiftCategoryRead]
+    meta: dict = {}
 
 
 class GiftCatalogItemCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    category: GiftCategory
+    category_id: UUID
     description: str = ""
     points_cost: int = Field(ge=0)
     retail_value: Decimal = Field(ge=0)
@@ -27,7 +67,7 @@ class GiftCatalogItemCreate(BaseModel):
 
 class GiftCatalogItemUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
-    category: GiftCategory | None = None
+    category_id: UUID | None = None
     description: str | None = None
     points_cost: int | None = Field(default=None, ge=0)
     retail_value: Decimal | None = Field(default=None, ge=0)
@@ -45,12 +85,11 @@ class GiftCatalogItemUpdate(BaseModel):
 
 
 class GiftCatalogItemRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID = Field(validation_alias="public_id")
+    id: UUID
     name: str
-    category: GiftCategory
+    category: GiftCategoryRead
     description: str
+    image_url: str | None
     points_cost: int
     retail_value: Decimal
     stock_quantity: int

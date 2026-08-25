@@ -6,7 +6,8 @@ from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientSt
 from app.models.customer import Customer, CustomerStatus
 from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.customer_profile_token import CustomerProfileToken
-from app.models.gift_catalog_item import GiftCatalogItem, GiftCategory
+from app.models.gift_catalog_item import GiftCatalogItem
+from app.models.gift_category import GiftCategory
 from app.models.gift_order import GiftOccasion, GiftOrder, GiftOrderStatus
 from app.models.import_batch import ImportBatch, ImportBatchStatus
 from app.models.import_row_error import ImportRowError
