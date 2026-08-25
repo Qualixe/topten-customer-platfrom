@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -332,7 +333,7 @@ function UserFormDialog({
         }
       />
 
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit User" : "Add User"}</DialogTitle>
           <DialogDescription>
@@ -652,7 +653,7 @@ function PermissionChecklist({
           </p>
           {permissions.map((permission) => (
             <label key={permission.key} className="flex items-center gap-2 text-sm">
-              <Switch
+              <Checkbox
                 checked={selected.has(permission.key)}
                 onCheckedChange={(checked) => onToggle(permission.key, checked)}
               />
