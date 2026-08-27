@@ -1,6 +1,13 @@
 import { apiGet, apiPatch } from "@/lib/api/client";
 import type { ApiEnvelope } from "@/lib/api/types";
 
+/** Present only when the link came from a campaign SMS (a campaign-scoped
+ * token) — an admin-issued token has no campaign, so this stays null. */
+export interface PublicCustomerProfileCampaign {
+  name: string;
+  alreadyVerified: boolean;
+}
+
 /**
  * Shape returned by GET/PATCH /api/v1/public/customer-profile/{token}.
  * Deliberately excludes id, phone, total_spent, is_vip, and status — this
@@ -11,6 +18,7 @@ export interface PublicCustomerProfile {
   dateOfBirth: string | null;
   address: string | null;
   email: string | null;
+  campaign: PublicCustomerProfileCampaign | null;
 }
 
 /**

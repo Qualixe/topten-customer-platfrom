@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarClock, History, UserCheck, UserPlus, Users, UserX, X } from "lucide-react";
+import {
+  CalendarClock,
+  History,
+  ShieldQuestion,
+  UserCheck,
+  UserPlus,
+  Users,
+  UserX,
+  X,
+} from "lucide-react";
 
 import { CustomerPickerDialog } from "@/components/dashboard/campaigns/new/customer-picker-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +42,15 @@ import {
   type CampaignType,
 } from "@/lib/api/campaigns";
 
-type StaticRuleType = "GENERAL" | "VIP" | "VVIP" | "MISSING_DOB" | "MISSING_ADDRESS" | "MISSING_DOB_AND_ADDRESS";
+type StaticRuleType =
+  | "GENERAL"
+  | "VIP"
+  | "VVIP"
+  | "MISSING_DOB"
+  | "MISSING_ADDRESS"
+  | "MISSING_DOB_AND_ADDRESS"
+  | "NEVER_VERIFIED"
+  | "TARGETED_NOT_VERIFIED";
 
 const STATIC_OPTIONS: {
   ruleType: StaticRuleType;
@@ -83,6 +100,20 @@ const STATIC_OPTIONS: {
     description: "Customers missing both date of birth and address",
     countKey: "missingDobAndAddress",
     icon: UserX,
+  },
+  {
+    ruleType: "NEVER_VERIFIED",
+    label: "Never verified",
+    description: "Customers who have never completed a campaign profile form",
+    countKey: "neverVerified",
+    icon: ShieldQuestion,
+  },
+  {
+    ruleType: "TARGETED_NOT_VERIFIED",
+    label: "Targeted, not verified",
+    description: "Sent at least one campaign but never completed a profile form",
+    countKey: "targetedNotVerified",
+    icon: ShieldQuestion,
   },
 ];
 

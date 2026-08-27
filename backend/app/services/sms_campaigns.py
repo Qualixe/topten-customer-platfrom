@@ -8,6 +8,7 @@ them. Recipient *snapshot creation* (turning a resolved audience into
 background via Celery.
 """
 
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
@@ -17,8 +18,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.credentials import get_or_create_credential_row
 from app.core.config import settings
 from app.models.campaign import AudienceRuleType, Campaign
-from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientStatus
+from app.models.campaign_recipient import (
+    CampaignRecipient,
+    CampaignRecipientStatus,
+    VerificationStatus,
+)
 from app.models.customer import Customer
+from app.models.customer_profile_token import CustomerProfileToken
 from app.services.sms_campaigns_audience import AudienceRule, build_condition
 from app.services.sms_campaigns_sms_utils import analyze_sms_message
 from app.views.sms_campaigns import CampaignRecipientRead, CampaignStats
@@ -37,6 +43,8 @@ STATIC_RULE_TYPES = [
     AudienceRuleType.MISSING_DOB,
     AudienceRuleType.MISSING_ADDRESS,
     AudienceRuleType.MISSING_DOB_AND_ADDRESS,
+    AudienceRuleType.NEVER_VERIFIED,
+    AudienceRuleType.TARGETED_NOT_VERIFIED,
 ]
 
 
@@ -142,23 +150,44 @@ async def list_campaign_recipients(
 
 
 async def get_campaign_stats(db: AsyncSession, campaign_id: int) -> CampaignStats:
-    """Recipient status breakdown for one campaign — a single grouped
-    COUNT query, not a Python-side tally over loaded rows."""
-    rows = (
+    """Recipient status breakdown for one campaign — two small grouped COUNT
+    queries (delivery status, verification status), not a Python-side tally
+    over loaded rows. These are two independent breakdowns of the same
+    `campaign_recipients` rows — a recipient's SMS delivery status and their
+    form-verification status are unrelated, so they're grouped separately
+    rather than forced into one combined query."""
+    status_rows = (
         await db.execute(
             select(CampaignRecipient.status, func.count())
             .where(CampaignRecipient.campaign_id == campaign_id)
             .group_by(CampaignRecipient.status)
         )
     ).all()
-    counts = {status: count for status, count in rows}
+    status_counts = {status: count for status, count in status_rows}
+
+    verification_rows = (
+        await db.execute(
+            select(CampaignRecipient.verification_status, func.count())
+            .where(CampaignRecipient.campaign_id == campaign_id)
+            .group_by(CampaignRecipient.verification_status)
+        )
+    ).all()
+    verification_counts = {status: count for status, count in verification_rows}
+
+    total = sum(status_counts.values())
+    verified = verification_counts.get(VerificationStatus.VERIFIED.value, 0)
+    pending_verification = verification_counts.get(VerificationStatus.PENDING.value, 0)
+    verification_rate = round((verified / total) * 100, 1) if total else 0.0
 
     return CampaignStats(
-        total=sum(counts.values()),
-        pending=counts.get(CampaignRecipientStatus.PENDING.value, 0),
-        sent=counts.get(CampaignRecipientStatus.SENT.value, 0),
-        delivered=counts.get(CampaignRecipientStatus.DELIVERED.value, 0),
-        failed=counts.get(CampaignRecipientStatus.FAILED.value, 0),
+        total=total,
+        pending=status_counts.get(CampaignRecipientStatus.PENDING.value, 0),
+        sent=status_counts.get(CampaignRecipientStatus.SENT.value, 0),
+        delivered=status_counts.get(CampaignRecipientStatus.DELIVERED.value, 0),
+        failed=status_counts.get(CampaignRecipientStatus.FAILED.value, 0),
+        verified=verified,
+        pending_verification=pending_verification,
+        verification_rate=verification_rate,
     )
 
 
@@ -170,3 +199,40 @@ async def get_campaign_by_public_id(db: AsyncSession, public_id: UUID) -> Campai
 
 def compute_sms_segments(message: str) -> int:
     return analyze_sms_message(message).segment_count
+
+
+async def get_or_create_campaign_profile_token(
+    db: AsyncSession, *, customer_id: int, campaign_id: int
+) -> CustomerProfileToken:
+    """The secure link put in a campaign SMS. Reuses an existing, still-valid
+    token for this exact (customer, campaign) pair instead of always minting
+    a new one — a retried send task must not invalidate a link the customer
+    may have already received in an earlier attempt."""
+    now = datetime.now(UTC)
+    existing = (
+        await db.execute(
+            select(CustomerProfileToken).where(
+                CustomerProfileToken.customer_id == customer_id,
+                CustomerProfileToken.campaign_id == campaign_id,
+                CustomerProfileToken.revoked_at.is_(None),
+                CustomerProfileToken.expires_at > now,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    token = CustomerProfileToken(customer_id=customer_id, campaign_id=campaign_id)
+    db.add(token)
+    await db.flush()
+    return token
+
+
+async def mark_recipient_verified(db: AsyncSession, recipient: CampaignRecipient) -> None:
+    """Called only from the public profile submission flow — see
+    app.controllers.public_profile. Idempotent: submitting the form again
+    (e.g. the customer double-taps save) doesn't move `verified_at`."""
+    if recipient.verification_status == VerificationStatus.VERIFIED.value:
+        return
+    recipient.verification_status = VerificationStatus.VERIFIED.value
+    recipient.verified_at = datetime.now(UTC)

@@ -214,6 +214,8 @@ async def test_audience_counts(client: AsyncClient, db_session: AsyncSession) ->
         "missing_dob",
         "missing_address",
         "missing_dob_and_address",
+        "never_verified",
+        "targeted_not_verified",
     }
 
 

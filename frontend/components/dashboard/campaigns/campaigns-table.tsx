@@ -29,6 +29,8 @@ const AUDIENCE_LABELS: Record<AudienceRuleType, string> = {
   NEVER_RECEIVED_TYPE: "Never received",
   RECEIVED_TYPE_BEFORE_DATE: "Received before",
   SPECIFIC_CUSTOMERS: "Specific customers",
+  NEVER_VERIFIED: "Never verified",
+  TARGETED_NOT_VERIFIED: "Targeted, not verified",
 };
 
 function describeAudience(campaign: SmsCampaign): string {

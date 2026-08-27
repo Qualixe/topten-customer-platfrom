@@ -45,6 +45,8 @@ const AUDIENCE_LABEL: Record<AudienceRule["ruleType"], string> = {
   NEVER_RECEIVED_TYPE: "Never received a campaign type",
   RECEIVED_TYPE_BEFORE_DATE: "Received a campaign type before a date",
   SPECIFIC_CUSTOMERS: "Specific customers",
+  NEVER_VERIFIED: "Never verified any profile form",
+  TARGETED_NOT_VERIFIED: "Targeted but not yet verified",
 };
 
 function describeAudienceRule(rule: AudienceRule): string {

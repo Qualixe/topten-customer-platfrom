@@ -35,11 +35,17 @@ from app.common.credentials import get_or_create_credential_row
 from app.common.sms_gateway_client import RequestStyle
 from app.common.sms_gateway_client import send_sms as gateway_send_sms
 from app.core.celery_app import celery_app
+from app.core.config import settings
 from app.database import SessionLocal, engine
 from app.models.campaign import Campaign, CampaignStatus
+from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientStatus
 from app.models.customer import Customer
-from app.services.sms_campaigns import SMS_GATEWAY_PROVIDER, get_sms_rate_per_segment
+from app.services.sms_campaigns import (
+    SMS_GATEWAY_PROVIDER,
+    get_or_create_campaign_profile_token,
+    get_sms_rate_per_segment,
+)
 from app.services.sms_campaigns_audience import AudienceRule, build_condition
 from app.services.sms_campaigns_personalization import render_message
 from app.services.sms_campaigns_sms_utils import estimate_sms_cost
@@ -160,6 +166,18 @@ async def send_campaign_messages_async(
         campaign.status = CampaignStatus.PROCESSING.value
         await session.commit()
 
+        # Only a published landing page gets a link in the SMS — a draft
+        # page isn't reachable publicly (see the public landing-page
+        # endpoint), so there'd be nothing for the customer to open.
+        landing_page = (
+            await session.execute(
+                select(CampaignLandingPage).where(
+                    CampaignLandingPage.campaign_id == campaign.id,
+                    CampaignLandingPage.published.is_(True),
+                )
+            )
+        ).scalar_one_or_none()
+
         pending = (
             await session.execute(
                 select(CampaignRecipient)
@@ -172,7 +190,19 @@ async def send_campaign_messages_async(
         ).scalars().all()
 
         for recipient in pending:
-            personalized_message = render_message(campaign.message, customer_name=recipient.name)
+            profile_link = None
+            if landing_page is not None:
+                token = await get_or_create_campaign_profile_token(
+                    session, customer_id=recipient.customer_id, campaign_id=campaign.id
+                )
+                profile_link = (
+                    f"{settings.FRONTEND_BASE_URL}/campaign/{landing_page.slug}"
+                    f"?token={token.token}"
+                )
+
+            personalized_message = render_message(
+                campaign.message, customer_name=recipient.name, profile_link=profile_link
+            )
             try:
                 result = await gateway_send_sms(
                     api_url=api_url,

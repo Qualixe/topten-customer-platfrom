@@ -10,10 +10,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import NotFoundError
 from app.models.campaign import AudienceRuleType, Campaign, CampaignType
+from app.models.campaign_landing_page import CampaignLandingPage
+from app.services import campaign_landing_pages as landing_page_service
 from app.services import sms_campaigns as service
 from app.services.sms_campaigns_audience import AudienceRule, resolve_since_campaign
 from app.services.sms_campaigns_sms_utils import estimate_sms_cost
 from app.tasks.sms_campaigns import resolve_campaign_audience
+from app.views.campaign_landing_pages import (
+    CampaignLandingPageCreate,
+    CampaignLandingPageRead,
+    CampaignLandingPageResponse,
+    CampaignLandingPageUpdate,
+)
 from app.views.sms_campaigns import (
     AudienceCounts,
     AudienceCountsResponse,
@@ -80,6 +88,8 @@ async def get_audience_counts(
             missing_dob=counts[AudienceRuleType.MISSING_DOB.value],
             missing_address=counts[AudienceRuleType.MISSING_ADDRESS.value],
             missing_dob_and_address=counts[AudienceRuleType.MISSING_DOB_AND_ADDRESS.value],
+            never_verified=counts[AudienceRuleType.NEVER_VERIFIED.value],
+            targeted_not_verified=counts[AudienceRuleType.TARGETED_NOT_VERIFIED.value],
         )
     )
 
@@ -280,3 +290,77 @@ async def get_campaign_stats(
     campaign = await _get_campaign_or_404(db, campaign_id)
     stats = await service.get_campaign_stats(db, campaign.id)
     return CampaignStatsResponse(data=stats)
+
+
+def _landing_page_to_read(
+    campaign: Campaign, landing_page: CampaignLandingPage
+) -> CampaignLandingPageRead:
+    return CampaignLandingPageRead(
+        id=landing_page.public_id,
+        campaign_id=campaign.public_id,
+        name=landing_page.name,
+        slug=landing_page.slug,
+        builder_data=landing_page.builder_data,
+        published=landing_page.published,
+        created_at=landing_page.created_at,
+        updated_at=landing_page.updated_at,
+    )
+
+
+@router.get("/{campaign_id}/landing-page", response_model=CampaignLandingPageResponse)
+async def get_campaign_landing_page(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.view")),
+) -> CampaignLandingPageResponse:
+    campaign = await _get_campaign_or_404(db, campaign_id)
+    landing_page = await landing_page_service.get_landing_page_by_campaign_id(db, campaign.id)
+    if landing_page is None:
+        raise NotFoundError("This campaign has no landing page yet")
+    return CampaignLandingPageResponse(data=_landing_page_to_read(campaign, landing_page))
+
+
+@router.post(
+    "/{campaign_id}/landing-page",
+    response_model=CampaignLandingPageResponse,
+    status_code=http_status.HTTP_201_CREATED,
+)
+async def create_campaign_landing_page(
+    campaign_id: UUID,
+    payload: CampaignLandingPageCreate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
+) -> CampaignLandingPageResponse:
+    campaign = await _get_campaign_or_404(db, campaign_id)
+    landing_page = await landing_page_service.create_landing_page(
+        db,
+        campaign_id=campaign.id,
+        name=payload.name,
+        slug=payload.slug,
+        builder_data=payload.builder_data,
+        published=payload.published,
+    )
+    return CampaignLandingPageResponse(data=_landing_page_to_read(campaign, landing_page))
+
+
+@router.patch("/{campaign_id}/landing-page", response_model=CampaignLandingPageResponse)
+async def update_campaign_landing_page(
+    campaign_id: UUID,
+    payload: CampaignLandingPageUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
+) -> CampaignLandingPageResponse:
+    campaign = await _get_campaign_or_404(db, campaign_id)
+    landing_page = await landing_page_service.get_landing_page_by_campaign_id(db, campaign.id)
+    if landing_page is None:
+        raise NotFoundError("This campaign has no landing page yet")
+
+    landing_page = await landing_page_service.update_landing_page(
+        db,
+        landing_page,
+        name=payload.name,
+        slug=payload.slug,
+        builder_data=payload.builder_data,
+        published=payload.published,
+    )
+    return CampaignLandingPageResponse(data=_landing_page_to_read(campaign, landing_page))

@@ -23,6 +23,11 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:3000"
 
+    # Where the public frontend lives — used to build the campaign
+    # landing-page link put inside campaign SMS messages
+    # (e.g. {FRONTEND_BASE_URL}/campaign/{slug}?token={token}).
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
+
     API_V1_PREFIX: str = "/api/v1"
 
     SECRET_KEY: str = "change-me-in-production"

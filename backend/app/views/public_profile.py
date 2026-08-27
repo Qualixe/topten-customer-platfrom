@@ -1,8 +1,18 @@
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 MAX_REASONABLE_AGE_YEARS = 120
+
+
+class PublicProfileCampaign(BaseModel):
+    """Present only when the link came from a campaign SMS (a
+    campaign-scoped token) — an admin-issued token has no campaign, so this
+    stays null. Deliberately just a name and a flag, nothing that could
+    identify the campaign or recipient internally."""
+
+    name: str
+    already_verified: bool
 
 
 class PublicProfileData(BaseModel):
@@ -10,12 +20,11 @@ class PublicProfileData(BaseModel):
     Deliberately excludes id, phone, total_spent, is_vip, and status —
     nothing here lets the frontend infer internal customer data."""
 
-    model_config = ConfigDict(from_attributes=True)
-
     name: str
     date_of_birth: date | None
     address: str | None
     email: str | None
+    campaign: PublicProfileCampaign | None = None
 
 
 class PublicProfileResponse(BaseModel):

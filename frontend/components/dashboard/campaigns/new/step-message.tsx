@@ -75,7 +75,7 @@ export function StepMessage({
                 </p>
                 <TooltipProvider>
                   <div className="flex flex-wrap gap-2">
-                    {PERSONALIZATION_TOKENS.map(({ token, label }) => (
+                    {PERSONALIZATION_TOKENS.map(({ token, description }) => (
                       <Tooltip key={token}>
                         <TooltipTrigger
                           render={
@@ -89,10 +89,7 @@ export function StepMessage({
                             </button>
                           }
                         />
-                        <TooltipContent>
-                          Insert {label} — replaced with each recipient&apos;s
-                          actual {label.toLowerCase()}
-                        </TooltipContent>
+                        <TooltipContent>{description}</TooltipContent>
                       </Tooltip>
                     ))}
                   </div>

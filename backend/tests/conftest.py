@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.core.security import create_access_token
 from app.main import app
 from app.models.campaign import Campaign
+from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
 from app.models.customer_monthly_spending import CustomerMonthlySpending
@@ -62,6 +63,7 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
             CustomerProfileToken,
             ImportBatch,
             CampaignRecipient,
+            CampaignLandingPage,
             Campaign,
             GiftOrder,
             GiftCatalogItem,

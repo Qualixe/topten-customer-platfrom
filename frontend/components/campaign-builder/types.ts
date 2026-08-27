@@ -11,11 +11,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+// Must match the backend's LandingPageBlockType exactly (see
+// backend/app/views/campaign_landing_pages.py) — this list is what gets
+// saved and validated server-side.
 export type BlockType =
   | "heading"
   | "text"
   | "image"
-  | "dob"
+  | "date_of_birth"
   | "address"
   | "email"
   | "button"
@@ -55,7 +58,7 @@ export const BLOCK_DEFINITIONS: Record<BlockType, BlockDefinition> = {
     icon: ImageIcon,
     defaultContent: { url: "", alt: "" },
   },
-  dob: {
+  date_of_birth: {
     label: "Date of Birth",
     icon: Calendar,
     defaultContent: { label: "Date of Birth" },

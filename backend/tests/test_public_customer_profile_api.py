@@ -51,6 +51,9 @@ async def test_valid_token_returns_profile_excluding_admin_fields(client: AsyncC
         "date_of_birth": None,
         "address": None,
         "email": None,
+        # This token was admin-issued, not from a campaign SMS, so there's
+        # no campaign context to attach.
+        "campaign": None,
     }
     for forbidden_field in ("id", "phone", "is_vip", "status", "total_spent"):
         assert forbidden_field not in data

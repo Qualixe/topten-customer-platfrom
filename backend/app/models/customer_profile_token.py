@@ -22,9 +22,20 @@ def _default_expiry() -> datetime:
 
 class CustomerProfileToken(Base):
     """A single-use-at-a-time secure link letting a customer reach their own
-    profile-completion page with no login system. Issued by an admin action
-    (see POST /api/v1/customers/{id}/profile-token); issuing a new one
-    revokes any still-active token for that customer."""
+    profile-completion page with no login system. Two ways a token comes to
+    exist:
+
+    - Admin-issued (`campaign_id` is null): POST
+      /api/v1/customers/{id}/profile-token. Issuing a new one revokes any
+      other still-active *admin-issued* token for that customer.
+    - Campaign-issued (`campaign_id` set): generated the first time a
+      campaign SMS is sent to this customer (see
+      app.tasks.sms_campaigns.send_campaign_messages_async), one per
+      (customer, campaign) pair, reused on retry rather than replaced.
+      These never revoke each other, so a customer can hold one valid link
+      per campaign at the same time — completing Campaign 1's form must not
+      break their still-unused Campaign 2 link.
+    """
 
     __tablename__ = "customer_profile_tokens"
 
@@ -34,6 +45,9 @@ class CustomerProfileToken(Base):
     )
     customer_id: Mapped[int] = mapped_column(
         ForeignKey("customers.id", ondelete="CASCADE"), nullable=False
+    )
+    campaign_id: Mapped[int | None] = mapped_column(
+        ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
     )
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_default_expiry

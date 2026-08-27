@@ -128,6 +128,8 @@ class AudienceCounts(BaseModel):
     missing_dob: int
     missing_address: int
     missing_dob_and_address: int
+    never_verified: int
+    targeted_not_verified: int
 
 
 class AudienceCountsResponse(BaseModel):
@@ -208,6 +210,10 @@ class CampaignStats(BaseModel):
     sent: int
     delivered: int
     failed: int
+    verified: int
+    pending_verification: int
+    # 0-100, one decimal place. 0 when there are no recipients yet.
+    verification_rate: float
 
 
 class CampaignStatsResponse(BaseModel):

@@ -78,6 +78,15 @@ class Customer(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    @property
+    def profile_status(self) -> str:
+        """COMPLETE once a customer has filled in DOB, address, and email —
+        typically via the public profile form. A POS import alone can never
+        make this COMPLETE, since it never touches these three fields."""
+        if self.date_of_birth and self.address and self.email:
+            return "COMPLETE"
+        return "INCOMPLETE"
+
 
 # Partial indexes for the "missing DOB" / "missing address" campaign audience
 # filters — declared after the class body so they can reference the mapped

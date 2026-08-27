@@ -51,6 +51,7 @@ class CustomerRead(BaseModel):
     customer_type: CustomerType
     total_spent: Decimal
     status: str
+    profile_status: Literal["COMPLETE", "INCOMPLETE"]
     created_at: datetime
 
 
@@ -196,3 +197,27 @@ class VipCustomerStatsResponse(BaseModel):
     success: bool = True
     data: VipCustomerStats
     meta: dict = {}
+
+
+class VerifiedCustomerRead(BaseModel):
+    """One row per (customer, campaign) the customer verified through — see
+    app.controllers.customers.list_verified_customers. A customer who
+    verified through two campaigns appears here twice, once per campaign;
+    the underlying Customer row is never duplicated."""
+
+    id: UUID
+    name: str
+    phone: str
+    campaign_id: UUID
+    campaign_name: str
+    customer_type: CustomerType
+    verified_at: datetime
+    date_of_birth: date | None
+    address: str | None
+    email: str | None
+
+
+class VerifiedCustomersListResponse(BaseModel):
+    success: bool = True
+    data: list[VerifiedCustomerRead]
+    meta: CustomersMeta

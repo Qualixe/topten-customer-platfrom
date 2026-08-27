@@ -16,6 +16,17 @@ class CampaignRecipientStatus(str, enum.Enum):
     FAILED = "FAILED"
 
 
+class VerificationStatus(str, enum.Enum):
+    """Whether this customer completed the campaign's profile form —
+    completely independent of `CampaignRecipientStatus` above. An SMS being
+    DELIVERED says nothing about whether the customer ever opened the link
+    and submitted the form; only a successful public-profile submission
+    (see app.controllers.public_profile) sets this to VERIFIED."""
+
+    PENDING = "PENDING"
+    VERIFIED = "VERIFIED"
+
+
 class CampaignRecipient(Base):
     """
     One row per customer resolved into a campaign's audience snapshot, at
@@ -74,6 +85,18 @@ class CampaignRecipient(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # Set when this recipient successfully submits the campaign's public
+    # profile form (see app.controllers.public_profile). Separate from
+    # `status` above on purpose — see VerificationStatus's docstring.
+    verification_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=VerificationStatus.PENDING.value,
+        server_default=VerificationStatus.PENDING.value,
+        index=True,
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

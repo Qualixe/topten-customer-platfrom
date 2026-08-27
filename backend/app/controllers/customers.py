@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import NotFoundError, ValidationAppError
 from app.common.phone import InvalidPhoneNumberError, normalize_phone
+from app.models.campaign import Campaign
+from app.models.campaign_recipient import CampaignRecipient, VerificationStatus
 from app.models.customer import Customer, CustomerStatus, CustomerType
 from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.customer_profile_token import CustomerProfileToken
@@ -26,6 +28,8 @@ from app.views.customers import (
     CustomerUpdate,
     UpcomingBirthday,
     UpcomingBirthdaysResponse,
+    VerifiedCustomerRead,
+    VerifiedCustomersListResponse,
     VipCustomerRead,
     VipCustomersListResponse,
     VipCustomerStats,
@@ -111,6 +115,9 @@ async def list_customers(
     status: str | None = Query(None),
     is_vip: bool | None = Query(None),
     customer_type: str | None = Query(None, description="GENERAL, VIP, or VVIP"),
+    profile_status: str | None = Query(None, description="COMPLETE or INCOMPLETE"),
+    created_from: date | None = Query(None),
+    created_to: date | None = Query(None),
     sort_by: str | None = Query(None),
     sort_dir: Literal["asc", "desc"] = Query("asc"),
 ) -> CustomersListResponse:
@@ -140,6 +147,23 @@ async def list_customers(
                 f"Invalid customer_type {customer_type!r}; expected one of {sorted(valid_types)}"
             )
         filters.append(Customer.customer_type == customer_type)
+
+    # profile_status is derived (see Customer.profile_status), not a stored
+    # column — this is that same COMPLETE rule expressed in SQL.
+    is_complete = and_(
+        Customer.date_of_birth.is_not(None),
+        Customer.address.is_not(None),
+        Customer.email.is_not(None),
+    )
+    if profile_status == "COMPLETE":
+        filters.append(is_complete)
+    elif profile_status == "INCOMPLETE":
+        filters.append(~is_complete)
+
+    if created_from is not None:
+        filters.append(Customer.created_at >= created_from)
+    if created_to is not None:
+        filters.append(Customer.created_at < created_to + timedelta(days=1))
 
     count_query = select(func.count()).select_from(Customer)
     list_query = select(Customer)
@@ -386,6 +410,105 @@ async def get_vip_customer_stats(
             at_risk_count=row.at_risk,
         )
     )
+
+
+@router.get("/verified", response_model=VerifiedCustomersListResponse)
+async def list_verified_customers(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, description="Matches name or phone"),
+    campaign_id: UUID | None = Query(None),
+    customer_type: str | None = Query(None, description="GENERAL, VIP, or VVIP"),
+    verified_from: date | None = Query(None),
+    verified_to: date | None = Query(None),
+) -> VerifiedCustomersListResponse:
+    """One row per (customer, campaign) VERIFIED pair — a customer who
+    verified through two campaigns appears twice here, never duplicating
+    the underlying Customer row. Reads only `CampaignRecipient.
+    verification_status`, never `status` (SMS delivery is a different
+    thing — see VerificationStatus's docstring)."""
+    filters: list[ColumnElement] = [
+        CampaignRecipient.verification_status == VerificationStatus.VERIFIED.value
+    ]
+
+    search = (search or "").strip()
+    if search:
+        pattern = f"%{search}%"
+        filters.append(or_(Customer.name.ilike(pattern), Customer.phone.ilike(pattern)))
+
+    if campaign_id is not None:
+        campaign = await _get_campaign_or_404(db, campaign_id)
+        filters.append(CampaignRecipient.campaign_id == campaign.id)
+
+    if customer_type and customer_type != "all":
+        valid_types = {member.value for member in CustomerType}
+        if customer_type not in valid_types:
+            raise ValidationAppError(
+                f"Invalid customer_type {customer_type!r}; expected one of {sorted(valid_types)}"
+            )
+        filters.append(Customer.customer_type == customer_type)
+
+    if verified_from is not None:
+        filters.append(CampaignRecipient.verified_at >= verified_from)
+    if verified_to is not None:
+        filters.append(CampaignRecipient.verified_at < verified_to + timedelta(days=1))
+
+    base_query = (
+        select(CampaignRecipient, Customer, Campaign)
+        .join(Customer, Customer.id == CampaignRecipient.customer_id)
+        .join(Campaign, Campaign.id == CampaignRecipient.campaign_id)
+    )
+    count_query = (
+        select(func.count())
+        .select_from(CampaignRecipient)
+        .join(Customer, Customer.id == CampaignRecipient.customer_id)
+        .join(Campaign, Campaign.id == CampaignRecipient.campaign_id)
+    )
+    for condition in filters:
+        base_query = base_query.where(condition)
+        count_query = count_query.where(condition)
+
+    total = (await db.execute(count_query)).scalar_one()
+
+    list_query = (
+        base_query.order_by(CampaignRecipient.verified_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    rows = (await db.execute(list_query)).all()
+    total_pages = max(1, -(-total // page_size))
+
+    data = [
+        VerifiedCustomerRead(
+            id=customer.public_id,
+            name=customer.name,
+            phone=customer.phone,
+            campaign_id=campaign.public_id,
+            campaign_name=campaign.name,
+            customer_type=customer.customer_type,
+            verified_at=recipient.verified_at,
+            date_of_birth=customer.date_of_birth,
+            address=customer.address,
+            email=customer.email,
+        )
+        for recipient, customer, campaign in rows
+    ]
+
+    return VerifiedCustomersListResponse(
+        data=data,
+        meta=CustomersMeta(page=page, page_size=page_size, total=total, total_pages=total_pages),
+    )
+
+
+async def _get_campaign_or_404(db: AsyncSession, campaign_id: UUID) -> Campaign:
+    campaign = (
+        await db.execute(select(Campaign).where(Campaign.public_id == campaign_id))
+    ).scalar_one_or_none()
+    if campaign is None:
+        raise NotFoundError("Campaign not found")
+    return campaign
 
 
 @router.patch("/{customer_id}", response_model=CustomerCreateResponse)

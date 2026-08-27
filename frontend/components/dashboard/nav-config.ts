@@ -6,6 +6,7 @@ import {
   Cake,
   Crown,
   Gift,
+  FileText,
   Truck,
   Bell,
   Settings,
@@ -32,9 +33,19 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Customers", href: "/dashboard/customers", icon: Users, permission: "customers.view" },
+  {
+    title: "Customers",
+    href: "/dashboard/customers",
+    icon: Users,
+    permission: "customers.view",
+    children: [
+      { title: "POS Customers", href: "/dashboard/customers/pos" },
+      { title: "Verified Customers", href: "/dashboard/customers/verified" },
+    ],
+  },
   { title: "Imports", href: "/dashboard/imports", icon: Upload, permission: "imports.manage" },
   { title: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone, permission: "campaigns.view" },
+  { title: "Forms", href: "/dashboard/forms", icon: FileText },
   { title: "Birthdays", href: "/dashboard/birthdays", icon: Cake, permission: "customers.view" },
   {
     title: "VIP Customers",

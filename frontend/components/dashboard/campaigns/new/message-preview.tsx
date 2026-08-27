@@ -3,11 +3,23 @@ import { cn } from "@/lib/utils";
 /** Sample recipient used when rendering token substitution in the preview. */
 const PREVIEW_RECIPIENT = {
   customer_name: "Amelia Chowdhury",
+  profile_link: "https://topten.example/campaign/vip-profile?token=sample",
 };
 
-/** Supported personalisation tokens and their display label. */
-export const PERSONALIZATION_TOKENS: { token: string; label: string }[] = [
-  { token: "{{customer_name}}", label: "Customer name" },
+/** Supported personalisation tokens, their display label, and the tooltip
+ * shown when hovering the insert button. */
+export const PERSONALIZATION_TOKENS: { token: string; label: string; description: string }[] = [
+  {
+    token: "{{customer_name}}",
+    label: "Customer name",
+    description: "Insert Customer name — replaced with each recipient's actual name",
+  },
+  {
+    token: "{{profile_link}}",
+    label: "Profile link",
+    description:
+      "Insert Profile link — replaced with each recipient's secure verification link. Only works if this campaign has a published landing page (Campaign detail → Landing Page Builder); otherwise it's left blank.",
+  },
 ];
 
 /**

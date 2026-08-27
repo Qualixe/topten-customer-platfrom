@@ -89,7 +89,7 @@ export function BlockProperties({
         </>
       )}
 
-      {(block.type === "dob" || block.type === "address" || block.type === "email") && (
+      {(block.type === "date_of_birth" || block.type === "address" || block.type === "email") && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="prop-label">Field label</Label>
           <Input

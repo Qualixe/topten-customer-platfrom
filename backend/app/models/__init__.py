@@ -2,7 +2,12 @@
 app.models.base.Base.metadata) can discover all tables."""
 
 from app.models.campaign import AudienceRuleType, Campaign, CampaignStatus, CampaignType
-from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientStatus
+from app.models.campaign_landing_page import CampaignLandingPage
+from app.models.campaign_recipient import (
+    CampaignRecipient,
+    CampaignRecipientStatus,
+    VerificationStatus,
+)
 from app.models.customer import Customer, CustomerStatus
 from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.customer_profile_token import CustomerProfileToken
@@ -21,6 +26,7 @@ from app.models.user_permission_override import UserPermissionOverride
 __all__ = [
     "AudienceRuleType",
     "Campaign",
+    "CampaignLandingPage",
     "CampaignRecipient",
     "CampaignRecipientStatus",
     "CampaignStatus",
@@ -43,5 +49,6 @@ __all__ = [
     "SiteSettings",
     "User",
     "UserPermissionOverride",
+    "VerificationStatus",
     "role_permissions",
 ]

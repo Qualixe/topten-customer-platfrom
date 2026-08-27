@@ -17,7 +17,7 @@ from sqlalchemy import ColumnElement, and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign import AudienceRuleType, Campaign, CampaignType
-from app.models.campaign_recipient import CampaignRecipient
+from app.models.campaign_recipient import CampaignRecipient, VerificationStatus
 from app.models.customer import Customer, CustomerType
 
 
@@ -151,5 +151,22 @@ def build_condition(rule: AudienceRule) -> ColumnElement[bool]:
             )
         )
         return exists_subquery.exists()
+
+    if rule.rule_type == AudienceRuleType.NEVER_VERIFIED:
+        verified_subquery = select(CampaignRecipient.id).where(
+            CampaignRecipient.customer_id == Customer.id,
+            CampaignRecipient.verification_status == VerificationStatus.VERIFIED.value,
+        )
+        return ~verified_subquery.exists()
+
+    if rule.rule_type == AudienceRuleType.TARGETED_NOT_VERIFIED:
+        targeted_subquery = select(CampaignRecipient.id).where(
+            CampaignRecipient.customer_id == Customer.id
+        )
+        verified_subquery = select(CampaignRecipient.id).where(
+            CampaignRecipient.customer_id == Customer.id,
+            CampaignRecipient.verification_status == VerificationStatus.VERIFIED.value,
+        )
+        return and_(targeted_subquery.exists(), ~verified_subquery.exists())
 
     raise ValueError(f"Unknown audience rule type: {rule.rule_type!r}")

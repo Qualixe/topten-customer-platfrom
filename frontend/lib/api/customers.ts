@@ -155,6 +155,166 @@ export async function listCustomers(
   };
 }
 
+export type ProfileStatus = "COMPLETE" | "INCOMPLETE";
+
+/** A row on the POS Customers page (/dashboard/customers/pos) — every
+ * customer in the master table, POS-imported or not. Kept separate from
+ * `Customer` above (the older, mock-shaped type every other customer
+ * component still uses) rather than extending it, so this new page can't
+ * accidentally break anything already built on that type. */
+export interface PosCustomerRow {
+  id: string;
+  name: string;
+  phone: string;
+  customerType: CustomerType;
+  dateOfBirth: string | null;
+  address: string | null;
+  profileStatus: ProfileStatus;
+  totalSpent: number;
+  createdAt: string;
+}
+
+interface PosCustomerDto {
+  id: string;
+  name: string;
+  phone: string;
+  customerType: string;
+  dateOfBirth: string | null;
+  address: string | null;
+  profileStatus: ProfileStatus;
+  totalSpent: string | number;
+  createdAt: string;
+}
+
+function mapDtoToPosCustomerRow(dto: PosCustomerDto): PosCustomerRow {
+  return {
+    id: dto.id,
+    name: dto.name,
+    phone: dto.phone,
+    customerType: toCustomerType(dto.customerType),
+    dateOfBirth: dto.dateOfBirth,
+    address: dto.address,
+    profileStatus: dto.profileStatus,
+    totalSpent: Number(dto.totalSpent),
+    createdAt: dto.createdAt,
+  };
+}
+
+export interface ListPosCustomersParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  customerType?: CustomerType | "all";
+  profileStatus?: ProfileStatus | "all";
+  createdFrom?: string;
+  createdTo?: string;
+}
+
+/** GET /api/v1/customers with the profile-completeness filter — the same
+ * master customer table, just the columns/filters the POS Customers page
+ * needs. Server-side filtering and pagination throughout. */
+export async function listPosCustomers(
+  params: ListPosCustomersParams = {}
+): Promise<PaginatedResponse<PosCustomerRow>> {
+  const query = buildQueryString({
+    page: params.page ?? 1,
+    page_size: params.pageSize ?? DEFAULT_PAGE_SIZE,
+    search: params.search?.trim() || undefined,
+    customer_type:
+      params.customerType && params.customerType !== "all" ? params.customerType : undefined,
+    profile_status:
+      params.profileStatus && params.profileStatus !== "all" ? params.profileStatus : undefined,
+    created_from: params.createdFrom,
+    created_to: params.createdTo,
+  });
+
+  const envelope = await apiGet<ApiListEnvelope<PosCustomerDto>>(`/customers${query}`);
+
+  return {
+    items: envelope.data.map(mapDtoToPosCustomerRow),
+    total: envelope.meta.total,
+    page: envelope.meta.page,
+    pageSize: envelope.meta.pageSize,
+  };
+}
+
+export interface VerifiedCustomerRow {
+  id: string;
+  name: string;
+  phone: string;
+  campaignId: string;
+  campaignName: string;
+  customerType: CustomerType;
+  verifiedAt: string;
+  dateOfBirth: string | null;
+  address: string | null;
+  email: string | null;
+}
+
+interface VerifiedCustomerDto {
+  id: string;
+  name: string;
+  phone: string;
+  campaignId: string;
+  campaignName: string;
+  customerType: string;
+  verifiedAt: string;
+  dateOfBirth: string | null;
+  address: string | null;
+  email: string | null;
+}
+
+function mapDtoToVerifiedCustomerRow(dto: VerifiedCustomerDto): VerifiedCustomerRow {
+  return {
+    id: dto.id,
+    name: dto.name,
+    phone: dto.phone,
+    campaignId: dto.campaignId,
+    campaignName: dto.campaignName,
+    customerType: toCustomerType(dto.customerType),
+    verifiedAt: dto.verifiedAt,
+    dateOfBirth: dto.dateOfBirth,
+    address: dto.address,
+    email: dto.email,
+  };
+}
+
+export interface ListVerifiedCustomersParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  campaignId?: string;
+  customerType?: CustomerType | "all";
+  verifiedFrom?: string;
+  verifiedTo?: string;
+}
+
+/** One row per (customer, campaign) verified pair — a customer verified
+ * through two campaigns appears twice. GET /api/v1/customers/verified. */
+export async function listVerifiedCustomers(
+  params: ListVerifiedCustomersParams = {}
+): Promise<PaginatedResponse<VerifiedCustomerRow>> {
+  const query = buildQueryString({
+    page: params.page ?? 1,
+    page_size: params.pageSize ?? DEFAULT_PAGE_SIZE,
+    search: params.search?.trim() || undefined,
+    campaign_id: params.campaignId,
+    customer_type:
+      params.customerType && params.customerType !== "all" ? params.customerType : undefined,
+    verified_from: params.verifiedFrom,
+    verified_to: params.verifiedTo,
+  });
+
+  const envelope = await apiGet<ApiListEnvelope<VerifiedCustomerDto>>(`/customers/verified${query}`);
+
+  return {
+    items: envelope.data.map(mapDtoToVerifiedCustomerRow),
+    total: envelope.meta.total,
+    page: envelope.meta.page,
+    pageSize: envelope.meta.pageSize,
+  };
+}
+
 export interface CustomerStats {
   totalCustomers: number;
   vipCustomers: number;

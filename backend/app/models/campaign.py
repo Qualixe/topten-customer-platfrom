@@ -44,6 +44,13 @@ class AudienceRuleType(str, enum.Enum):
     NEVER_RECEIVED_TYPE = "NEVER_RECEIVED_TYPE"
     RECEIVED_TYPE_BEFORE_DATE = "RECEIVED_TYPE_BEFORE_DATE"
     SPECIFIC_CUSTOMERS = "SPECIFIC_CUSTOMERS"
+    # Never completed a profile form for any campaign, ever (includes
+    # customers who were never even targeted by one).
+    NEVER_VERIFIED = "NEVER_VERIFIED"
+    # Targeted by at least one campaign but hasn't completed a profile form
+    # for any of them — narrower than NEVER_VERIFIED (excludes customers
+    # who were never targeted at all).
+    TARGETED_NOT_VERIFIED = "TARGETED_NOT_VERIFIED"
 
 
 class Campaign(Base):

@@ -39,13 +39,25 @@ export type AudienceRuleType =
   | "MISSING_DOB_AND_ADDRESS"
   | "NEVER_RECEIVED_TYPE"
   | "RECEIVED_TYPE_BEFORE_DATE"
-  | "SPECIFIC_CUSTOMERS";
+  | "SPECIFIC_CUSTOMERS"
+  | "NEVER_VERIFIED"
+  | "TARGETED_NOT_VERIFIED";
+
+type NoParamRuleType =
+  | "GENERAL"
+  | "VIP"
+  | "VVIP"
+  | "MISSING_DOB"
+  | "MISSING_ADDRESS"
+  | "MISSING_DOB_AND_ADDRESS"
+  | "NEVER_VERIFIED"
+  | "TARGETED_NOT_VERIFIED";
 
 /** Which customers a campaign targets. A discriminated union since four of
- * the ten rule types need extra input the others don't — see backend
+ * the rule types need extra input the others don't — see backend
  * app.modules.sms_campaigns.audience.AudienceRule. */
 export type AudienceRule =
-  | { ruleType: "GENERAL" | "VIP" | "VVIP" | "MISSING_DOB" | "MISSING_ADDRESS" | "MISSING_DOB_AND_ADDRESS" }
+  | { ruleType: NoParamRuleType }
   | { ruleType: "NEW_SINCE_DATE"; sinceDate: string }
   | { ruleType: "NEVER_RECEIVED_TYPE"; campaignType: CampaignType }
   | { ruleType: "RECEIVED_TYPE_BEFORE_DATE"; campaignType: CampaignType; beforeDate: string }
@@ -243,6 +255,8 @@ export interface AudienceCounts {
   missingDob: number;
   missingAddress: number;
   missingDobAndAddress: number;
+  neverVerified: number;
+  targetedNotVerified: number;
 }
 
 /** Live recipient counts for the six unparametrized audience rules,
@@ -349,6 +363,10 @@ export interface CampaignRecipientStats {
   sent: number;
   delivered: number;
   failed: number;
+  verified: number;
+  pendingVerification: number;
+  /** 0-100, one decimal place. */
+  verificationRate: number;
 }
 
 export async function getCampaignRecipientStats(
