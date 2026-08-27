@@ -4,16 +4,19 @@ import { FileWarning } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { AttachToCampaignDialog } from "@/components/dashboard/forms/attach-to-campaign-dialog";
 import { FormCanvas } from "@/components/form-builder/FormCanvas";
 import { FormPreview } from "@/components/form-builder/FormPreview";
 import { FormProperties } from "@/components/form-builder/FormProperties";
 import { FormSidebar } from "@/components/form-builder/FormSidebar";
 import { FormToolbar } from "@/components/form-builder/FormToolbar";
+import { usePermissions } from "@/components/providers/permissions-provider";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getForm, updateForm, type FormRecord } from "@/lib/api/forms";
+import { ApiError, getErrorMessage } from "@/lib/api/types";
 import { FIELD_DEFINITIONS } from "@/lib/form-builder/field-config";
-import { getForm, updateForm } from "@/lib/form-builder/storage";
-import type { FieldType, FormField, FormRecord } from "@/lib/form-builder/types";
+import type { FieldType, FormField } from "@/lib/form-builder/types";
 
 function newField(type: FieldType): FormField {
   return { id: crypto.randomUUID(), ...FIELD_DEFINITIONS[type].defaultField };
@@ -21,10 +24,11 @@ function newField(type: FieldType): FormField {
 
 /** Owns all builder state (fields, selection, preview, save status) for one
  * form. Page settings live here too since Save needs the name + fields at
- * once. Loads/saves through lib/form-builder/storage.ts (localStorage) —
- * there is no backend for forms yet. */
+ * once. Loads/saves through lib/api/forms.ts (a real backend). */
 export function FormBuilder({ formId }: { formId: string }) {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canManage = hasPermission("forms.manage");
 
   // undefined = still loading, null = not found
   const [form, setForm] = useState<FormRecord | null | undefined>(undefined);
@@ -33,14 +37,22 @@ export function FormBuilder({ formId }: { formId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "unsaved" | "saving">("saved");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loaded = getForm(formId);
-    setForm(loaded);
-    if (loaded) {
-      setFields(loaded.data.fields);
-      setName(loaded.name);
-    }
+    getForm(formId)
+      .then((loaded) => {
+        setForm(loaded);
+        setFields(loaded.builderData.fields);
+        setName(loaded.name);
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 404) {
+          setForm(null);
+          return;
+        }
+        setSaveError(getErrorMessage(err, "Unable to load this form. Please try again."));
+      });
   }, [formId]);
 
   function markUnsaved() {
@@ -111,11 +123,17 @@ export function FormBuilder({ formId }: { formId: string }) {
     markUnsaved();
   }
 
-  function handleSave() {
+  async function handleSave() {
     setSaveStatus("saving");
-    const updated = updateForm(formId, { name, data: { version: 1, fields } });
-    if (updated) setForm(updated);
-    setSaveStatus("saved");
+    setSaveError(null);
+    try {
+      const updated = await updateForm(formId, { name, builderData: { version: 1, fields } });
+      setForm(updated);
+      setSaveStatus("saved");
+    } catch (err) {
+      setSaveError(getErrorMessage(err, "Unable to save this form. Please try again."));
+      setSaveStatus("unsaved");
+    }
   }
 
   if (form === undefined) {
@@ -142,7 +160,10 @@ export function FormBuilder({ formId }: { formId: string }) {
         previewMode={previewMode}
         onTogglePreview={() => setPreviewMode((prev) => !prev)}
         onBack={() => router.push("/dashboard/forms")}
+        canManage={canManage}
+        extraAction={<AttachToCampaignDialog formId={formId} />}
       />
+      {saveError && <p className="text-sm text-destructive">{saveError}</p>}
 
       {previewMode ? (
         <FormPreview fields={fields} />
@@ -150,12 +171,18 @@ export function FormBuilder({ formId }: { formId: string }) {
         <>
           {/* Desktop: all three columns side by side. */}
           <div className="hidden gap-4 lg:grid lg:grid-cols-[240px_1fr_300px]">
-            <FormSidebar onAddField={handleAddField} />
-            <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
+            {canManage && <FormSidebar onAddField={handleAddField} />}
+            <div
+              className={
+                canManage
+                  ? "max-h-[calc(100vh-320px)] overflow-y-auto"
+                  : "col-span-2 col-start-1 max-h-[calc(100vh-320px)] overflow-y-auto"
+              }
+            >
               <FormCanvas
                 fields={fields}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
+                selectedId={canManage ? selectedId : null}
+                onSelect={canManage ? setSelectedId : () => {}}
                 onDelete={handleDelete}
                 onDuplicate={handleDuplicate}
                 onInsertNewFieldBefore={handleInsertBefore}
@@ -163,37 +190,54 @@ export function FormBuilder({ formId }: { formId: string }) {
                 onAppendNewField={handleAddField}
               />
             </div>
-            <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
-              <FormProperties field={selectedField} onChange={handlePropertyChange} onDelete={handleDelete} />
-            </div>
+            {canManage && (
+              <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
+                <FormProperties field={selectedField} onChange={handlePropertyChange} onDelete={handleDelete} />
+              </div>
+            )}
           </div>
 
           {/* Tablet/mobile: one panel at a time via tabs. */}
-          <Tabs defaultValue="canvas" className="lg:hidden">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="fields">Fields</TabsTrigger>
-              <TabsTrigger value="canvas">Canvas</TabsTrigger>
-              <TabsTrigger value="properties">Properties</TabsTrigger>
-            </TabsList>
-            <TabsContent value="fields">
-              <FormSidebar onAddField={handleAddField} />
-            </TabsContent>
-            <TabsContent value="canvas">
+          {canManage ? (
+            <Tabs defaultValue="canvas" className="lg:hidden">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="fields">Fields</TabsTrigger>
+                <TabsTrigger value="canvas">Canvas</TabsTrigger>
+                <TabsTrigger value="properties">Properties</TabsTrigger>
+              </TabsList>
+              <TabsContent value="fields">
+                <FormSidebar onAddField={handleAddField} />
+              </TabsContent>
+              <TabsContent value="canvas">
+                <FormCanvas
+                  fields={fields}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onDelete={handleDelete}
+                  onDuplicate={handleDuplicate}
+                  onInsertNewFieldBefore={handleInsertBefore}
+                  onReorder={handleReorder}
+                  onAppendNewField={handleAddField}
+                />
+              </TabsContent>
+              <TabsContent value="properties">
+                <FormProperties field={selectedField} onChange={handlePropertyChange} onDelete={handleDelete} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="lg:hidden">
               <FormCanvas
                 fields={fields}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
+                selectedId={null}
+                onSelect={() => {}}
                 onDelete={handleDelete}
                 onDuplicate={handleDuplicate}
                 onInsertNewFieldBefore={handleInsertBefore}
                 onReorder={handleReorder}
                 onAppendNewField={handleAddField}
               />
-            </TabsContent>
-            <TabsContent value="properties">
-              <FormProperties field={selectedField} onChange={handlePropertyChange} onDelete={handleDelete} />
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
         </>
       )}
     </div>

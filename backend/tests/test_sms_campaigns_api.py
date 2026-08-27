@@ -66,6 +66,42 @@ async def test_create_campaign_computes_segments_and_defers_recipients(
     assert data["status"] == "DRAFT"
 
 
+async def test_create_campaign_with_form_id_attaches_published_landing_page(
+    client: AsyncClient,
+) -> None:
+    """A form_id on creation must produce a landing page that's already
+    published by the time the response comes back — resolution/sending is
+    queued right after, so it can't be attached later without racing it."""
+    form_response = await client.post("/api/v1/forms", json={"name": "Quick Profile"})
+    form_id = form_response.json()["data"]["id"]
+    await client.patch(
+        f"/api/v1/forms/{form_id}",
+        json={
+            "builder_data": {
+                "version": 1,
+                "fields": [
+                    {"id": "f1", "type": "date_of_birth", "label": "Date of Birth"},
+                    {"id": "f2", "type": "address", "label": "Address"},
+                ],
+            }
+        },
+    )
+
+    response = await client.post(
+        "/api/v1/sms/campaigns", json=_create_payload(form_id=form_id)
+    )
+    assert response.status_code == 201
+    campaign_id = response.json()["data"]["id"]
+
+    landing_page_response = await client.get(
+        f"/api/v1/sms/campaigns/{campaign_id}/landing-page"
+    )
+    assert landing_page_response.status_code == 200
+    landing_page = landing_page_response.json()["data"]
+    assert landing_page["published"] is True
+    assert len(landing_page["builder_data"]["blocks"]) == 2
+
+
 async def test_create_campaign_rejects_new_since_date_without_a_date(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/sms/campaigns",

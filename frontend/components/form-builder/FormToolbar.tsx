@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,8 @@ export function FormToolbar({
   previewMode,
   onTogglePreview,
   onBack,
+  canManage = true,
+  extraAction,
 }: {
   name: string;
   onNameChange: (value: string) => void;
@@ -29,6 +32,10 @@ export function FormToolbar({
   previewMode: boolean;
   onTogglePreview: () => void;
   onBack: () => void;
+  /** Whether Save is available at all — a view-only user can still Preview. */
+  canManage?: boolean;
+  /** Extra button rendered next to Preview, e.g. "Send via Campaign". */
+  extraAction?: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -41,16 +48,17 @@ export function FormToolbar({
           onChange={(event) => onNameChange(event.target.value)}
           className="w-56"
           aria-label="Form name"
-          disabled={previewMode}
+          disabled={previewMode || !canManage}
         />
       </div>
 
       <div className="flex items-center gap-3">
-        <p className="text-xs text-muted-foreground">{SAVE_STATUS_LABEL[saveStatus]}</p>
+        {canManage && <p className="text-xs text-muted-foreground">{SAVE_STATUS_LABEL[saveStatus]}</p>}
         <Button type="button" variant="outline" onClick={onTogglePreview}>
           {previewMode ? "Edit" : "Preview"}
         </Button>
-        {!previewMode && (
+        {!previewMode && canManage && extraAction}
+        {!previewMode && canManage && (
           <Button type="button" onClick={onSave} disabled={saveStatus === "saving"}>
             {saveStatus === "saving" ? "Saving…" : "Save"}
           </Button>

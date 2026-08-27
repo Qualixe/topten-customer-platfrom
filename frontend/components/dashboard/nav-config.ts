@@ -45,7 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { title: "Imports", href: "/dashboard/imports", icon: Upload, permission: "imports.manage" },
   { title: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone, permission: "campaigns.view" },
-  { title: "Forms", href: "/dashboard/forms", icon: FileText },
+  { title: "Forms", href: "/dashboard/forms", icon: FileText, permission: "forms.view" },
   { title: "Birthdays", href: "/dashboard/birthdays", icon: Cake, permission: "customers.view" },
   {
     title: "VIP Customers",

@@ -11,6 +11,7 @@ from app.models.campaign_recipient import (
 from app.models.customer import Customer, CustomerStatus
 from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.customer_profile_token import CustomerProfileToken
+from app.models.form import Form, FormStatus
 from app.models.gift_catalog_item import GiftCatalogItem
 from app.models.gift_category import GiftCategory
 from app.models.gift_order import GiftOccasion, GiftOrder, GiftOrderStatus
@@ -35,6 +36,8 @@ __all__ = [
     "CustomerStatus",
     "CustomerMonthlySpending",
     "CustomerProfileToken",
+    "Form",
+    "FormStatus",
     "GiftCatalogItem",
     "GiftCategory",
     "GiftOccasion",

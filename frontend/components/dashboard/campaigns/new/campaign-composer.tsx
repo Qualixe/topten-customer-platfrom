@@ -82,6 +82,7 @@ export function CampaignComposer({
   const [audienceRule, setAudienceRule] = useState<AudienceRule | null>(null);
   const [pickedCustomers, setPickedCustomers] = useState<Customer[]>([]);
   const [message, setMessage] = useState("");
+  const [formId, setFormId] = useState("");
 
   function goToStep(step: StepId) {
     setCurrentStep(step);
@@ -110,6 +111,7 @@ export function CampaignComposer({
       senderId,
       scheduledAt: scheduledAtIso,
       status: "SCHEDULED",
+      formId: formId || undefined,
     });
 
     setConfirmation({
@@ -175,6 +177,8 @@ export function CampaignComposer({
         <StepMessage
           message={message}
           onMessageChange={setMessage}
+          formId={formId}
+          onFormIdChange={setFormId}
           onBack={back}
           onNext={next}
         />

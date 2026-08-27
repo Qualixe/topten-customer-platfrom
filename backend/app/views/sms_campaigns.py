@@ -43,6 +43,12 @@ class CampaignCreate(BaseModel):
     sender_id: str = Field(min_length=1, max_length=20)
     scheduled_at: datetime | None = None
     status: CampaignStatus = CampaignStatus.DRAFT
+    # Optional saved Form (see app.models.form) to attach as this
+    # campaign's landing page. Must happen synchronously in the same
+    # request as creation — audience resolution (and, for a "send now"
+    # campaign, sending) is queued to a background worker immediately
+    # after, so attaching afterward would race the send.
+    form_id: UUID | None = None
 
     @field_validator("name", "sender_id", "message")
     @classmethod

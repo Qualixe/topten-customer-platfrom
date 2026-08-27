@@ -188,6 +188,11 @@ export interface CreateCampaignInput {
   /** ISO datetime string. Omit for an unscheduled draft. */
   scheduledAt?: string;
   status?: SmsCampaignStatus;
+  /** A saved Form's id (see lib/api/forms.ts) to attach as this campaign's
+   * landing page. Attached and published synchronously as part of
+   * creation — required for {{profile_link}} in the message to resolve to
+   * a real link once the campaign sends. */
+  formId?: string;
 }
 
 /** Creates a real campaign via `POST /api/v1/sms/campaigns`. The audience
@@ -213,6 +218,7 @@ export async function createCampaign(input: CreateCampaignInput): Promise<SmsCam
     sender_id: input.senderId,
     scheduled_at: input.scheduledAt,
     status: input.status,
+    form_id: input.formId,
   });
   return mapDtoToCampaign(envelope.data);
 }

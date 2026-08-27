@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 
 import { FormField } from "@/components/dashboard/form-field";
@@ -14,14 +14,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { listForms, type FormRecord } from "@/lib/api/forms";
 import { analyzeSmsMessage } from "@/lib/sms";
 
 interface StepMessageProps {
   message: string;
   onMessageChange: (value: string) => void;
+  formId: string;
+  onFormIdChange: (formId: string) => void;
   onBack: () => void;
   onNext: () => void;
 }
@@ -29,11 +33,30 @@ interface StepMessageProps {
 export function StepMessage({
   message,
   onMessageChange,
+  formId,
+  onFormIdChange,
   onBack,
   onNext,
 }: StepMessageProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const analysis = analyzeSmsMessage(message);
+  const [forms, setForms] = useState<FormRecord[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listForms({ pageSize: 100 })
+      .then((page) => {
+        if (!cancelled) setForms(page.items);
+      })
+      .catch(() => {
+        if (!cancelled) setForms([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const usesProfileLink = message.includes("{{profile_link}}");
 
   /** Insert a token at the current cursor position in the textarea. */
   function insertToken(token: string) {
@@ -113,6 +136,40 @@ export function StepMessage({
 
               {/* Live analysis */}
               <MessageAnalysisBar analysis={analysis} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Landing Page</CardTitle>
+              <CardDescription>
+                Attach a saved form so {"{{profile_link}}"} becomes a real, working link once this
+                campaign sends. Optional — skip this if the message doesn&apos;t need a link.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <Select
+                value={formId || "none"}
+                onValueChange={(value) => onFormIdChange(value === "none" || !value ? "" : value)}
+              >
+                <SelectTrigger aria-label="Choose a form for the landing page">
+                  <SelectValue placeholder="No landing page" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No landing page</SelectItem>
+                  {forms.map((form) => (
+                    <SelectItem key={form.id} value={form.id}>
+                      {form.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {usesProfileLink && !formId && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  Your message uses {"{{profile_link}}"} but no form is attached — it will be sent
+                  literally as {"{{profile_link}}"} instead of a real link.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

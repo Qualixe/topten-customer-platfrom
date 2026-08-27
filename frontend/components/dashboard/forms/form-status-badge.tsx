@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { FormStatus } from "@/lib/form-builder/types";
+import type { FormStatus } from "@/lib/api/forms";
 
 const STATUS_CONFIG: Record<FormStatus, { label: string; variant: "default" | "secondary" }> = {
   PUBLISHED: { label: "Published", variant: "default" },

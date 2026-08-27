@@ -12,6 +12,7 @@ from app.common.exceptions import NotFoundError
 from app.models.campaign import AudienceRuleType, Campaign, CampaignType
 from app.models.campaign_landing_page import CampaignLandingPage
 from app.services import campaign_landing_pages as landing_page_service
+from app.services import forms as forms_service
 from app.services import sms_campaigns as service
 from app.services.sms_campaigns_audience import AudienceRule, resolve_since_campaign
 from app.services.sms_campaigns_sms_utils import estimate_sms_cost
@@ -142,7 +143,13 @@ async def create_campaign(
     app.tasks.sms_campaigns) so a large audience (millions of
     customers) never blocks the request. `total_recipients`/`estimated_cost`
     stay 0 and `recipients_resolved_at` stays null until that finishes —
-    poll GET /{id} to know when it's safe to trust them."""
+    poll GET /{id} to know when it's safe to trust them.
+
+    If `form_id` is set, that form's landing page is attached and published
+    synchronously, before the background worker is queued — a "send now"
+    campaign can start sending within moments of this request returning, so
+    the landing page has to exist and be live before that happens, not
+    after (attaching it afterward would race the send)."""
     rule = await resolve_since_campaign(db, payload.audience_rule)
 
     campaign = Campaign(
@@ -159,6 +166,17 @@ async def create_campaign(
     db.add(campaign)
     await db.commit()
     await db.refresh(campaign)
+
+    if payload.form_id is not None:
+        form = await forms_service.get_form_by_public_id(db, payload.form_id)
+        if form is None:
+            raise NotFoundError("Form not found")
+        landing_page, _skipped_labels = await forms_service.attach_form_to_campaign(
+            db, form=form, campaign_id=campaign.id, campaign_slug_seed=campaign.name
+        )
+        await landing_page_service.update_landing_page(
+            db, landing_page, name=None, slug=None, builder_data=None, published=True
+        )
 
     resolve_campaign_audience.delay(campaign.id)
 
@@ -364,3 +382,39 @@ async def update_campaign_landing_page(
         published=payload.published,
     )
     return CampaignLandingPageResponse(data=_landing_page_to_read(campaign, landing_page))
+
+
+@router.post(
+    "/{campaign_id}/landing-page/from-form/{form_id}",
+    response_model=CampaignLandingPageResponse,
+    status_code=http_status.HTTP_201_CREATED,
+)
+async def attach_form_to_campaign(
+    campaign_id: UUID,
+    form_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
+) -> CampaignLandingPageResponse:
+    """Copies a saved Form's fields into this campaign's landing page
+    (creating it if it doesn't have one yet, replacing its blocks if it
+    does) — this is how a reusable Form defined at /dashboard/forms
+    actually becomes sendable: it reuses the existing landing page/token/
+    verification pipeline rather than a second one. The page is always
+    created unpublished; publish it explicitly from the landing page
+    builder once you've reviewed it. Fields with no supported landing-page
+    block type (currently: generic Text Input and Phone) are left out —
+    their labels come back in `meta.skipped_field_labels` so the caller can
+    warn the admin.
+    """
+    campaign = await _get_campaign_or_404(db, campaign_id)
+    form = await forms_service.get_form_by_public_id(db, form_id)
+    if form is None:
+        raise NotFoundError("Form not found")
+
+    landing_page, skipped_labels = await forms_service.attach_form_to_campaign(
+        db, form=form, campaign_id=campaign.id, campaign_slug_seed=campaign.name
+    )
+    return CampaignLandingPageResponse(
+        data=_landing_page_to_read(campaign, landing_page),
+        meta={"skipped_field_labels": skipped_labels},
+    )

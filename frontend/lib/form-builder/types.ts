@@ -28,22 +28,12 @@ export interface FormField {
 }
 
 /** The structured JSON a form's fields are stored as — same shape as the
- * campaign landing page builder's `{ version, blocks }`, so wiring a real
- * backend later can follow the same pattern. */
+ * campaign landing page builder's `{ version, blocks }`. Persisted as
+ * `Form.builderData` — see lib/api/forms.ts for the saved-form record
+ * shape (id, name, status, etc.) this nests inside. */
 export interface FormBuilderData {
   version: 1;
   fields: FormField[];
-}
-
-export type FormStatus = "DRAFT" | "PUBLISHED";
-
-export interface FormRecord {
-  id: string;
-  name: string;
-  description: string;
-  status: FormStatus;
-  updatedAt: string;
-  data: FormBuilderData;
 }
 
 /** Drag-and-drop MIME types shared between the sidebar (drag source for new

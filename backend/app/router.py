@@ -5,6 +5,7 @@ from app.controllers import (
     auth,
     couriers,
     customers,
+    forms,
     gifts,
     health,
     imports,
@@ -48,3 +49,4 @@ api_router.include_router(
 api_router.include_router(users.router, prefix="/users", tags=["users"], dependencies=_protected)
 api_router.include_router(roles.router, prefix="/roles", tags=["roles"], dependencies=_protected)
 api_router.include_router(gifts.router, prefix="/gifts", tags=["gifts"], dependencies=_protected)
+api_router.include_router(forms.router, prefix="/forms", tags=["forms"], dependencies=_protected)

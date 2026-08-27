@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { FormRecord } from "@/lib/form-builder/types";
+import type { FormRecord } from "@/lib/api/forms";
 
 function formatUpdatedAt(iso: string): string {
   const date = new Date(iso);
@@ -30,12 +30,14 @@ function formatUpdatedAt(iso: string): string {
 export function FormsTable({
   forms,
   loading,
+  canManage,
   onDuplicate,
   onDeleteRequest,
   onPreviewRequest,
 }: {
   forms: FormRecord[];
   loading: boolean;
+  canManage: boolean;
   onDuplicate: (form: FormRecord) => void;
   onDeleteRequest: (form: FormRecord) => void;
   onPreviewRequest: (form: FormRecord) => void;
@@ -78,17 +80,21 @@ export function FormsTable({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem render={<Link href={`/dashboard/forms/${form.id}/builder`} />}>
-                      <Pencil /> Edit
+                      <Pencil /> {canManage ? "Edit" : "View"}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onPreviewRequest(form)}>
                       <Eye /> Preview
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onDuplicate(form)}>
-                      <Repeat2 /> Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" onClick={() => onDeleteRequest(form)}>
-                      <Trash2 /> Delete
-                    </DropdownMenuItem>
+                    {canManage && (
+                      <>
+                        <DropdownMenuItem onClick={() => onDuplicate(form)}>
+                          <Repeat2 /> Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onClick={() => onDeleteRequest(form)}>
+                          <Trash2 /> Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>

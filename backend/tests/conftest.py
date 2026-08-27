@@ -28,6 +28,7 @@ from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
 from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.customer_profile_token import CustomerProfileToken
+from app.models.form import Form
 from app.models.gift_catalog_item import GiftCatalogItem
 from app.models.gift_category import GiftCategory
 from app.models.gift_order import GiftOrder
@@ -65,6 +66,7 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
             CampaignRecipient,
             CampaignLandingPage,
             Campaign,
+            Form,
             GiftOrder,
             GiftCatalogItem,
             GiftCategory,

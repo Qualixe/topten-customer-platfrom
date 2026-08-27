@@ -2,7 +2,7 @@
 
 import { FormPreview } from "@/components/form-builder/FormPreview";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { FormRecord } from "@/lib/form-builder/types";
+import type { FormRecord } from "@/lib/api/forms";
 
 /** Read-only look at a form from the list page, without navigating into
  * the builder. Reuses the same FormPreview (and FieldRenderer underneath
@@ -24,7 +24,7 @@ export function PreviewFormDialog({
             <DialogHeader>
               <DialogTitle>{form.name}</DialogTitle>
             </DialogHeader>
-            <FormPreview fields={form.data.fields} />
+            <FormPreview fields={form.builderData.fields} />
           </>
         )}
       </DialogContent>

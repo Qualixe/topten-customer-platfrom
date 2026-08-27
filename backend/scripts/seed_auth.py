@@ -27,11 +27,13 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     ("users.manage", "Manage users and roles", "users"),
     ("gifts.view", "View gifts", "gifts"),
     ("gifts.manage", "Manage gifts", "gifts"),
+    ("forms.view", "View forms", "forms"),
+    ("forms.manage", "Manage forms", "forms"),
 ]
 
 ALL_KEYS = [key for key, _, _ in PERMISSIONS]
 MANAGER_KEYS = [key for key in ALL_KEYS if key != "users.manage"]
-STAFF_KEYS = ["customers.view", "campaigns.view", "gifts.view"]
+STAFF_KEYS = ["customers.view", "campaigns.view", "gifts.view", "forms.view"]
 
 # (name, description, permission keys)
 ROLES: list[tuple[str, str, list[str]]] = [
