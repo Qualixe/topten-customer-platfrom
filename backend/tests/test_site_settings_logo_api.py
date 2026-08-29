@@ -1,5 +1,6 @@
-"""GET/PUT/DELETE /api/v1/settings/logo — the site branding logo shown in
-the admin sidebar and on public customer-facing pages."""
+"""PUT/DELETE /api/v1/settings/logo (protected) and GET
+/api/v1/public/site-logo (unauthenticated — the logo is shown on /login and
+public customer-facing pages too, which have no session)."""
 
 from pathlib import Path
 
@@ -24,7 +25,13 @@ def _use_temp_branding_dir(tmp_path, monkeypatch) -> None:
 
 
 async def test_logo_starts_unset(client: AsyncClient) -> None:
-    response = await client.get("/api/v1/settings/logo")
+    response = await client.get("/api/v1/public/site-logo")
+    assert response.status_code == 200
+    assert response.json()["data"] == {"logo_url": None}
+
+
+async def test_public_site_logo_requires_no_auth(unauthenticated_client: AsyncClient) -> None:
+    response = await unauthenticated_client.get("/api/v1/public/site-logo")
     assert response.status_code == 200
     assert response.json()["data"] == {"logo_url": None}
 
@@ -40,7 +47,7 @@ async def test_uploading_a_logo_returns_a_servable_url(client: AsyncClient) -> N
     assert logo_url is not None
     assert logo_url.startswith("/branding/")
 
-    follow_up = await client.get("/api/v1/settings/logo")
+    follow_up = await client.get("/api/v1/public/site-logo")
     assert follow_up.json()["data"]["logo_url"] == logo_url
 
 
@@ -92,5 +99,5 @@ async def test_removing_the_logo_clears_it(client: AsyncClient, tmp_path: Path) 
     assert response.json()["data"] == {"logo_url": None}
     assert not logo_path.exists()
 
-    follow_up = await client.get("/api/v1/settings/logo")
+    follow_up = await client.get("/api/v1/public/site-logo")
     assert follow_up.json()["data"]["logo_url"] is None

@@ -16,14 +16,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { Delivery } from "@/lib/mock/deliveries";
+import type { Delivery } from "@/lib/api/deliveries";
 
-export function DeliveriesDirectory({ deliveries }: { deliveries: Delivery[] }) {
+export function DeliveriesDirectory({
+  deliveries,
+  canManage,
+}: {
+  deliveries: Delivery[];
+  canManage: boolean;
+}) {
   const [search, setSearch] = useState("");
   const [courierFilter, setCourierFilter] = useState<CourierFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+  // Held by id (not the object itself) so the dialog shows fresh data after
+  // a status update triggers `router.refresh()` and `deliveries` updates.
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const selectedDelivery = deliveries.find((delivery) => delivery.id === selectedDeliveryId) ?? null;
 
   const filteredDeliveries = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -43,7 +52,7 @@ export function DeliveriesDirectory({ deliveries }: { deliveries: Delivery[] }) 
   }, [deliveries, search, courierFilter, statusFilter]);
 
   function handleViewDelivery(delivery: Delivery) {
-    setSelectedDelivery(delivery);
+    setSelectedDeliveryId(delivery.id);
     setDialogOpen(true);
   }
 
@@ -74,6 +83,7 @@ export function DeliveriesDirectory({ deliveries }: { deliveries: Delivery[] }) 
           delivery={selectedDelivery}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
+          canManage={canManage}
         />
       </CardContent>
     </Card>

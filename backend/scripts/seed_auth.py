@@ -22,7 +22,8 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     ("campaigns.view", "View SMS campaigns", "campaigns"),
     ("campaigns.manage", "Manage SMS campaigns", "campaigns"),
     ("imports.manage", "Import customer data", "imports"),
-    ("couriers.manage", "Manage courier orders", "couriers"),
+    ("couriers.view", "View courier deliveries", "couriers"),
+    ("couriers.manage", "Manage courier deliveries", "couriers"),
     ("settings.manage", "Manage site & integration settings", "settings"),
     ("users.manage", "Manage users and roles", "users"),
     ("gifts.view", "View gifts", "gifts"),
@@ -33,7 +34,7 @@ PERMISSIONS: list[tuple[str, str, str]] = [
 
 ALL_KEYS = [key for key, _, _ in PERMISSIONS]
 MANAGER_KEYS = [key for key in ALL_KEYS if key != "users.manage"]
-STAFF_KEYS = ["customers.view", "campaigns.view", "gifts.view", "forms.view"]
+STAFF_KEYS = ["customers.view", "campaigns.view", "gifts.view", "forms.view", "couriers.view"]
 
 # (name, description, permission keys)
 ROLES: list[tuple[str, str, list[str]]] = [

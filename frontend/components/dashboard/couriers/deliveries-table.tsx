@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Delivery } from "@/lib/mock/deliveries";
+import type { Delivery } from "@/lib/api/deliveries";
 
 export function DeliveriesTable({
   deliveries,

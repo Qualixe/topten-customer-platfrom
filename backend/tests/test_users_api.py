@@ -166,6 +166,7 @@ async def test_user_permissions_default_to_their_role(
     assert response.status_code == 200
     assert sorted(response.json()["data"]["permissions"]) == [
         "campaigns.view",
+        "couriers.view",
         "customers.view",
         "forms.view",
         "gifts.view",
@@ -219,6 +220,7 @@ async def test_permission_override_is_scoped_to_one_user(
     response = await client.get(f"/api/v1/users/{other.public_id}")
     assert sorted(response.json()["data"]["permissions"]) == [
         "campaigns.view",
+        "couriers.view",
         "customers.view",
         "forms.view",
         "gifts.view",

@@ -1,3 +1,7 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -9,15 +13,34 @@ import {
 import { DeliveryStatusBadge } from "@/components/dashboard/couriers/delivery-status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { Delivery, DeliveryStatus } from "@/lib/mock/deliveries";
+import { updateDeliveryStatus, type Delivery, type DeliveryStatus } from "@/lib/api/deliveries";
+import { getErrorMessage } from "@/lib/api/types";
+
+const STATUS_OPTIONS: DeliveryStatus[] = [
+  "Pending Pickup",
+  "In Transit",
+  "Out for Delivery",
+  "Delivered",
+  "Failed",
+  "Returned",
+];
 
 const TRACKING_STEPS: { status: DeliveryStatus; label: string }[] = [
   { status: "Pending Pickup", label: "Pending Pickup" },
@@ -80,10 +103,12 @@ export function DeliveryDetailsDialog({
   delivery,
   open,
   onOpenChange,
+  canManage,
 }: {
   delivery: Delivery | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canManage: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,9 +189,82 @@ export function DeliveryDetailsDialog({
                 </p>
               </div>
             </div>
+
+            {canManage && (
+              <>
+                <Separator />
+                <UpdateStatusForm key={delivery.id} delivery={delivery} />
+              </>
+            )}
           </>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function UpdateStatusForm({ delivery }: { delivery: Delivery }) {
+  const router = useRouter();
+  const [status, setStatus] = useState<DeliveryStatus>(delivery.status);
+  const [notes, setNotes] = useState(delivery.notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const needsNotes = status === "Failed" || status === "Returned";
+  const isUnchanged = status === delivery.status && notes === (delivery.notes ?? "");
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await updateDeliveryStatus(delivery.id, {
+        status,
+        notes: needsNotes ? notes : undefined,
+      });
+      router.refresh();
+    } catch (err) {
+      setError(getErrorMessage(err, "Unable to update this delivery."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs font-medium text-muted-foreground">Update status</p>
+      <Select value={status} onValueChange={(value) => setStatus((value as DeliveryStatus) ?? status)}>
+        <SelectTrigger aria-label="Update delivery status">
+          <SelectValue>{(value: DeliveryStatus) => value}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {STATUS_OPTIONS.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {needsNotes && (
+        <Textarea
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          placeholder="What happened?"
+          className="min-h-16 resize-none"
+        />
+      )}
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <Button
+        type="button"
+        size="sm"
+        className="self-end"
+        onClick={handleSave}
+        disabled={saving || isUnchanged || (needsNotes && !notes.trim())}
+      >
+        {saving ? "Saving…" : "Save"}
+      </Button>
+    </div>
   );
 }

@@ -219,10 +219,10 @@ async def test_staff_cannot_upload_site_logo(
 async def test_staff_can_still_view_site_logo(
     unauthenticated_client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """The logo is basic UI chrome shown to every logged-in user, not a
-    settings-management action — it stays open to anyone authenticated."""
+    """The logo is basic UI chrome shown on every page, logged in or not
+    (see /api/v1/public/site-logo) — not a settings-management action."""
     headers = await _staff_headers(db_session)
-    response = await unauthenticated_client.get("/api/v1/settings/logo", headers=headers)
+    response = await unauthenticated_client.get("/api/v1/public/site-logo", headers=headers)
     assert response.status_code == 200
 
 

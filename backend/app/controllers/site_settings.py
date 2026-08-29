@@ -12,6 +12,12 @@ from app.models.site_settings import SiteSettings
 from app.views.site_settings import SiteLogoData, SiteLogoResponse
 
 router = APIRouter()
+# Just the logo's current URL — mounted unauthenticated (see app.router)
+# under /public. It has to be, since the logo is shown on pages a logged-
+# out visitor sees: /login, and the public customer/campaign profile pages.
+# It's read-only and reveals nothing beyond a public branding image path,
+# so this is safe to expose without auth.
+public_router = APIRouter()
 
 # Raster formats only — an uploaded SVG could carry an embedded <script>;
 # rendering the logo via a plain <img> already prevents it from executing,
@@ -36,8 +42,8 @@ def _logo_url(logo_path: str | None) -> str | None:
     return f"/branding/{Path(logo_path).name}"
 
 
-@router.get("/logo", response_model=SiteLogoResponse)
-async def get_site_logo(db: AsyncSession = Depends(get_db)) -> SiteLogoResponse:
+@public_router.get("/site-logo", response_model=SiteLogoResponse)
+async def get_public_site_logo(db: AsyncSession = Depends(get_db)) -> SiteLogoResponse:
     row = await _get_or_create_settings_row(db)
     return SiteLogoResponse(data=SiteLogoData(logo_url=_logo_url(row.logo_path)))
 

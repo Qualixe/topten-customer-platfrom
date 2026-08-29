@@ -32,6 +32,7 @@ interface ConfirmationState {
   mode: "now" | "schedule";
   scheduledAt?: string;
   recipientCount: number;
+  skippedFieldLabels: string[];
 }
 
 const AUDIENCE_LABEL: Record<AudienceRule["ruleType"], string> = {
@@ -103,7 +104,7 @@ export function CampaignComposer({
     const scheduledAtIso =
       mode === "now" ? new Date().toISOString() : new Date(scheduledAt!).toISOString();
 
-    const campaign = await createCampaign({
+    const { campaign, skippedFieldLabels } = await createCampaign({
       name: campaignName,
       campaignType,
       audienceRule,
@@ -118,6 +119,7 @@ export function CampaignComposer({
       mode,
       scheduledAt,
       recipientCount: campaign.totalRecipients,
+      skippedFieldLabels,
     });
   }
 
@@ -129,6 +131,7 @@ export function CampaignComposer({
         mode={confirmation.mode}
         scheduledAt={confirmation.scheduledAt}
         recipientCount={confirmation.recipientCount}
+        skippedFieldLabels={confirmation.skippedFieldLabels}
       />
     );
   }

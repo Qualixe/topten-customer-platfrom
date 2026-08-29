@@ -195,11 +195,21 @@ export interface CreateCampaignInput {
   formId?: string;
 }
 
+export interface CreateCampaignResult {
+  campaign: SmsCampaign;
+  /** Form field types the campaign landing page builder doesn't support
+   * (e.g. "Phone Number" — there's no Customer column a public submission
+   * could write it to) — left out of the landing page entirely when
+   * `formId` was set. Empty when no `formId` was given, or every field on
+   * that form was supported. */
+  skippedFieldLabels: string[];
+}
+
 /** Creates a real campaign via `POST /api/v1/sms/campaigns`. The audience
  * rule is stored and resolved into a frozen recipient snapshot in the
  * background — total_recipients/estimated_cost stay 0 until
  * `recipientsResolvedAt` is set (poll `getCampaign`). */
-export async function createCampaign(input: CreateCampaignInput): Promise<SmsCampaign> {
+export async function createCampaign(input: CreateCampaignInput): Promise<CreateCampaignResult> {
   const rule = input.audienceRule;
   const audienceRuleBody: Record<string, unknown> = { rule_type: rule.ruleType };
   if (rule.ruleType === "NEW_SINCE_DATE") audienceRuleBody.since_date = rule.sinceDate;
@@ -210,7 +220,10 @@ export async function createCampaign(input: CreateCampaignInput): Promise<SmsCam
   }
   if (rule.ruleType === "SPECIFIC_CUSTOMERS") audienceRuleBody.customer_ids = rule.customerIds;
 
-  const envelope = await apiPost<ApiEnvelope<SmsCampaignDto>>("/sms/campaigns", {
+  const envelope = await apiPost<{
+    data: SmsCampaignDto;
+    meta: { skippedFieldLabels?: string[] };
+  }>("/sms/campaigns", {
     name: input.name,
     campaign_type: input.campaignType,
     audience_rule: audienceRuleBody,
@@ -220,7 +233,10 @@ export async function createCampaign(input: CreateCampaignInput): Promise<SmsCam
     status: input.status,
     form_id: input.formId,
   });
-  return mapDtoToCampaign(envelope.data);
+  return {
+    campaign: mapDtoToCampaign(envelope.data),
+    skippedFieldLabels: envelope.meta.skippedFieldLabels ?? [],
+  };
 }
 
 /** Updates a campaign via `PATCH /api/v1/sms/campaigns/{id}`. `campaignType`

@@ -6,8 +6,12 @@ export interface SiteLogo {
   logoUrl: string | null;
 }
 
+/** Reads the current logo URL — unauthenticated, since the logo is shown on
+ * pages a logged-out visitor sees too (/login, public customer/campaign
+ * profile pages). Upload/remove stay under the protected /settings/logo
+ * (see uploadSiteLogo/removeSiteLogo below). */
 export async function getSiteLogo(): Promise<SiteLogo> {
-  const envelope = await apiGet<ApiEnvelope<SiteLogo>>("/settings/logo");
+  const envelope = await apiGet<ApiEnvelope<SiteLogo>>("/public/site-logo");
   return envelope.data;
 }
 

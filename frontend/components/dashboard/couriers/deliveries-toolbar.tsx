@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CourierProvider, DeliveryStatus } from "@/lib/mock/deliveries";
+import type { CourierProvider, DeliveryStatus } from "@/lib/api/deliveries";
 
 export type CourierFilter = CourierProvider | "all";
 export type StatusFilter = DeliveryStatus | "all";

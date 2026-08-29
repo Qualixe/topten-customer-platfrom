@@ -1,5 +1,5 @@
 import { StatusPill, type StatusTone } from "@/components/dashboard/status-pill";
-import type { DeliveryStatus } from "@/lib/mock/deliveries";
+import type { DeliveryStatus } from "@/lib/api/deliveries";
 
 const STATUS_TONE: Record<DeliveryStatus, StatusTone> = {
   "Pending Pickup": "neutral",

@@ -12,6 +12,10 @@ interface StepConfirmationProps {
   mode: "now" | "schedule";
   scheduledAt?: string;
   recipientCount: number;
+  /** Form field types the campaign landing page couldn't represent (e.g.
+   * "Phone Number") and so left out — the live page won't match the form
+   * this campaign was built from unless the admin knows to account for it. */
+  skippedFieldLabels: string[];
 }
 
 export function StepConfirmation({
@@ -19,6 +23,7 @@ export function StepConfirmation({
   mode,
   scheduledAt,
   recipientCount,
+  skippedFieldLabels,
 }: StepConfirmationProps) {
   const isScheduled = mode === "schedule";
   const Icon = isScheduled ? CalendarClock : CheckCircle2;
@@ -67,6 +72,14 @@ export function StepConfirmation({
         <p className="rounded-lg bg-muted px-4 py-2 text-xs text-muted-foreground">
           No SMS has been sent — BulkSMS BD sending isn&apos;t connected yet.
         </p>
+
+        {skippedFieldLabels.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            These form fields aren&apos;t supported on campaign landing pages yet and were left
+            out: <strong>{skippedFieldLabels.join(", ")}</strong>. The live page won&apos;t
+            collect them.
+          </p>
+        )}
 
         {/* Actions */}
         <div className="flex flex-col gap-2 w-full sm:flex-row sm:justify-center">

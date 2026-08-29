@@ -149,7 +149,11 @@ async def create_campaign(
     synchronously, before the background worker is queued — a "send now"
     campaign can start sending within moments of this request returning, so
     the landing page has to exist and be live before that happens, not
-    after (attaching it afterward would race the send)."""
+    after (attaching it afterward would race the send). Any field types the
+    landing page builder doesn't support (see
+    app.services.forms.attach_form_to_campaign) are left out and their
+    labels come back in `meta.skipped_field_labels`, same as
+    `POST /{id}/landing-page/from-form/{form_id}`."""
     rule = await resolve_since_campaign(db, payload.audience_rule)
 
     campaign = Campaign(
@@ -167,11 +171,12 @@ async def create_campaign(
     await db.commit()
     await db.refresh(campaign)
 
+    skipped_field_labels: list[str] = []
     if payload.form_id is not None:
         form = await forms_service.get_form_by_public_id(db, payload.form_id)
         if form is None:
             raise NotFoundError("Form not found")
-        landing_page, _skipped_labels = await forms_service.attach_form_to_campaign(
+        landing_page, skipped_field_labels = await forms_service.attach_form_to_campaign(
             db, form=form, campaign_id=campaign.id, campaign_slug_seed=campaign.name
         )
         await landing_page_service.update_landing_page(
@@ -180,7 +185,10 @@ async def create_campaign(
 
     resolve_campaign_audience.delay(campaign.id)
 
-    return CampaignResponse(data=CampaignRead.model_validate(campaign))
+    return CampaignResponse(
+        data=CampaignRead.model_validate(campaign),
+        meta={"skipped_field_labels": skipped_field_labels},
+    )
 
 
 @router.get("", response_model=CampaignsListResponse)

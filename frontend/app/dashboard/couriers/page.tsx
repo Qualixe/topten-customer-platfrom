@@ -2,10 +2,26 @@ import { AlertTriangle, CheckCircle2, Package, Truck } from "lucide-react";
 
 import { DeliveriesDirectory } from "@/components/dashboard/couriers/deliveries-directory";
 import { CouriersPageHeader } from "@/components/dashboard/couriers/page-header";
+import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
+import { getCurrentUserSafe } from "@/lib/api/auth";
 import { getDeliveryStats, listDeliveries } from "@/lib/api/deliveries";
 
+// Real, frequently-changing backend data — must not be statically cached.
+export const dynamic = "force-dynamic";
+
 export default async function CouriersPage() {
+  const user = await getCurrentUserSafe();
+  if (!user?.permissions.includes("couriers.view")) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PermissionDenied description="Ask an admin to grant you the View courier deliveries permission if you think this is a mistake." />
+      </div>
+    );
+  }
+
+  const canManage = user.permissions.includes("couriers.manage");
+
   const [{ items: deliveries }, stats] = await Promise.all([
     listDeliveries(),
     getDeliveryStats(),
@@ -44,9 +60,9 @@ export default async function CouriersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <CouriersPageHeader />
+      <CouriersPageHeader canManage={canManage} />
       <StatsGrid stats={statDefinitions} />
-      <DeliveriesDirectory deliveries={deliveries} />
+      <DeliveriesDirectory deliveries={deliveries} canManage={canManage} />
     </div>
   );
 }

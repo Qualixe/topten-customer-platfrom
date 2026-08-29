@@ -102,6 +102,49 @@ async def test_create_campaign_with_form_id_attaches_published_landing_page(
     assert len(landing_page["builder_data"]["blocks"]) == 2
 
 
+async def test_create_campaign_with_form_id_reports_skipped_fields(
+    client: AsyncClient,
+) -> None:
+    """A form field type the landing page builder doesn't support (e.g.
+    `phone` — there's no Customer column a public submission could write it
+    to) is silently dropped from the landing page. Creation must report
+    that back via `meta.skipped_field_labels`, same as the standalone
+    POST /{id}/landing-page/from-form/{form_id} endpoint does — otherwise
+    an admin has no way to know their form doesn't match what actually
+    sends."""
+    form_response = await client.post("/api/v1/forms", json={"name": "DOB Capture Form"})
+    form_id = form_response.json()["data"]["id"]
+    await client.patch(
+        f"/api/v1/forms/{form_id}",
+        json={
+            "builder_data": {
+                "version": 1,
+                "fields": [
+                    {"id": "f1", "type": "email", "label": "Email Address"},
+                    {"id": "f2", "type": "phone", "label": "Phone Number"},
+                    {"id": "f3", "type": "date_of_birth", "label": "Date of Birth"},
+                    {"id": "f4", "type": "address", "label": "Address"},
+                ],
+            }
+        },
+    )
+
+    response = await client.post(
+        "/api/v1/sms/campaigns", json=_create_payload(form_id=form_id)
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["meta"]["skipped_field_labels"] == ["Phone Number"]
+
+    landing_page_response = await client.get(
+        f"/api/v1/sms/campaigns/{body['data']['id']}/landing-page"
+    )
+    block_types = {
+        block["type"] for block in landing_page_response.json()["data"]["builder_data"]["blocks"]
+    }
+    assert "phone" not in block_types
+
+
 async def test_create_campaign_rejects_new_since_date_without_a_date(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/sms/campaigns",

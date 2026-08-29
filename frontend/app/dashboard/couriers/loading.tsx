@@ -75,7 +75,7 @@ function DeliveriesDirectorySkeleton() {
 export default function CouriersLoading() {
   return (
     <div className="flex flex-col gap-6">
-      <CouriersPageHeader />
+      <CouriersPageHeader canManage={false} />
       <StatsGridSkeleton count={4} />
       <DeliveriesDirectorySkeleton />
     </div>
