@@ -31,11 +31,15 @@ export function BlockRenderer({
   preview = false,
   formValues,
   onFormFieldChange,
+  submitDisabled = false,
 }: {
   block: Block;
   preview?: boolean;
   formValues?: FormValues;
   onFormFieldChange?: (field: FormFieldName, value: string) => void;
+  /** Only meaningful for a "button" block on the real public form —
+   * disables it while a submission is in flight. */
+  submitDisabled?: boolean;
 }) {
   switch (block.type) {
     case "heading":
@@ -73,8 +77,16 @@ export function BlockRenderer({
           onChange={onFormFieldChange ? (value) => onFormFieldChange("email", value) : undefined}
         />
       );
-    case "button":
-      return <ButtonBlock block={block} />;
+    case "button": {
+      // On the real public form (onFormFieldChange is only ever passed
+      // there), a button block with no link URL IS the submit action —
+      // one with a URL is always a real link, and in the builder/its own
+      // Preview mode it's always just a decorative, non-functional preview.
+      const isSubmit = Boolean(onFormFieldChange) && !block.content.url?.trim();
+      return (
+        <ButtonBlock block={block} type={isSubmit ? "submit" : "button"} disabled={isSubmit && submitDisabled} />
+      );
+    }
     case "divider":
       return <DividerBlock />;
     case "spacer":

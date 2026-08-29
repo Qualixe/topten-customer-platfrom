@@ -5,6 +5,7 @@ import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { getCurrentUserSafe } from "@/lib/api/auth";
 import { getCampaignLandingPage } from "@/lib/api/campaign-landing-pages";
 import { getCampaign } from "@/lib/api/campaigns";
+import { getResolvedLogoUrlSafe } from "@/lib/api/site-settings";
 import { ApiError } from "@/lib/api/types";
 
 export const dynamic = "force-dynamic";
@@ -34,8 +35,14 @@ export default async function CampaignBuilderPage({
   }
 
   const landingPage = await getCampaignLandingPage(campaignId);
+  const logoUrl = await getResolvedLogoUrlSafe();
 
   return (
-    <Builder campaignId={campaignId} campaignName={campaign.name} initialLandingPage={landingPage} />
+    <Builder
+      campaignId={campaignId}
+      campaignName={campaign.name}
+      initialLandingPage={landingPage}
+      logoUrl={logoUrl}
+    />
   );
 }

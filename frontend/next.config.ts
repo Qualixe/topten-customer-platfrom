@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Lets the Cloudflare quick tunnel (a different origin than localhost)
-  // reach the dev server's assets/endpoints — Next.js blocks cross-origin
-  // dev requests by default. Wildcard covers trycloudflare.com's randomly
-  // generated subdomain, which changes on every tunnel restart.
-  allowedDevOrigins: ["*.trycloudflare.com"],
+  // Lets the Cloudflare tunnel (a different origin than localhost) reach
+  // the dev server's assets/HMR websocket — Next.js blocks cross-origin
+  // dev requests by default. *.trycloudflare.com covers the free quick
+  // tunnel's randomly generated subdomain (changes on every restart);
+  // *.qualixe.com covers the named "topten" tunnel's stable custom domain.
+  allowedDevOrigins: ["*.trycloudflare.com", "*.qualixe.com"],
 };
 
 export default nextConfig;

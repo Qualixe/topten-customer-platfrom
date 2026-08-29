@@ -63,7 +63,7 @@ export function PublicCampaignForm({
     return (
       <div
         role="status"
-        className="flex flex-col items-center gap-3 rounded-2xl border bg-card px-6 py-10 text-center shadow-sm"
+        className="flex flex-col items-center gap-3 rounded-3xl border bg-card px-6 py-12 text-center shadow-lg"
       >
         <span className="flex size-14 items-center justify-center rounded-full bg-emerald-500/10">
           <Check className="size-7 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -78,7 +78,7 @@ export function PublicCampaignForm({
     <form
       onSubmit={handleSubmit}
       noValidate
-      className="flex flex-col gap-6 rounded-2xl border bg-card p-5 shadow-sm sm:p-6"
+      className="flex flex-col gap-6 rounded-3xl border bg-card p-6 shadow-lg sm:p-8"
     >
       {blocks.map((block) => (
         <BlockRenderer
@@ -87,6 +87,7 @@ export function PublicCampaignForm({
           preview
           formValues={values}
           onFormFieldChange={handleFieldChange}
+          submitDisabled={submitting}
         />
       ))}
 
@@ -113,9 +114,15 @@ export function PublicCampaignForm({
         </div>
       )}
 
-      <Button type="submit" disabled={submitting} className="h-12 w-full text-base">
-        {submitting ? "Saving…" : "Save my details"}
-      </Button>
+      {/* Fallback submit button — only shown when the admin didn't already
+       * place a submit-style button block (one with no link URL) in the
+       * builder, which becomes the real submit action itself (see
+       * BlockRenderer). Keeps a form built without one still submittable. */}
+      {!blocks.some((block) => block.type === "button" && !block.content.url?.trim()) && (
+        <Button type="submit" disabled={submitting} className="h-12 w-full text-base">
+          {submitting ? "Saving…" : "Save my details"}
+        </Button>
+      )}
     </form>
   );
 }

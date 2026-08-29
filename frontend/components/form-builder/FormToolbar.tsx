@@ -59,7 +59,11 @@ export function FormToolbar({
         </Button>
         {!previewMode && canManage && extraAction}
         {!previewMode && canManage && (
-          <Button type="button" onClick={onSave} disabled={saveStatus === "saving"}>
+          <Button
+            type="button"
+            onClick={onSave}
+            disabled={saveStatus !== "unsaved" || !name.trim()}
+          >
             {saveStatus === "saving" ? "Saving…" : "Save"}
           </Button>
         )}

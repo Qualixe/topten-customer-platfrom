@@ -6,8 +6,7 @@ export type FieldType =
   | "phone"
   | "date_of_birth"
   | "address"
-  | "divider"
-  | "submit_button";
+  | "divider";
 
 /** A single field on the form. Not every property applies to every type —
  * each field component just reads the ones it cares about (e.g. only

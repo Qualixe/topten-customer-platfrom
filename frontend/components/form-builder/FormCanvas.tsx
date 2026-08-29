@@ -24,6 +24,7 @@ export function FormCanvas({
   onInsertNewFieldBefore,
   onReorder,
   onAppendNewField,
+  readOnly = false,
 }: {
   fields: FormField[];
   selectedId: string | null;
@@ -33,6 +34,10 @@ export function FormCanvas({
   onInsertNewFieldBefore: (type: FieldType, beforeId: string) => void;
   onReorder: (fromId: string, toId: string) => void;
   onAppendNewField: (type: FieldType) => void;
+  /** No dragging, no delete/duplicate controls, no selection — for a
+   * viewer without forms.manage. The parent doesn't need to worry about
+   * passing safe no-op handlers; this is enforced here. */
+  readOnly?: boolean;
 }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
@@ -57,14 +62,14 @@ export function FormCanvas({
   if (fields.length === 0) {
     return (
       <div
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={handleDropOnContainer}
+        onDragOver={readOnly ? undefined : (event) => event.preventDefault()}
+        onDrop={readOnly ? undefined : handleDropOnContainer}
         className="flex h-full min-h-64 items-center justify-center rounded-lg border border-dashed bg-background"
       >
         <EmptyState
           icon={LayoutTemplate}
           title="Your canvas is empty"
-          description="Drag a field here to start building your form."
+          description={readOnly ? "This form has no fields yet." : "Drag a field here to start building your form."}
         />
       </div>
     );
@@ -72,59 +77,68 @@ export function FormCanvas({
 
   return (
     <div
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={handleDropOnContainer}
+      onDragOver={readOnly ? undefined : (event) => event.preventDefault()}
+      onDrop={readOnly ? undefined : handleDropOnContainer}
       className="flex flex-col gap-3 rounded-lg border bg-background p-4"
     >
       {fields.map((field) => (
         <div
           key={field.id}
-          draggable
-          onDragStart={(event) => {
-            setDraggedId(field.id);
-            event.dataTransfer.setData(EXISTING_FIELD_DRAG_TYPE, field.id);
-            event.dataTransfer.effectAllowed = "move";
-          }}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => handleDropOnField(event, field.id)}
-          onDragEnd={() => setDraggedId(null)}
-          onClick={() => onSelect(field.id)}
+          draggable={!readOnly}
+          onDragStart={
+            readOnly
+              ? undefined
+              : (event) => {
+                  setDraggedId(field.id);
+                  event.dataTransfer.setData(EXISTING_FIELD_DRAG_TYPE, field.id);
+                  event.dataTransfer.effectAllowed = "move";
+                }
+          }
+          onDragOver={readOnly ? undefined : (event) => event.preventDefault()}
+          onDrop={readOnly ? undefined : (event) => handleDropOnField(event, field.id)}
+          onDragEnd={readOnly ? undefined : () => setDraggedId(null)}
+          onClick={readOnly ? undefined : () => onSelect(field.id)}
           className={cn(
-            "group relative cursor-pointer rounded-md border-2 p-3 transition-colors",
+            "group relative rounded-md border-2 p-3 transition-colors",
+            readOnly ? "cursor-default" : "cursor-pointer",
             selectedId === field.id
               ? "border-primary"
               : "border-transparent hover:border-muted-foreground/30",
             draggedId === field.id && "opacity-40"
           )}
         >
-          <div className="absolute top-1 left-1 hidden items-center rounded-md bg-background p-1 text-muted-foreground shadow-sm group-hover:flex">
-            <GripVertical className="size-3.5" aria-hidden="true" />
-          </div>
+          {!readOnly && (
+            <>
+              <div className="absolute top-1 left-1 hidden items-center rounded-md bg-background p-1 text-muted-foreground shadow-sm group-hover:flex">
+                <GripVertical className="size-3.5" aria-hidden="true" />
+              </div>
 
-          <div className="absolute top-1 right-1 hidden items-center gap-1 group-hover:flex">
-            <button
-              type="button"
-              aria-label="Duplicate field"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDuplicate(field.id);
-              }}
-              className="flex size-6 items-center justify-center rounded-md bg-background text-muted-foreground shadow-sm hover:text-foreground"
-            >
-              <Copy className="size-3.5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              aria-label="Delete field"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelete(field.id);
-              }}
-              className="flex size-6 items-center justify-center rounded-md bg-background text-muted-foreground shadow-sm hover:text-destructive"
-            >
-              <Trash2 className="size-3.5" aria-hidden="true" />
-            </button>
-          </div>
+              <div className="absolute top-1 right-1 hidden items-center gap-1 group-hover:flex">
+                <button
+                  type="button"
+                  aria-label="Duplicate field"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDuplicate(field.id);
+                  }}
+                  className="flex size-6 items-center justify-center rounded-md bg-background text-muted-foreground shadow-sm hover:text-foreground"
+                >
+                  <Copy className="size-3.5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Delete field"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(field.id);
+                  }}
+                  className="flex size-6 items-center justify-center rounded-md bg-background text-muted-foreground shadow-sm hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            </>
+          )}
 
           <div className="px-5">
             <FieldRenderer field={field} />

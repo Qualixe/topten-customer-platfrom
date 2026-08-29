@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { FIELD_DEFINITIONS } from "@/lib/form-builder/field-config";
 import type { FormField } from "@/lib/form-builder/types";
 
-const TEXT_ONLY_TYPES: FormField["type"][] = ["heading", "paragraph", "submit_button"];
+const TEXT_ONLY_TYPES: FormField["type"][] = ["heading", "paragraph"];
 const PLACEHOLDER_TYPES: FormField["type"][] = ["text", "email", "phone", "address"];
 const REQUIRED_TYPES: FormField["type"][] = ["text", "email", "phone", "date_of_birth", "address"];
 
@@ -43,8 +43,7 @@ export function FormProperties({
     onChange(field!.id, patch);
   }
 
-  const labelCaption =
-    field.type === "heading" ? "Heading text" : field.type === "paragraph" ? "Paragraph text" : "Button text";
+  const labelCaption = field.type === "heading" ? "Heading text" : "Paragraph text";
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border bg-background p-4">

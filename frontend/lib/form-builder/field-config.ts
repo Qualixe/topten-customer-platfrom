@@ -3,7 +3,6 @@ import {
   Heading as HeadingIcon,
   Mail,
   MapPin,
-  MousePointerClick,
   Phone as PhoneIcon,
   SeparatorHorizontal,
   TextCursorInput,
@@ -62,10 +61,5 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
     label: "Divider",
     icon: SeparatorHorizontal,
     defaultField: { type: "divider", label: "" },
-  },
-  submit_button: {
-    label: "Submit Button",
-    icon: MousePointerClick,
-    defaultField: { type: "submit_button", label: "Submit" },
   },
 };

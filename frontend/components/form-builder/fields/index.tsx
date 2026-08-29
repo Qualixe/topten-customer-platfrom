@@ -5,7 +5,6 @@ import { EmailField } from "@/components/form-builder/fields/EmailField";
 import { HeadingField } from "@/components/form-builder/fields/HeadingField";
 import { ParagraphField } from "@/components/form-builder/fields/ParagraphField";
 import { PhoneField } from "@/components/form-builder/fields/PhoneField";
-import { SubmitButtonField } from "@/components/form-builder/fields/SubmitButtonField";
 import { TextField } from "@/components/form-builder/fields/TextField";
 import type { FormField } from "@/lib/form-builder/types";
 
@@ -31,8 +30,6 @@ export function FieldRenderer({ field, preview = false }: { field: FormField; pr
       return <AddressField field={field} preview={preview} />;
     case "divider":
       return <DividerField />;
-    case "submit_button":
-      return <SubmitButtonField field={field} />;
     default:
       return null;
   }

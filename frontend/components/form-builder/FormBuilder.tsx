@@ -32,6 +32,7 @@ export function FormBuilder({ formId }: { formId: string }) {
 
   // undefined = still loading, null = not found
   const [form, setForm] = useState<FormRecord | null | undefined>(undefined);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [fields, setFields] = useState<FormField[]>([]);
   const [name, setName] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -51,12 +52,29 @@ export function FormBuilder({ formId }: { formId: string }) {
           setForm(null);
           return;
         }
-        setSaveError(getErrorMessage(err, "Unable to load this form. Please try again."));
+        setLoadError(getErrorMessage(err, "Unable to load this form. Please try again."));
       });
   }, [formId]);
 
+  // Warn on a hard refresh/tab close with unsaved edits — there's no
+  // autosave, so those edits would otherwise vanish silently.
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (saveStatus === "unsaved") event.preventDefault();
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [saveStatus]);
+
   function markUnsaved() {
     setSaveStatus("unsaved");
+  }
+
+  function handleBack() {
+    if (saveStatus === "unsaved" && !window.confirm("You have unsaved changes. Leave without saving?")) {
+      return;
+    }
+    router.push("/dashboard/forms");
   }
 
   const selectedField = fields.find((field) => field.id === selectedId) ?? null;
@@ -124,6 +142,7 @@ export function FormBuilder({ formId }: { formId: string }) {
   }
 
   async function handleSave() {
+    if (!name.trim()) return;
     setSaveStatus("saving");
     setSaveError(null);
     try {
@@ -137,6 +156,9 @@ export function FormBuilder({ formId }: { formId: string }) {
   }
 
   if (form === undefined) {
+    if (loadError) {
+      return <EmptyState icon={FileWarning} title="Couldn't load this form" description={loadError} />;
+    }
     return null;
   }
 
@@ -150,6 +172,25 @@ export function FormBuilder({ formId }: { formId: string }) {
     );
   }
 
+  const readOnly = !canManage;
+  const canvas = (
+    <FormCanvas
+      fields={fields}
+      selectedId={selectedId}
+      onSelect={setSelectedId}
+      onDelete={handleDelete}
+      onDuplicate={handleDuplicate}
+      onInsertNewFieldBefore={handleInsertBefore}
+      onReorder={handleReorder}
+      onAppendNewField={handleAddField}
+      readOnly={readOnly}
+    />
+  );
+  const properties = (
+    <FormProperties field={selectedField} onChange={handlePropertyChange} onDelete={handleDelete} />
+  );
+  const sidebar = <FormSidebar onAddField={handleAddField} />;
+
   return (
     <div className="flex flex-col gap-4">
       <FormToolbar
@@ -159,7 +200,7 @@ export function FormBuilder({ formId }: { formId: string }) {
         onSave={handleSave}
         previewMode={previewMode}
         onTogglePreview={() => setPreviewMode((prev) => !prev)}
-        onBack={() => router.push("/dashboard/forms")}
+        onBack={handleBack}
         canManage={canManage}
         extraAction={<AttachToCampaignDialog formId={formId} />}
       />
@@ -167,78 +208,31 @@ export function FormBuilder({ formId }: { formId: string }) {
 
       {previewMode ? (
         <FormPreview fields={fields} />
-      ) : (
+      ) : canManage ? (
         <>
           {/* Desktop: all three columns side by side. */}
           <div className="hidden gap-4 lg:grid lg:grid-cols-[240px_1fr_300px]">
-            {canManage && <FormSidebar onAddField={handleAddField} />}
-            <div
-              className={
-                canManage
-                  ? "max-h-[calc(100vh-320px)] overflow-y-auto"
-                  : "col-span-2 col-start-1 max-h-[calc(100vh-320px)] overflow-y-auto"
-              }
-            >
-              <FormCanvas
-                fields={fields}
-                selectedId={canManage ? selectedId : null}
-                onSelect={canManage ? setSelectedId : () => {}}
-                onDelete={handleDelete}
-                onDuplicate={handleDuplicate}
-                onInsertNewFieldBefore={handleInsertBefore}
-                onReorder={handleReorder}
-                onAppendNewField={handleAddField}
-              />
-            </div>
-            {canManage && (
-              <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
-                <FormProperties field={selectedField} onChange={handlePropertyChange} onDelete={handleDelete} />
-              </div>
-            )}
+            {sidebar}
+            <div className="max-h-[calc(100vh-320px)] overflow-y-auto">{canvas}</div>
+            <div className="max-h-[calc(100vh-320px)] overflow-y-auto">{properties}</div>
           </div>
 
           {/* Tablet/mobile: one panel at a time via tabs. */}
-          {canManage ? (
-            <Tabs defaultValue="canvas" className="lg:hidden">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="fields">Fields</TabsTrigger>
-                <TabsTrigger value="canvas">Canvas</TabsTrigger>
-                <TabsTrigger value="properties">Properties</TabsTrigger>
-              </TabsList>
-              <TabsContent value="fields">
-                <FormSidebar onAddField={handleAddField} />
-              </TabsContent>
-              <TabsContent value="canvas">
-                <FormCanvas
-                  fields={fields}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                  onDelete={handleDelete}
-                  onDuplicate={handleDuplicate}
-                  onInsertNewFieldBefore={handleInsertBefore}
-                  onReorder={handleReorder}
-                  onAppendNewField={handleAddField}
-                />
-              </TabsContent>
-              <TabsContent value="properties">
-                <FormProperties field={selectedField} onChange={handlePropertyChange} onDelete={handleDelete} />
-              </TabsContent>
-            </Tabs>
-          ) : (
-            <div className="lg:hidden">
-              <FormCanvas
-                fields={fields}
-                selectedId={null}
-                onSelect={() => {}}
-                onDelete={handleDelete}
-                onDuplicate={handleDuplicate}
-                onInsertNewFieldBefore={handleInsertBefore}
-                onReorder={handleReorder}
-                onAppendNewField={handleAddField}
-              />
-            </div>
-          )}
+          <Tabs defaultValue="canvas" className="lg:hidden">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="fields">Fields</TabsTrigger>
+              <TabsTrigger value="canvas">Canvas</TabsTrigger>
+              <TabsTrigger value="properties">Properties</TabsTrigger>
+            </TabsList>
+            <TabsContent value="fields">{sidebar}</TabsContent>
+            <TabsContent value="canvas">{canvas}</TabsContent>
+            <TabsContent value="properties">{properties}</TabsContent>
+          </Tabs>
         </>
+      ) : (
+        // View-only (no forms.manage): just the read-only canvas, no
+        // sidebar/properties/tabs since there's nothing to configure.
+        canvas
       )}
     </div>
   );

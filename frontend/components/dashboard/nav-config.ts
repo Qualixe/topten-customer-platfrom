@@ -60,6 +60,7 @@ export const NAV_ITEMS: NavItem[] = [
     permission: "gifts.view",
     children: [
       { title: "Gift Catalog", href: "/dashboard/gifts/catalog" },
+      { title: "Send Gift", href: "/dashboard/gifts/send", permission: "gifts.manage" },
       { title: "Add Gift", href: "/dashboard/gifts/new", permission: "gifts.manage" },
     ],
   },

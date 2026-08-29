@@ -1,12 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CalendarClock, Clock, Send, X } from "lucide-react";
 
 import { GiftStatusBadge } from "@/components/dashboard/gifts/gift-status-badge";
 import { ScheduleGiftDialog } from "@/components/dashboard/gifts/schedule-gift-dialog";
-import { SendGiftDialog } from "@/components/dashboard/gifts/send-gift-dialog";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -119,7 +119,12 @@ export function GiftOrdersCard({ orders }: { orders: GiftOrder[] }) {
               )}
             </SelectContent>
           </Select>
-          {canManage && <SendGiftDialog />}
+          {canManage && (
+            <Button nativeButton={false} render={<Link href="/dashboard/gifts/send" />}>
+              <Send />
+              Send Gift
+            </Button>
+          )}
         </CardAction>
       </CardHeader>
       <CardContent>

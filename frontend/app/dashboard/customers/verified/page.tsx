@@ -82,7 +82,11 @@ export default async function VerifiedCustomersPage({
               <VerifiedCustomersToolbar />
             </div>
             <VerifiedCustomersCampaignFilter
-              campaigns={campaigns.map((campaign) => ({ id: campaign.id, name: campaign.name }))}
+              campaigns={campaigns.map((campaign) => ({
+                id: campaign.id,
+                name: campaign.name,
+                date: campaign.scheduledAt ?? campaign.createdAt,
+              }))}
             />
           </div>
 

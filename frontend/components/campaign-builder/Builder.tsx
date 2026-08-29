@@ -36,10 +36,12 @@ export function Builder({
   campaignId,
   campaignName,
   initialLandingPage,
+  logoUrl,
 }: {
   campaignId: string;
   campaignName: string;
   initialLandingPage: CampaignLandingPage | null;
+  logoUrl: string | null;
 }) {
   const { hasPermission } = usePermissions();
   const canManage = hasPermission("campaigns.manage");
@@ -165,7 +167,7 @@ export function Builder({
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
 
       {previewMode ? (
-        <Preview blocks={blocks} onExit={() => setPreviewMode(false)} />
+        <Preview blocks={blocks} logoUrl={logoUrl} onExit={() => setPreviewMode(false)} />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[240px_1fr_300px]">
           {canManage && <BlockSidebar onAddBlock={handleAddBlock} />}

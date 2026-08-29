@@ -34,18 +34,25 @@ export function FormsPageClient({
   const [previewTarget, setPreviewTarget] = useState<FormRecord | null>(null);
 
   const isFirstRender = useRef(true);
+  // Bumped on every refresh; a response only gets applied if it's still the
+  // most recent request — otherwise a slow earlier response (e.g. from a
+  // fast-typed search) could overwrite a newer one that already landed.
+  const requestId = useRef(0);
 
   async function refresh(nextPage: number, nextSearch: string) {
+    const thisRequestId = ++requestId.current;
     setLoading(true);
     setError(null);
     try {
       const result = await listForms({ page: nextPage, pageSize: PAGE_SIZE, search: nextSearch });
+      if (thisRequestId !== requestId.current) return;
       setForms(result.items);
       setMeta({ total: result.total, page: result.page, pageSize: result.pageSize });
     } catch (err) {
+      if (thisRequestId !== requestId.current) return;
       setError(getErrorMessage(err, "Unable to load forms. Please try again."));
     } finally {
-      setLoading(false);
+      if (thisRequestId === requestId.current) setLoading(false);
     }
   }
 
@@ -79,7 +86,16 @@ export function FormsPageClient({
     if (!deleteTarget) return;
     await deleteForm(deleteTarget.id);
     setDeleteTarget(null);
-    await refresh(page, search);
+
+    // Deleting the last item on a page beyond page 1 would otherwise leave
+    // the view stranded on a now-empty page. Changing `page` here already
+    // triggers the fetch via the effect below, so only refresh directly
+    // when the page isn't changing (the effect wouldn't fire for that).
+    if (forms.length === 1 && page > 1) {
+      setPage(page - 1);
+    } else {
+      await refresh(page, search);
+    }
   }
 
   const totalPages = Math.max(1, Math.ceil(meta.total / meta.pageSize));
