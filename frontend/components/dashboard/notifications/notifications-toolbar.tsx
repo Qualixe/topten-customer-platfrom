@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { NotificationStatus, NotificationType } from "@/lib/mock/notifications";
+import type { NotificationStatus, NotificationType } from "@/lib/api/notifications";
 
 export type StatusFilter = NotificationStatus | "all";
 export type TypeFilter = NotificationType | "all";

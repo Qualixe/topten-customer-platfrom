@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import type { NotificationRecord } from "@/lib/mock/notifications";
+import { formatNotificationDateTime, type NotificationRecord } from "@/lib/api/notifications";
 
 export function NotificationDetailsDialog({
   notification,
@@ -73,7 +73,9 @@ export function NotificationDetailsDialog({
                   <Send className="size-3" aria-hidden="true" />
                   Sent
                 </p>
-                <p className="mt-0.5 font-medium">{notification.sentAt}</p>
+                <p className="mt-0.5 font-medium">
+                  {formatNotificationDateTime(notification.sentAt)}
+                </p>
               </div>
               <div>
                 <p className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -81,7 +83,7 @@ export function NotificationDetailsDialog({
                   Delivered
                 </p>
                 <p className="mt-0.5 font-medium">
-                  {notification.deliveredAt ?? "—"}
+                  {formatNotificationDateTime(notification.deliveredAt)}
                 </p>
               </div>
             </div>

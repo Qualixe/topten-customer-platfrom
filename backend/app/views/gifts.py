@@ -52,7 +52,6 @@ class GiftCatalogItemCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     category_id: UUID
     description: str = ""
-    points_cost: int = Field(ge=0)
     retail_value: Decimal = Field(ge=0)
     stock_quantity: int = Field(ge=0, default=0)
 
@@ -69,7 +68,6 @@ class GiftCatalogItemUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     category_id: UUID | None = None
     description: str | None = None
-    points_cost: int | None = Field(default=None, ge=0)
     retail_value: Decimal | None = Field(default=None, ge=0)
     stock_quantity: int | None = Field(default=None, ge=0)
 
@@ -90,7 +88,6 @@ class GiftCatalogItemRead(BaseModel):
     category: GiftCategoryRead
     description: str
     image_url: str | None
-    points_cost: int
     retail_value: Decimal
     stock_quantity: int
     stock_status: str
@@ -121,6 +118,38 @@ class GiftOrderCreate(BaseModel):
     customer_id: UUID
     catalog_item_id: UUID
     occasion: GiftOccasion
+    delivery_address: str | None = None
+
+    @field_validator("delivery_address")
+    @classmethod
+    def _blank_to_none(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+
+class GiftOrderRecipient(BaseModel):
+    customer_id: UUID
+    delivery_address: str | None = None
+
+    @field_validator("delivery_address")
+    @classmethod
+    def _blank_to_none(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+
+class BulkGiftOrderCreate(BaseModel):
+    """POST /gifts/orders/bulk — one gift, one occasion, sent to several
+    customers at once. Each recipient can carry their own delivery address
+    (or none) independently of the others."""
+
+    recipients: list[GiftOrderRecipient] = Field(min_length=1, max_length=100)
+    catalog_item_id: UUID
+    occasion: GiftOccasion
 
 
 class GiftOrderUpdate(BaseModel):
@@ -145,9 +174,9 @@ class GiftOrderRead(BaseModel):
     id: UUID = Field(validation_alias="public_id")
     customer: GiftOrderCustomer
     gift_name: str
-    points_cost: int
     occasion: GiftOccasion
     status: GiftOrderStatus
+    delivery_address: str | None
     scheduled_for: date | None
     sent_at: datetime | None
     notification_error: str | None
@@ -157,6 +186,12 @@ class GiftOrderRead(BaseModel):
 class GiftOrderResponse(BaseModel):
     success: bool = True
     data: GiftOrderRead
+    meta: dict = {}
+
+
+class BulkGiftOrdersResponse(BaseModel):
+    success: bool = True
+    data: list[GiftOrderRead]
     meta: dict = {}
 
 

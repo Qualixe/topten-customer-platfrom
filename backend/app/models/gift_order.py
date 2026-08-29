@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, func
+from sqlalchemy import Date, DateTime, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,17 +24,23 @@ class GiftOrderStatus(str, enum.Enum):
 
 
 class GiftOrder(Base):
-    """A gift queued (and eventually sent) to a customer. `gift_name` and
-    `points_cost` are snapshotted from the `GiftCatalogItem` at creation
-    time — same reasoning as `CampaignRecipient.name`/`.phone` — so this
-    order's history stays accurate even if the catalog item is later
-    edited or deleted (`catalog_item_id` goes null on delete, everything
-    else about the order is unaffected).
+    """A gift queued (and eventually sent) to a customer. `gift_name` is
+    snapshotted from the `GiftCatalogItem` at creation time — same
+    reasoning as `CampaignRecipient.name`/`.phone` — so this order's
+    history stays accurate even if the catalog item is later edited or
+    deleted (`catalog_item_id` goes null on delete, everything else about
+    the order is unaffected).
 
     `notification_error` is set only if the SMS sent on `send_gift_order`
     fails — `status` still becomes `SENT` regardless, since the gift
     itself was handed over; the notification is a courtesy, not the fact
-    being tracked."""
+    being tracked.
+
+    `delivery_address` is captured once, at order creation (defaulting to
+    the customer's saved `Customer.address` in the UI, editable per
+    recipient) — separate from `Delivery.address`, which is a snapshot
+    taken later, only for orders that actually go out via courier. Not
+    every gift order becomes a Delivery, so this field stays optional."""
 
     __tablename__ = "gift_orders"
     __table_args__ = (Index("ix_gift_orders_customer_id", "customer_id"),)
@@ -52,7 +58,6 @@ class GiftOrder(Base):
         ForeignKey("gift_catalog_items.id", ondelete="SET NULL"), nullable=True
     )
     gift_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    points_cost: Mapped[int] = mapped_column(Integer, nullable=False)
 
     occasion: Mapped[str] = mapped_column(String(30), nullable=False)
     status: Mapped[str] = mapped_column(
@@ -62,6 +67,8 @@ class GiftOrder(Base):
         server_default=GiftOrderStatus.PENDING.value,
         index=True,
     )
+
+    delivery_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     scheduled_for: Mapped[date | None] = mapped_column(Date, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

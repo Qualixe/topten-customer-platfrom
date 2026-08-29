@@ -14,7 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { resolveGiftImageUrl, type GiftItem } from "@/lib/api/gifts";
+import { formatCurrency, resolveGiftImageUrl, type GiftItem } from "@/lib/api/gifts";
 import { getGiftCategoryVisual } from "@/lib/gift-category-visuals";
 import { cn } from "@/lib/utils";
 
@@ -107,9 +107,7 @@ export function GiftPickerField({
               <p className="truncate text-xs text-muted-foreground">{selected.category.name}</p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
-              <span className="text-sm font-semibold">
-                {selected.pointsCost.toLocaleString("en-US")} pts
-              </span>
+              <span className="text-sm font-semibold">{formatCurrency(selected.retailValue)}</span>
               <StockStatusBadge status={selected.stockStatus} />
             </div>
             <span className="shrink-0 text-xs font-medium text-primary">Change</span>
@@ -175,7 +173,7 @@ export function GiftPickerField({
                   <p className="truncate text-xs font-medium">{item.name}</p>
                   <div className="mt-0.5 flex items-center justify-between gap-1">
                     <span className="text-xs text-muted-foreground">
-                      {item.pointsCost.toLocaleString("en-US")} pts
+                      {formatCurrency(item.retailValue)}
                     </span>
                     <StockStatusBadge status={item.stockStatus} />
                   </div>

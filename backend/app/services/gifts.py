@@ -31,6 +31,16 @@ from app.views.notifications import (
 )
 
 
+def render_gift_sms_message(*, customer_name: str, gift_name: str) -> str:
+    """The fixed, non-editable "gift sent" SMS template — shared with
+    app.services.notification_log so the notification log's reconstructed
+    message text can never drift from what send_gift_order actually sent."""
+    return (
+        f'Hi {customer_name}, your gift "{gift_name}" is on its way! '
+        "Thank you for being a valued TopTen customer."
+    )
+
+
 async def get_category_or_404(db: AsyncSession, category_id: UUID) -> GiftCategory:
     category = (
         await db.execute(select(GiftCategory).where(GiftCategory.public_id == category_id))
@@ -105,7 +115,6 @@ async def create_catalog_item(
     name: str,
     category_id: int,
     description: str,
-    points_cost: int,
     retail_value: Decimal,
     stock_quantity: int,
 ) -> GiftCatalogItem:
@@ -113,7 +122,6 @@ async def create_catalog_item(
         name=name,
         category_id=category_id,
         description=description,
-        points_cost=points_cost,
         retail_value=retail_value,
         stock_quantity=stock_quantity,
     )
@@ -130,7 +138,6 @@ async def update_catalog_item(
     name: str | None,
     category_id: int | None,
     description: str | None,
-    points_cost: int | None,
     retail_value: Decimal | None,
     stock_quantity: int | None,
 ) -> GiftCatalogItem:
@@ -140,8 +147,6 @@ async def update_catalog_item(
         item.category_id = category_id
     if description is not None:
         item.description = description
-    if points_cost is not None:
-        item.points_cost = points_cost
     if retail_value is not None:
         item.retail_value = retail_value
     if stock_quantity is not None:
@@ -169,14 +174,24 @@ async def get_gift_order_or_404(db: AsyncSession, order_id: UUID) -> GiftOrder:
     return order
 
 
-async def create_gift_order(
-    db: AsyncSession, *, customer_id: UUID, catalog_item_id: UUID, occasion: GiftOccasion
-) -> GiftOrder:
+async def _get_customer_or_404(db: AsyncSession, customer_id: UUID) -> Customer:
     customer = (
         await db.execute(select(Customer).where(Customer.public_id == customer_id))
     ).scalar_one_or_none()
     if customer is None:
         raise NotFoundError("Customer not found")
+    return customer
+
+
+async def create_gift_order(
+    db: AsyncSession,
+    *,
+    customer_id: UUID,
+    catalog_item_id: UUID,
+    occasion: GiftOccasion,
+    delivery_address: str | None = None,
+) -> GiftOrder:
+    customer = await _get_customer_or_404(db, customer_id)
 
     catalog_item = await get_catalog_item_or_404(db, catalog_item_id)
     if catalog_item.stock_quantity <= 0:
@@ -186,13 +201,51 @@ async def create_gift_order(
         customer_id=customer.id,
         catalog_item_id=catalog_item.id,
         gift_name=catalog_item.name,
-        points_cost=catalog_item.points_cost,
         occasion=occasion.value,
+        delivery_address=delivery_address,
     )
     db.add(order)
     await db.commit()
     await db.refresh(order)
     return order
+
+
+async def create_gift_orders_bulk(
+    db: AsyncSession,
+    *,
+    recipients: list[tuple[UUID, str | None]],
+    catalog_item_id: UUID,
+    occasion: GiftOccasion,
+) -> list[GiftOrder]:
+    """Queues the same gift, for the same occasion, to several customers at
+    once (e.g. a birthday batch). Every recipient is validated up front —
+    and the catalog item must be in stock — before any order is added, so
+    an unknown customer_id partway through a batch can't leave some orders
+    created and others silently missing."""
+    catalog_item = await get_catalog_item_or_404(db, catalog_item_id)
+    if catalog_item.stock_quantity <= 0:
+        raise ValidationAppError(f'"{catalog_item.name}" is out of stock')
+
+    resolved = [
+        (await _get_customer_or_404(db, customer_id), delivery_address)
+        for customer_id, delivery_address in recipients
+    ]
+
+    orders = [
+        GiftOrder(
+            customer_id=customer.id,
+            catalog_item_id=catalog_item.id,
+            gift_name=catalog_item.name,
+            occasion=occasion.value,
+            delivery_address=delivery_address,
+        )
+        for customer, delivery_address in resolved
+    ]
+    db.add_all(orders)
+    await db.commit()
+    for order in orders:
+        await db.refresh(order)
+    return orders
 
 
 async def schedule_gift_order(
@@ -228,9 +281,8 @@ async def send_gift_order(db: AsyncSession, order: GiftOrder) -> GiftOrder:
     if not api_url or not api_key or not sender_id:
         notification_error = "SMS gateway is not configured (Settings → API Credentials)"
     else:
-        message = (
-            f'Hi {order.customer.name}, your gift "{order.gift_name}" is on its way! '
-            "Thank you for being a valued TopTen customer."
+        message = render_gift_sms_message(
+            customer_name=order.customer.name, gift_name=order.gift_name
         )
         try:
             result = await gateway_send_sms(

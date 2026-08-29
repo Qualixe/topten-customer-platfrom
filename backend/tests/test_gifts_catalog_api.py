@@ -49,7 +49,6 @@ async def _add_catalog_item(
         name=name,
         category_id=category.id,
         description="A test gift",
-        points_cost=100,
         retail_value="500.00",
         stock_quantity=stock_quantity,
     )
@@ -68,7 +67,6 @@ async def test_admin_can_create_catalog_item(client: AsyncClient, db_session: As
             "name": "Fancy Mug",
             "category_id": str(category.public_id),
             "description": "A ceramic mug",
-            "points_cost": 300,
             "retail_value": "450.00",
             "stock_quantity": 20,
         },
@@ -105,12 +103,12 @@ async def test_admin_can_update_catalog_item(client: AsyncClient, db_session: As
 
     response = await client.patch(
         f"/api/v1/gifts/catalog/{item.public_id}",
-        json={"stock_quantity": 3, "points_cost": 999},
+        json={"stock_quantity": 3, "retail_value": "999.00"},
     )
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["stock_quantity"] == 3
-    assert data["points_cost"] == 999
+    assert data["retail_value"] == "999.00"
     assert data["stock_status"] == "LOW_STOCK"
 
 
@@ -175,7 +173,6 @@ async def test_staff_can_view_but_not_manage_catalog(
         json={
             "name": "Nope",
             "category_id": str(category.public_id),
-            "points_cost": 100,
             "retail_value": "100.00",
         },
     )

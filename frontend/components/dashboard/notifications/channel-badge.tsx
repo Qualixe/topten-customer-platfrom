@@ -2,7 +2,7 @@ import { Mail, MessageCircle, MessageSquare, type LucideIcon } from "lucide-reac
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { NotificationChannel } from "@/lib/mock/notifications";
+import type { NotificationChannel } from "@/lib/api/notifications";
 
 const CHANNEL_ICONS: Record<NotificationChannel, LucideIcon> = {
   SMS: MessageSquare,

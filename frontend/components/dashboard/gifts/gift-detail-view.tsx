@@ -69,7 +69,6 @@ export function GiftDetailView({
   const [name, setName] = useState(gift.name);
   const [categoryId, setCategoryId] = useState(gift.category.id);
   const [description, setDescription] = useState(gift.description);
-  const [pointsCost, setPointsCost] = useState(String(gift.pointsCost));
   const [retailValue, setRetailValue] = useState(String(gift.retailValue));
   const [stockQuantity, setStockQuantity] = useState(String(gift.stockQuantity));
   const [imageUrl, setImageUrl] = useState(gift.imageUrl);
@@ -124,7 +123,6 @@ export function GiftDetailView({
         name,
         categoryId,
         description,
-        pointsCost: Number(pointsCost),
         retailValue: Number(retailValue),
         stockQuantity: Number(stockQuantity),
       });
@@ -235,19 +233,7 @@ export function GiftDetailView({
               />
             </FormField>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <FormField htmlFor="gift-detail-points" label="Points Cost">
-                <Input
-                  id="gift-detail-points"
-                  type="number"
-                  min="0"
-                  value={pointsCost}
-                  onChange={(event) => setPointsCost(event.target.value)}
-                  disabled={!canManage}
-                  required
-                />
-              </FormField>
-
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField htmlFor="gift-detail-retail-value" label="Retail Value (৳)">
                 <Input
                   id="gift-detail-retail-value"
@@ -289,7 +275,7 @@ export function GiftDetailView({
               </Button>
               <Button
                 type="submit"
-                disabled={submitting || !name || !categoryId || !pointsCost || !retailValue}
+                disabled={submitting || !name || !categoryId || !retailValue}
               >
                 {submitting ? "Saving…" : "Save changes"}
               </Button>

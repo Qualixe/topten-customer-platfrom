@@ -17,6 +17,7 @@ from app.services.gifts import (
     create_catalog_item,
     create_category,
     create_gift_order,
+    create_gift_orders_bulk,
     delete_catalog_item,
     delete_category,
     get_catalog_item_or_404,
@@ -29,6 +30,8 @@ from app.services.gifts import (
     update_category,
 )
 from app.views.gifts import (
+    BulkGiftOrderCreate,
+    BulkGiftOrdersResponse,
     GiftCatalogItemCreate,
     GiftCatalogItemRead,
     GiftCatalogItemResponse,
@@ -71,7 +74,6 @@ def _catalog_item_to_read(item: GiftCatalogItem) -> GiftCatalogItemRead:
         category=GiftCategoryRead(id=item.category.public_id, name=item.category.name),
         description=item.description,
         image_url=_gift_image_url(item.image_path),
-        points_cost=item.points_cost,
         retail_value=item.retail_value,
         stock_quantity=item.stock_quantity,
         stock_status=item.stock_status,
@@ -191,7 +193,6 @@ async def create_catalog_item_endpoint(
         name=payload.name,
         category_id=category.id,
         description=payload.description,
-        points_cost=payload.points_cost,
         retail_value=payload.retail_value,
         stock_quantity=payload.stock_quantity,
     )
@@ -216,7 +217,6 @@ async def update_catalog_item_endpoint(
         name=payload.name,
         category_id=category_id,
         description=payload.description,
-        points_cost=payload.points_cost,
         retail_value=payload.retail_value,
         stock_quantity=payload.stock_quantity,
     )
@@ -337,8 +337,29 @@ async def create_gift_order_endpoint(
         customer_id=payload.customer_id,
         catalog_item_id=payload.catalog_item_id,
         occasion=payload.occasion,
+        delivery_address=payload.delivery_address,
     )
     return GiftOrderResponse(data=GiftOrderRead.model_validate(order))
+
+
+@router.post(
+    "/orders/bulk", response_model=BulkGiftOrdersResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_gift_orders_bulk_endpoint(
+    payload: BulkGiftOrderCreate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("gifts.manage")),
+) -> BulkGiftOrdersResponse:
+    orders = await create_gift_orders_bulk(
+        db,
+        recipients=[
+            (recipient.customer_id, recipient.delivery_address)
+            for recipient in payload.recipients
+        ],
+        catalog_item_id=payload.catalog_item_id,
+        occasion=payload.occasion,
+    )
+    return BulkGiftOrdersResponse(data=[GiftOrderRead.model_validate(order) for order in orders])
 
 
 @router.patch("/orders/{order_id}", response_model=GiftOrderResponse)

@@ -43,7 +43,6 @@ class GiftCatalogItem(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    points_cost: Mapped[int] = mapped_column(Integer, nullable=False)
     retail_value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
     stock_quantity: Mapped[int] = mapped_column(

@@ -23,6 +23,10 @@ export interface Customer {
   dateOfBirth?: string | null;
   /** Absent (undefined) on mock-generated customers, same as dateOfBirth. */
   customerType?: CustomerType;
+  /** Raw saved address (or null), same availability caveat as dateOfBirth —
+   * `city` above is a display-friendly "—"-on-null fallback derived from
+   * this same backend field, not a separate value. */
+  address?: string | null;
 }
 
 const FIRST_NAMES = [

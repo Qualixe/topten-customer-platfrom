@@ -9,6 +9,7 @@ from app.controllers import (
     gifts,
     health,
     imports,
+    notification_log,
     notifications,
     public_profile,
     roles,
@@ -31,6 +32,12 @@ api_router.include_router(
 )
 api_router.include_router(
     imports.router, prefix="/imports", tags=["imports"], dependencies=_protected
+)
+api_router.include_router(
+    notification_log.router,
+    prefix="/notifications",
+    tags=["notifications"],
+    dependencies=_protected,
 )
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"], dependencies=_protected

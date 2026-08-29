@@ -9,6 +9,8 @@ import {
   listNotifications,
 } from "@/lib/api/notifications";
 
+export const dynamic = "force-dynamic";
+
 export default async function NotificationsPage() {
   const [{ items: notifications }, { items: failedNotifications }, stats] =
     await Promise.all([

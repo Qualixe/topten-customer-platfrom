@@ -40,7 +40,6 @@ async def _add_catalog_item(
         name=name,
         category_id=category.id,
         description="A test gift",
-        points_cost=100,
         retail_value="500.00",
         stock_quantity=10,
     )

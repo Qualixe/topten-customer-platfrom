@@ -47,7 +47,6 @@ export interface GiftItem {
   /** API-relative, e.g. "/gift-images/abc.png" — resolve with
    * `resolveGiftImageUrl` before rendering. Null if no photo was uploaded. */
   imageUrl: string | null;
-  pointsCost: number;
   retailValue: number;
   stockStatus: StockStatus;
   stockQuantity: number;
@@ -60,7 +59,6 @@ interface GiftItemDto {
   category: GiftCategoryOption;
   description: string;
   imageUrl: string | null;
-  pointsCost: number;
   retailValue: string | number;
   stockStatus: StockStatus;
   stockQuantity: number;
@@ -74,7 +72,6 @@ function mapDtoToGiftItem(dto: GiftItemDto): GiftItem {
     category: dto.category,
     description: dto.description,
     imageUrl: dto.imageUrl,
-    pointsCost: dto.pointsCost,
     retailValue: Number(dto.retailValue),
     stockStatus: dto.stockStatus,
     stockQuantity: dto.stockQuantity,
@@ -161,7 +158,6 @@ export interface GiftCatalogItemInput {
   name: string;
   categoryId: string;
   description?: string;
-  pointsCost: number;
   retailValue: number;
   stockQuantity: number;
 }
@@ -171,7 +167,6 @@ export async function createGiftCatalogItem(input: GiftCatalogItemInput): Promis
     name: input.name,
     category_id: input.categoryId,
     description: input.description ?? "",
-    points_cost: input.pointsCost,
     retail_value: input.retailValue,
     stock_quantity: input.stockQuantity,
   });
@@ -186,7 +181,6 @@ export async function updateGiftCatalogItem(
   if (input.name !== undefined) body.name = input.name;
   if (input.categoryId !== undefined) body.category_id = input.categoryId;
   if (input.description !== undefined) body.description = input.description;
-  if (input.pointsCost !== undefined) body.points_cost = input.pointsCost;
   if (input.retailValue !== undefined) body.retail_value = input.retailValue;
   if (input.stockQuantity !== undefined) body.stock_quantity = input.stockQuantity;
 
@@ -244,9 +238,9 @@ export interface GiftOrder {
   customerInitials: string;
   customerTier: "VIP" | "Regular";
   giftName: string;
-  pointsCost: number;
   occasion: GiftOccasion;
   status: GiftOrderStatus;
+  deliveryAddress: string | null;
   scheduledFor: string | null;
   sentAt: string | null;
   notificationError: string | null;
@@ -257,9 +251,9 @@ interface GiftOrderDto {
   id: string;
   customer: { id: string; name: string; isVip: boolean };
   giftName: string;
-  pointsCost: number;
   occasion: GiftOccasion;
   status: GiftOrderStatus;
+  deliveryAddress: string | null;
   scheduledFor: string | null;
   sentAt: string | null;
   notificationError: string | null;
@@ -285,9 +279,9 @@ function mapDtoToGiftOrder(dto: GiftOrderDto): GiftOrder {
     customerInitials: getInitials(dto.customer.name),
     customerTier: dto.customer.isVip ? "VIP" : "Regular",
     giftName: dto.giftName,
-    pointsCost: dto.pointsCost,
     occasion: dto.occasion,
     status: dto.status,
+    deliveryAddress: dto.deliveryAddress,
     scheduledFor: dto.scheduledFor,
     sentAt: dto.sentAt,
     notificationError: dto.notificationError,
@@ -333,6 +327,7 @@ export interface CreateGiftOrderInput {
   customerId: string;
   catalogItemId: string;
   occasion: GiftOccasion;
+  deliveryAddress?: string;
 }
 
 /** Creates a new gift order (status PENDING) — the entry point for "sending
@@ -343,8 +338,32 @@ export async function createGiftOrder(input: CreateGiftOrderInput): Promise<Gift
     customer_id: input.customerId,
     catalog_item_id: input.catalogItemId,
     occasion: input.occasion,
+    delivery_address: input.deliveryAddress || undefined,
   });
   return mapDtoToGiftOrder(envelope.data);
+}
+
+export interface CreateGiftOrdersBulkInput {
+  recipients: { customerId: string; deliveryAddress?: string }[];
+  catalogItemId: string;
+  occasion: GiftOccasion;
+}
+
+/** Same gift, same occasion, queued for several customers in one request —
+ * the entry point for "sending" a gift to a batch of customers at once.
+ * All-or-nothing: rejected with an `ApiError` if any customer_id is
+ * unknown or the catalog item is out of stock, before any order is
+ * created. */
+export async function createGiftOrdersBulk(input: CreateGiftOrdersBulkInput): Promise<GiftOrder[]> {
+  const envelope = await apiPost<ApiEnvelope<GiftOrderDto[]>>("/gifts/orders/bulk", {
+    recipients: input.recipients.map((recipient) => ({
+      customer_id: recipient.customerId,
+      delivery_address: recipient.deliveryAddress || undefined,
+    })),
+    catalog_item_id: input.catalogItemId,
+    occasion: input.occasion,
+  });
+  return envelope.data.map(mapDtoToGiftOrder);
 }
 
 export interface UpdateGiftOrderStatusInput {

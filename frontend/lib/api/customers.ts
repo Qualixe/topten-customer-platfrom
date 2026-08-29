@@ -103,6 +103,7 @@ function mapDtoToCustomer(dto: CustomerDto): Customer {
     email: dto.email ?? "No email on file",
     phone: dto.phone,
     city: dto.address ?? "—",
+    address: dto.address,
     tier: dto.isVip ? "VIP" : "Regular",
     status: toStatus(dto.status),
     totalOrders: 0,

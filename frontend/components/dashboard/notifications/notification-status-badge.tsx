@@ -1,5 +1,5 @@
 import { StatusPill, type StatusTone } from "@/components/dashboard/status-pill";
-import type { NotificationStatus } from "@/lib/mock/notifications";
+import type { NotificationStatus } from "@/lib/api/notifications";
 
 const STATUS_TONE: Record<NotificationStatus, StatusTone> = {
   Delivered: "success",

@@ -37,7 +37,6 @@ export function NewGiftForm({
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState(initialCategories[0]?.id ?? "");
   const [description, setDescription] = useState("");
-  const [pointsCost, setPointsCost] = useState("");
   const [retailValue, setRetailValue] = useState("");
   const [stockQuantity, setStockQuantity] = useState("0");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -80,7 +79,6 @@ export function NewGiftForm({
         name,
         categoryId,
         description,
-        pointsCost: Number(pointsCost),
         retailValue: Number(retailValue),
         stockQuantity: Number(stockQuantity),
       });
@@ -169,18 +167,7 @@ export function NewGiftForm({
             />
           </FormField>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <FormField htmlFor="new-gift-points" label="Points Cost">
-              <Input
-                id="new-gift-points"
-                type="number"
-                min="0"
-                value={pointsCost}
-                onChange={(event) => setPointsCost(event.target.value)}
-                required
-              />
-            </FormField>
-
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField htmlFor="new-gift-retail-value" label="Retail Value (৳)">
               <Input
                 id="new-gift-retail-value"
@@ -216,10 +203,7 @@ export function NewGiftForm({
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            disabled={submitting || !name || !categoryId || !pointsCost || !retailValue}
-          >
+          <Button type="submit" disabled={submitting || !name || !categoryId || !retailValue}>
             {submitting ? "Adding…" : "Add Gift"}
           </Button>
         </CardFooter>

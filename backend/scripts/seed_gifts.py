@@ -27,13 +27,12 @@ CATEGORY_NAMES = [
     "Kids & Toys",
 ]
 
-# (name, category name, description, points_cost, retail_value, stock_quantity)
-CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
+# (name, category name, description, retail_value, stock_quantity)
+CATALOG_ITEMS: list[tuple[str, str, str, str, int]] = [
     (
         "Premium Tea Gift Box",
         "Food & Beverage",
         "An assortment of premium loose-leaf teas in a keepsake box.",
-        800,
         "1200",
         42,
     ),
@@ -41,7 +40,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Artisan Chocolate Hamper",
         "Food & Beverage",
         "Handcrafted chocolates from local artisan makers.",
-        950,
         "1450",
         30,
     ),
@@ -49,7 +47,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Scented Candle Set",
         "Home & Living",
         "A set of three hand-poured scented candles.",
-        700,
         "1100",
         6,
     ),
@@ -57,7 +54,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Cotton Bedsheet Set",
         "Home & Living",
         "Soft cotton bedsheet set with two pillow covers.",
-        1800,
         "3200",
         18,
     ),
@@ -65,7 +61,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Ceramic Dinnerware Set",
         "Home & Living",
         "A 12-piece ceramic dinnerware set for four.",
-        2400,
         "4500",
         4,
     ),
@@ -73,7 +68,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Skincare Essentials Kit",
         "Beauty & Wellness",
         "Cleanser, toner, and moisturizer travel-size kit.",
-        1100,
         "1900",
         25,
     ),
@@ -81,7 +75,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Spa Relaxation Set",
         "Beauty & Wellness",
         "Bath salts, body oil, and a soft towel wrap.",
-        1350,
         "2100",
         20,
     ),
@@ -89,7 +82,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Electric Kettle",
         "Electronics",
         "1.7L stainless steel electric kettle with auto shut-off.",
-        2200,
         "3800",
         0,
     ),
@@ -97,7 +89,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Bluetooth Speaker",
         "Electronics",
         "Compact portable speaker with 10-hour battery life.",
-        2600,
         "4200",
         15,
     ),
@@ -105,7 +96,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Wireless Earbuds",
         "Electronics",
         "Entry-level wireless earbuds with charging case.",
-        3000,
         "5000",
         5,
     ),
@@ -113,7 +103,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "৳500 Shopping Voucher",
         "Gift Vouchers",
         "Redeemable in-store voucher worth ৳500.",
-        500,
         "500",
         999,
     ),
@@ -121,7 +110,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "৳1000 Shopping Voucher",
         "Gift Vouchers",
         "Redeemable in-store voucher worth ৳1,000.",
-        950,
         "1000",
         999,
     ),
@@ -129,7 +117,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "৳2000 Shopping Voucher",
         "Gift Vouchers",
         "Redeemable in-store voucher worth ৳2,000.",
-        1850,
         "2000",
         999,
     ),
@@ -137,7 +124,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Building Blocks Set",
         "Kids & Toys",
         "150-piece colorful building block set for kids.",
-        900,
         "1500",
         22,
     ),
@@ -145,7 +131,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Plush Toy Bundle",
         "Kids & Toys",
         "A bundle of three soft plush toys.",
-        650,
         "1000",
         28,
     ),
@@ -153,7 +138,6 @@ CATALOG_ITEMS: list[tuple[str, str, str, int, str, int]] = [
         "Kids Art Supply Kit",
         "Kids & Toys",
         "Crayons, markers, and a sketchbook for young artists.",
-        550,
         "850",
         0,
     ),
@@ -179,7 +163,7 @@ async def seed_gifts(session_factory: async_sessionmaker = SessionLocal) -> None
         }
 
         for row in CATALOG_ITEMS:
-            name, category_name, description, points_cost, retail_value, stock_quantity = row
+            name, category_name, description, retail_value, stock_quantity = row
             existing = (
                 await db.execute(select(GiftCatalogItem).where(GiftCatalogItem.name == name))
             ).scalar_one_or_none()
@@ -191,7 +175,6 @@ async def seed_gifts(session_factory: async_sessionmaker = SessionLocal) -> None
                     name=name,
                     category_id=categories_by_name[category_name].id,
                     description=description,
-                    points_cost=points_cost,
                     retail_value=Decimal(retail_value),
                     stock_quantity=stock_quantity,
                 )

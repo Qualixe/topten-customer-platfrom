@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { NotificationRecord } from "@/lib/mock/notifications";
+import { formatNotificationDateTime, type NotificationRecord } from "@/lib/api/notifications";
 
 export function NotificationsTable({
   notifications,
@@ -77,7 +77,7 @@ export function NotificationsTable({
                   <NotificationStatusBadge status={notification.status} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {notification.sentAt}
+                  {formatNotificationDateTime(notification.sentAt)}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button

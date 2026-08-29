@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { NotificationRecord } from "@/lib/mock/notifications";
+import { formatNotificationDateTime, type NotificationRecord } from "@/lib/api/notifications";
 
 export function FailedNotifications({
   notifications,
@@ -55,7 +55,7 @@ export function FailedNotifications({
                   </p>
                 </div>
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {notification.sentAt}
+                  {formatNotificationDateTime(notification.sentAt)}
                 </span>
               </div>
             ))}
