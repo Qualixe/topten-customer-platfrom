@@ -24,6 +24,7 @@ export function FormToolbar({
   onBack,
   canManage = true,
   extraAction,
+  liveUrl,
 }: {
   name: string;
   onNameChange: (value: string) => void;
@@ -36,6 +37,11 @@ export function FormToolbar({
   canManage?: boolean;
   /** Extra button rendered next to Preview, e.g. "Send via Campaign". */
   extraAction?: ReactNode;
+  /** The real public URL once this form is published as an open form —
+   * "Preview" opens that instead of the local, static in-builder preview,
+   * so what you see is what a real visitor actually gets. Only unpublished
+   * forms (no live URL yet) fall back to the local preview. */
+  liveUrl?: string | null;
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -54,9 +60,20 @@ export function FormToolbar({
 
       <div className="flex items-center gap-3">
         {canManage && <p className="text-xs text-muted-foreground">{SAVE_STATUS_LABEL[saveStatus]}</p>}
-        <Button type="button" variant="outline" onClick={onTogglePreview}>
-          {previewMode ? "Edit" : "Preview"}
-        </Button>
+        {liveUrl ? (
+          <Button
+            type="button"
+            variant="outline"
+            nativeButton={false}
+            render={<a href={liveUrl} target="_blank" rel="noopener noreferrer" />}
+          >
+            Preview
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" onClick={onTogglePreview}>
+            {previewMode ? "Edit" : "Preview"}
+          </Button>
+        )}
         {!previewMode && canManage && extraAction}
         {!previewMode && canManage && (
           <Button

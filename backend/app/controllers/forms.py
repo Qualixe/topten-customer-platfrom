@@ -34,6 +34,8 @@ def _form_to_read(form: Form) -> FormRead:
         description=form.description,
         status=form.status,
         builder_data=form.builder_data,
+        slug=form.slug,
+        published=form.published,
         created_at=form.created_at,
         updated_at=form.updated_at,
     )
@@ -88,8 +90,9 @@ async def update_form(
         form,
         name=payload.name,
         description=payload.description,
-        status=payload.status.value if payload.status else None,
         builder_data=payload.builder_data,
+        slug=payload.slug,
+        published=payload.published,
     )
     return FormResponse(data=_form_to_read(form))
 

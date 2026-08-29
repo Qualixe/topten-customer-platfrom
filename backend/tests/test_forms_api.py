@@ -63,7 +63,22 @@ async def test_create_form(client: AsyncClient) -> None:
     data = response.json()["data"]
     assert data["name"] == "Customer Information"
     assert data["status"] == "DRAFT"
-    assert data["builder_data"]["fields"] == []
+
+    # A new form starts from a sensible default template rather than a
+    # blank canvas — one that already includes the two fields a real
+    # submission actually requires (date_of_birth, address).
+    field_types = [field["type"] for field in data["builder_data"]["fields"]]
+    assert field_types == [
+        "heading",
+        "name",
+        "phone",
+        "date_of_birth",
+        "address",
+        "email",
+        "submit_button",
+    ]
+    field_ids = [field["id"] for field in data["builder_data"]["fields"]]
+    assert len(field_ids) == len(set(field_ids))
 
 
 async def test_list_forms_supports_search(client: AsyncClient) -> None:
@@ -82,13 +97,35 @@ async def test_update_form_saves_builder_data(client: AsyncClient) -> None:
     form_id = create_response.json()["data"]["id"]
 
     response = await client.patch(
-        f"/api/v1/forms/{form_id}",
-        json={"builder_data": VALID_BUILDER_DATA, "status": "PUBLISHED"},
+        f"/api/v1/forms/{form_id}", json={"builder_data": VALID_BUILDER_DATA}
     )
     assert response.status_code == 200
     data = response.json()["data"]
-    assert data["status"] == "PUBLISHED"
     assert len(data["builder_data"]["fields"]) == 6
+
+
+async def test_status_is_derived_from_published_not_independently_settable(
+    client: AsyncClient,
+) -> None:
+    """`status` (DRAFT/PUBLISHED) always reflects `published` — it can't
+    drift out of sync because there's nothing else that sets it."""
+    create_response = await client.post("/api/v1/forms", json={"name": "Draft Form"})
+    form_id = create_response.json()["data"]["id"]
+    assert create_response.json()["data"]["status"] == "DRAFT"
+
+    # Sending "status" directly is rejected — extra="forbid", no such field.
+    rejected = await client.patch(f"/api/v1/forms/{form_id}", json={"status": "PUBLISHED"})
+    assert rejected.status_code == 422
+
+    published = await client.patch(
+        f"/api/v1/forms/{form_id}", json={"slug": "derived-status-form", "published": True}
+    )
+    assert published.status_code == 200
+    assert published.json()["data"]["status"] == "PUBLISHED"
+
+    unpublished = await client.patch(f"/api/v1/forms/{form_id}", json={"published": False})
+    assert unpublished.status_code == 200
+    assert unpublished.json()["data"]["status"] == "DRAFT"
 
 
 async def test_delete_form(client: AsyncClient) -> None:
@@ -185,6 +222,78 @@ async def test_attach_form_to_campaign_creates_landing_page(
     )
     assert landing_page_response.status_code == 200
     assert len(landing_page_response.json()["data"]["builder_data"]["blocks"]) == 4
+
+
+async def test_attach_form_to_campaign_carries_over_heading_align_and_size(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A heading's alignment/size, set in the form builder, must survive
+    conversion into a campaign landing page block instead of silently
+    reverting to the block's left/medium default."""
+    campaign = await _create_campaign(db_session)
+    create_response = await client.post("/api/v1/forms", json={"name": "Styled Heading Form"})
+    form_id = create_response.json()["data"]["id"]
+    await client.patch(
+        f"/api/v1/forms/{form_id}",
+        json={
+            "builder_data": {
+                "version": 1,
+                "fields": [
+                    {
+                        "id": "field-1",
+                        "type": "heading",
+                        "label": "Welcome!",
+                        "align": "center",
+                        "size": "lg",
+                    }
+                ],
+            }
+        },
+    )
+
+    response = await client.post(
+        f"/api/v1/sms/campaigns/{campaign.public_id}/landing-page/from-form/{form_id}"
+    )
+    assert response.status_code == 201
+    heading_block = response.json()["data"]["builder_data"]["blocks"][0]
+    assert heading_block["type"] == "heading"
+    assert heading_block["content"]["align"] == "center"
+    assert heading_block["content"]["size"] == "lg"
+
+
+async def test_attach_form_to_campaign_carries_over_paragraph_align(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Same as heading alignment — a paragraph's alignment must also
+    survive the conversion into a campaign landing page's text block."""
+    campaign = await _create_campaign(db_session)
+    create_response = await client.post("/api/v1/forms", json={"name": "Styled Paragraph Form"})
+    form_id = create_response.json()["data"]["id"]
+    await client.patch(
+        f"/api/v1/forms/{form_id}",
+        json={
+            "builder_data": {
+                "version": 1,
+                "fields": [
+                    {
+                        "id": "field-1",
+                        "type": "paragraph",
+                        "label": "Some body copy.",
+                        "align": "right",
+                    }
+                ],
+            }
+        },
+    )
+
+    response = await client.post(
+        f"/api/v1/sms/campaigns/{campaign.public_id}/landing-page/from-form/{form_id}"
+    )
+    assert response.status_code == 201
+    text_block = response.json()["data"]["builder_data"]["blocks"][0]
+    assert text_block["type"] == "text"
+    assert text_block["content"]["align"] == "right"
+    assert "size" not in text_block["content"]
 
 
 async def test_attach_form_to_campaign_overwrites_existing_landing_page_blocks(

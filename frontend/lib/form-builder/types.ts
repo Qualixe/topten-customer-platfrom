@@ -1,12 +1,14 @@
 export type FieldType =
   | "heading"
   | "paragraph"
+  | "name"
   | "text"
   | "email"
   | "phone"
   | "date_of_birth"
   | "address"
-  | "divider";
+  | "divider"
+  | "submit_button";
 
 /** A single field on the form. Not every property applies to every type —
  * each field component just reads the ones it cares about (e.g. only
@@ -21,8 +23,9 @@ export interface FormField {
   label: string;
   placeholder?: string;
   required?: boolean;
-  /** Heading only. */
+  /** Heading and paragraph only. */
   align?: "left" | "center" | "right";
+  /** Heading only. */
   size?: "sm" | "md" | "lg";
 }
 

@@ -12,9 +12,16 @@ import { Switch } from "@/components/ui/switch";
 import { FIELD_DEFINITIONS } from "@/lib/form-builder/field-config";
 import type { FormField } from "@/lib/form-builder/types";
 
-const TEXT_ONLY_TYPES: FormField["type"][] = ["heading", "paragraph"];
-const PLACEHOLDER_TYPES: FormField["type"][] = ["text", "email", "phone", "address"];
-const REQUIRED_TYPES: FormField["type"][] = ["text", "email", "phone", "date_of_birth", "address"];
+const TEXT_ONLY_TYPES: FormField["type"][] = ["heading", "paragraph", "submit_button"];
+const PLACEHOLDER_TYPES: FormField["type"][] = ["name", "text", "email", "phone", "address"];
+const REQUIRED_TYPES: FormField["type"][] = [
+  "name",
+  "text",
+  "email",
+  "phone",
+  "date_of_birth",
+  "address",
+];
 
 /** Right column — editable properties for whichever field is selected.
  * Only the properties relevant to that field's type are shown. */
@@ -43,7 +50,8 @@ export function FormProperties({
     onChange(field!.id, patch);
   }
 
-  const labelCaption = field.type === "heading" ? "Heading text" : "Paragraph text";
+  const labelCaption =
+    field.type === "heading" ? "Heading text" : field.type === "paragraph" ? "Paragraph text" : "Button text";
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border bg-background p-4">
@@ -74,41 +82,39 @@ export function FormProperties({
             </div>
           )}
 
+          {(field.type === "heading" || field.type === "paragraph") && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="prop-align">Alignment</Label>
+              <Select
+                value={field.align ?? "left"}
+                onValueChange={(value) => set({ align: value as FormField["align"] })}
+              >
+                <SelectTrigger id="prop-align">
+                  <SelectValue>{(value: string) => value.charAt(0).toUpperCase() + value.slice(1)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {field.type === "heading" && (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="prop-align">Alignment</Label>
-                <Select
-                  value={field.align ?? "left"}
-                  onValueChange={(value) => set({ align: value as FormField["align"] })}
-                >
-                  <SelectTrigger id="prop-align">
-                    <SelectValue>{(value: string) => value.charAt(0).toUpperCase() + value.slice(1)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="left">Left</SelectItem>
-                    <SelectItem value="center">Center</SelectItem>
-                    <SelectItem value="right">Right</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="prop-size">Size</Label>
-                <Select
-                  value={field.size ?? "md"}
-                  onValueChange={(value) => set({ size: value as FormField["size"] })}
-                >
-                  <SelectTrigger id="prop-size">
-                    <SelectValue>{(value: string) => value.toUpperCase()}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sm">Small</SelectItem>
-                    <SelectItem value="md">Medium</SelectItem>
-                    <SelectItem value="lg">Large</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="prop-size">Size</Label>
+              <Select value={field.size ?? "md"} onValueChange={(value) => set({ size: value as FormField["size"] })}>
+                <SelectTrigger id="prop-size">
+                  <SelectValue>{(value: string) => value.toUpperCase()}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sm">Small</SelectItem>
+                  <SelectItem value="md">Medium</SelectItem>
+                  <SelectItem value="lg">Large</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {REQUIRED_TYPES.includes(field.type) && (

@@ -1,16 +1,23 @@
-"""CRUD for standalone forms, plus converting a form's fields into a
-campaign's landing page (see attach_form_to_campaign)."""
+"""CRUD for standalone forms, plus:
+- converting a form's fields into a campaign's landing page (see
+  attach_form_to_campaign) — a tokenized link for one known customer;
+- accepting a tokenless public submission (see submit_generic_form) —
+  creates/finds a Customer by phone instead.
+"""
 
 import uuid
 
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.exceptions import ValidationAppError
+from app.common.phone import InvalidPhoneNumberError, normalize_phone
 from app.models.campaign_landing_page import CampaignLandingPage
-from app.models.form import Form, FormStatus
+from app.models.customer import Customer
+from app.models.form import Form
 from app.services import campaign_landing_pages as landing_page_service
 from app.views.campaign_landing_pages import LandingPageBlock, LandingPageBuilderData
-from app.views.forms import FormBuilderData, FormFieldSchema
+from app.views.forms import FormBuilderData, FormFieldSchema, GenericFormSubmission
 
 DEFAULT_PAGE_SIZE = 20
 
@@ -59,12 +66,82 @@ async def get_form_by_public_id(db: AsyncSession, public_id: uuid.UUID) -> Form 
     return (await db.execute(select(Form).where(Form.public_id == public_id))).scalar_one_or_none()
 
 
+def _default_builder_data() -> dict:
+    """A sensible starting point instead of a blank canvas. Name + Phone are
+    included because they're required for this form to also work as an
+    open, tokenless public form (see submit_generic_form) — if the form is
+    instead attached to a campaign, they're simply skipped there (reported
+    via skipped_field_labels), since a token-based submission already knows
+    who the customer is. date_of_birth/address are marked required since a
+    real submission actually requires them there too (see
+    PublicProfileUpdate) — this session's earlier work flagged missing them
+    as a real pitfall. Each field gets its own fresh id so multiple new
+    forms never collide."""
+    return {
+        "version": 1,
+        "fields": [
+            {
+                "id": str(uuid.uuid4()),
+                "type": "heading",
+                "label": "Complete Your Profile",
+                "align": "left",
+                "size": "md",
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "type": "name",
+                "label": "Full Name",
+                "required": True,
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "type": "phone",
+                "label": "Phone Number",
+                "placeholder": "+8801XXXXXXXXX",
+                "required": True,
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "type": "date_of_birth",
+                "label": "Date of Birth",
+                "required": True,
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "type": "address",
+                "label": "Address",
+                "placeholder": "Street, city, postcode",
+                "required": True,
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "type": "email",
+                "label": "Email Address",
+                "placeholder": "you@example.com",
+                "required": False,
+            },
+            {"id": str(uuid.uuid4()), "type": "submit_button", "label": "Save my details"},
+        ],
+    }
+
+
 async def create_form(db: AsyncSession, *, name: str, description: str) -> Form:
-    form = Form(name=name, description=description, status=FormStatus.DRAFT.value)
+    form = Form(name=name, description=description, builder_data=_default_builder_data())
     db.add(form)
     await db.commit()
     await db.refresh(form)
     return form
+
+
+async def _ensure_form_slug_available(
+    db: AsyncSession, slug: str, *, exclude_id: int | None = None
+) -> None:
+    query = select(Form).where(Form.slug == slug)
+    if exclude_id is not None:
+        query = query.where(Form.id != exclude_id)
+    existing = (await db.execute(query)).scalar_one_or_none()
+    if existing is not None:
+        raise ValidationAppError(f'The slug "{slug}" is already in use by another form')
 
 
 async def update_form(
@@ -73,21 +150,99 @@ async def update_form(
     *,
     name: str | None,
     description: str | None,
-    status: str | None,
     builder_data: FormBuilderData | None,
+    slug: str | None,
+    published: bool | None,
 ) -> Form:
     if name is not None:
         form.name = name
     if description is not None:
         form.description = description
-    if status is not None:
-        form.status = status
     if builder_data is not None:
         form.builder_data = builder_data.model_dump(mode="json")
+    if slug is not None and slug != form.slug:
+        await _ensure_form_slug_available(db, slug, exclude_id=form.id)
+        form.slug = slug
+    if published is not None:
+        if published and not form.slug:
+            raise ValidationAppError("Set a slug before publishing this form")
+        form.published = published
 
     await db.commit()
     await db.refresh(form)
     return form
+
+
+async def get_published_form_by_slug(db: AsyncSession, slug: str) -> Form | None:
+    """Only a published form is ever returned — a draft must never be
+    reachable on the public site, same rule as campaign landing pages."""
+    return (
+        await db.execute(select(Form).where(Form.slug == slug, Form.published.is_(True)))
+    ).scalar_one_or_none()
+
+
+def _required_field_types(form: Form) -> set[str]:
+    """Which of email/date_of_birth/address this specific form's own
+    config marks required — name/phone are always required regardless (see
+    GenericFormSubmission), since a Customer can't exist without them."""
+    return {
+        field["type"]
+        for field in form.builder_data.get("fields", [])
+        if field.get("type") in {"email", "date_of_birth", "address"} and field.get("required")
+    }
+
+
+async def submit_generic_form(
+    db: AsyncSession, *, form: Form, submission: GenericFormSubmission
+) -> Customer:
+    """Tokenless public submission — finds or creates a Customer by phone
+    (matching the same identity rule POS imports use), rather than updating
+    one already identified by a token. Existing date_of_birth/address/email
+    are only overwritten with a new, non-blank value — the same "never
+    blank out real data" rule imports and the token-based profile form both
+    already follow (see Customer's docstring)."""
+    required = _required_field_types(form)
+    missing = [
+        label
+        for field_type, label in (
+            ("email", "Email"),
+            ("date_of_birth", "Date of birth"),
+            ("address", "Address"),
+        )
+        if field_type in required and not getattr(submission, field_type)
+    ]
+    if missing:
+        verb = "is" if len(missing) == 1 else "are"
+        raise ValidationAppError(f"{', '.join(missing)} {verb} required")
+
+    try:
+        normalized = normalize_phone(submission.phone)
+    except InvalidPhoneNumberError as exc:
+        raise ValidationAppError(str(exc)) from exc
+
+    customer = (
+        await db.execute(select(Customer).where(Customer.normalized_phone == normalized))
+    ).scalar_one_or_none()
+
+    if customer is None:
+        customer = Customer(
+            name=submission.name, phone=submission.phone, normalized_phone=normalized
+        )
+        db.add(customer)
+    else:
+        customer.name = submission.name
+        customer.phone = submission.phone
+
+    if submission.email:
+        customer.email = submission.email
+    if submission.date_of_birth:
+        customer.date_of_birth = submission.date_of_birth
+    if submission.address:
+        customer.address = submission.address
+
+    await db.commit()
+    await db.refresh(customer)
+    return customer
 
 
 async def delete_form(db: AsyncSession, form: Form) -> None:
@@ -99,10 +254,11 @@ async def duplicate_form(db: AsyncSession, form: Form) -> Form:
     fields = list(form.builder_data.get("fields", []))
     copied_fields = [{**field, "id": str(uuid.uuid4())} for field in fields]
 
+    # Deliberately doesn't copy slug/published — a duplicate must never
+    # come out already live at the original form's public URL.
     copy = Form(
         name=f"{form.name} Copy",
         description=form.description,
-        status=FormStatus.DRAFT.value,
         builder_data={"version": 1, "fields": copied_fields},
     )
     db.add(copy)
@@ -154,6 +310,15 @@ async def attach_form_to_campaign(
         text_content_types = {"heading", "paragraph", "submit_button"}
         content_key = "text" if field.type.value in text_content_types else "label"
         content = {content_key: field.label}
+        # Heading and paragraph are the only form field types with extra
+        # display properties right now — carry them over so e.g. a centered
+        # heading/paragraph in the form builder stays centered on the
+        # campaign landing page instead of silently reverting to the
+        # block's left-aligned default.
+        if field.type.value in {"heading", "paragraph"} and field.align is not None:
+            content["align"] = field.align.value
+        if field.type.value == "heading" and field.size is not None:
+            content["size"] = field.size.value
         blocks.append(LandingPageBlock(id=str(uuid.uuid4()), type=block_type, content=content))
 
     builder_data = LandingPageBuilderData(version=1, blocks=blocks)

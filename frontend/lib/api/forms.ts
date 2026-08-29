@@ -10,8 +10,15 @@ export interface FormRecord {
   id: string;
   name: string;
   description: string;
+  /** Read-only — derived from `published` on the backend (Form.status),
+   * always PUBLISHED once `published` is true. Not independently settable. */
   status: FormStatus;
   builderData: FormBuilderData;
+  /** Set once the admin publishes this form as an open, tokenless public
+   * form at /form/{slug} (see PublishOpenFormDialog) — independent of
+   * attaching it to a campaign. Null until then. */
+  slug: string | null;
+  published: boolean;
   updatedAt: string;
 }
 
@@ -49,13 +56,20 @@ export async function createForm(name: string, description: string): Promise<For
 
 export async function updateForm(
   id: string,
-  input: Partial<{ name: string; description: string; status: FormStatus; builderData: FormBuilderData }>
+  input: Partial<{
+    name: string;
+    description: string;
+    builderData: FormBuilderData;
+    slug: string;
+    published: boolean;
+  }>
 ): Promise<FormRecord> {
   const body: Record<string, unknown> = {};
   if (input.name !== undefined) body.name = input.name;
   if (input.description !== undefined) body.description = input.description;
-  if (input.status !== undefined) body.status = input.status;
   if (input.builderData !== undefined) body.builder_data = input.builderData;
+  if (input.slug !== undefined) body.slug = input.slug;
+  if (input.published !== undefined) body.published = input.published;
 
   const envelope = await apiPatch<ApiEnvelope<FormRecord>>(`/forms/${id}`, body);
   return envelope.data;
@@ -92,4 +106,38 @@ export async function attachFormToCampaign(
     landingPageSlug: envelope.data.slug,
     skippedFieldLabels: envelope.meta.skippedFieldLabels ?? [],
   };
+}
+
+export interface PublicForm {
+  name: string;
+  builderData: FormBuilderData;
+}
+
+/** Content only — no internal id, status, or anything else — for the
+ * public, tokenless /form/[slug] page. */
+export async function getPublicForm(slug: string): Promise<PublicForm> {
+  const envelope = await apiGet<ApiEnvelope<PublicForm>>(`/public/forms/${encodeURIComponent(slug)}`);
+  return envelope.data;
+}
+
+export interface GenericFormSubmissionInput {
+  name: string;
+  phone: string;
+  email?: string;
+  dateOfBirth?: string;
+  address?: string;
+}
+
+/** No token — anyone can submit. Finds or creates a Customer by phone
+ * rather than updating one already identified by a token; see
+ * updatePublicCustomerProfile in public-customer-profile.ts for that other
+ * flow. */
+export async function submitGenericForm(slug: string, input: GenericFormSubmissionInput): Promise<void> {
+  await apiPost<ApiEnvelope<Record<string, never>>>(`/public/forms/${encodeURIComponent(slug)}/submit`, {
+    name: input.name,
+    phone: input.phone,
+    email: input.email || undefined,
+    date_of_birth: input.dateOfBirth || undefined,
+    address: input.address || undefined,
+  });
 }

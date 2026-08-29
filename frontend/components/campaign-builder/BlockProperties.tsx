@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -45,26 +46,69 @@ export function BlockProperties({
       <Separator />
 
       {block.type === "heading" && (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="prop-text">Heading text</Label>
-          <Input
-            id="prop-text"
-            value={block.content.text ?? ""}
-            onChange={(event) => set("text", event.target.value)}
-          />
-        </div>
+        <>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="prop-text">Heading text</Label>
+            <Input
+              id="prop-text"
+              value={block.content.text ?? ""}
+              onChange={(event) => set("text", event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="prop-align">Alignment</Label>
+            <Select value={block.content.align ?? "left"} onValueChange={(value) => set("align", value ?? "left")}>
+              <SelectTrigger id="prop-align">
+                <SelectValue>{(value: string) => value.charAt(0).toUpperCase() + value.slice(1)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="left">Left</SelectItem>
+                <SelectItem value="center">Center</SelectItem>
+                <SelectItem value="right">Right</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="prop-size">Size</Label>
+            <Select value={block.content.size ?? "md"} onValueChange={(value) => set("size", value ?? "md")}>
+              <SelectTrigger id="prop-size">
+                <SelectValue>{(value: string) => value.toUpperCase()}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sm">Small</SelectItem>
+                <SelectItem value="md">Medium</SelectItem>
+                <SelectItem value="lg">Large</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
       )}
 
       {block.type === "text" && (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="prop-text">Text</Label>
-          <Textarea
-            id="prop-text"
-            className="min-h-24 resize-none"
-            value={block.content.text ?? ""}
-            onChange={(event) => set("text", event.target.value)}
-          />
-        </div>
+        <>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="prop-text">Text</Label>
+            <Textarea
+              id="prop-text"
+              className="min-h-24 resize-none"
+              value={block.content.text ?? ""}
+              onChange={(event) => set("text", event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="prop-align">Alignment</Label>
+            <Select value={block.content.align ?? "left"} onValueChange={(value) => set("align", value ?? "left")}>
+              <SelectTrigger id="prop-align">
+                <SelectValue>{(value: string) => value.charAt(0).toUpperCase() + value.slice(1)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="left">Left</SelectItem>
+                <SelectItem value="center">Center</SelectItem>
+                <SelectItem value="right">Right</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
       )}
 
       {block.type === "image" && (

@@ -11,8 +11,15 @@ from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.campaign_recipient import CampaignRecipient, VerificationStatus
 from app.models.customer import Customer
 from app.models.customer_profile_token import CustomerProfileToken
+from app.services import forms as forms_service
 from app.services.sms_campaigns import mark_recipient_verified
 from app.views.campaign_landing_pages import PublicLandingPageData, PublicLandingPageResponse
+from app.views.forms import (
+    GenericFormSubmission,
+    GenericFormSubmissionResponse,
+    PublicFormData,
+    PublicFormResponse,
+)
 from app.views.public_profile import (
     PublicProfileCampaign,
     PublicProfileData,
@@ -151,3 +158,32 @@ async def get_public_campaign_landing_page(
     return PublicLandingPageResponse(
         data=PublicLandingPageData(name=landing_page.name, builder_data=landing_page.builder_data)
     )
+
+
+@router.get("/forms/{slug}", response_model=PublicFormResponse)
+async def get_public_form(slug: str, db: AsyncSession = Depends(get_db)) -> PublicFormResponse:
+    """The open, tokenless form at /form/{slug} — content only, no internal
+    id/status. A draft (not yet published) form 404s exactly like one that
+    doesn't exist at all, same rule as the campaign landing page above."""
+    form = await forms_service.get_published_form_by_slug(db, slug)
+    if form is None:
+        raise NotFoundError("This form is not available")
+
+    return PublicFormResponse(data=PublicFormData(name=form.name, builder_data=form.builder_data))
+
+
+@router.post("/forms/{slug}/submit", response_model=GenericFormSubmissionResponse)
+async def submit_public_form(
+    slug: str, payload: GenericFormSubmission, db: AsyncSession = Depends(get_db)
+) -> GenericFormSubmissionResponse:
+    """Unlike /customer-profile/{token} (updates one customer already
+    identified by a token), this has no token — anyone can submit, and the
+    Customer is found-or-created by phone (see submit_generic_form). Never
+    creates a CampaignRecipient or touches verification; this is a
+    standalone signup, independent of the campaign/verification system."""
+    form = await forms_service.get_published_form_by_slug(db, slug)
+    if form is None:
+        raise NotFoundError("This form is not available")
+
+    await forms_service.submit_generic_form(db, form=form, submission=payload)
+    return GenericFormSubmissionResponse()

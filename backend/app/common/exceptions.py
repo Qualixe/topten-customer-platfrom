@@ -1,4 +1,5 @@
 from fastapi import Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 
@@ -42,6 +43,31 @@ class ForbiddenError(AppException):
 
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+
+async def request_validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Formats a request body that fails Pydantic's own validation (e.g. a
+    `@field_validator` raising `ValueError`, or a plain missing/wrong-type
+    field) as the same `{"detail": "<string>"}` shape `app_exception_handler`
+    already produces. Without this, FastAPI's default body — `detail` as a
+    list of `{loc, msg, type}` objects — breaks every frontend caller that
+    expects `detail` to be a plain string (see lib/api/client.ts), showing
+    "[object Object]" instead of the actual message."""
+    messages: list[str] = []
+    for error in exc.errors():
+        msg = str(error.get("msg", "Invalid value"))
+        if msg.startswith("Value error, "):
+            msg = msg[len("Value error, ") :]
+        loc = error.get("loc", ())
+        field = next((str(part) for part in reversed(loc) if part != "body"), None)
+        messages.append(f"{field}: {msg}" if field else msg)
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": "; ".join(messages) or "Invalid request"},
+    )
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

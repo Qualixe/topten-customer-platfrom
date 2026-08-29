@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, String, func
+from sqlalchemy import JSON, Boolean, DateTime, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,12 +19,17 @@ class FormStatus(str, enum.Enum):
 class Form(Base):
     """A reusable, standalone form definition built in the Form Builder
     (/dashboard/forms) — independent of any single campaign, unlike
-    `CampaignLandingPage`. An admin builds a form here once, then attaches
-    it to one or more campaigns (see `attach_form_to_campaign` in
-    app.services.forms) to actually send and collect it — attaching copies
-    the form's fields into that campaign's own `CampaignLandingPage`, so
-    the existing, already-verified send/token/verification pipeline is
-    reused unchanged rather than duplicated.
+    `CampaignLandingPage`. An admin builds a form here once, then either:
+
+    - attaches it to a campaign (see `attach_form_to_campaign` in
+      app.services.forms), which copies its fields into that campaign's own
+      `CampaignLandingPage` — a tokenized link for one already-known
+      customer, reusing the existing send/token/verification pipeline; or
+    - publishes it directly here (`slug`/`published`) as an open public form
+      at /form/{slug} that anyone can fill in, no token, no prior customer
+      record — a submission creates a new Customer (matched/deduped by
+      phone) rather than updating one identified by a token. See
+      app.services.forms.submit_generic_form.
 
     `builder_data` is structured JSON (see app.views.forms for the
     validated shape) — never generated HTML, never a serialized component
@@ -40,12 +45,22 @@ class Form(Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(String(1000), nullable=False, default="")
-    status: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        default=FormStatus.DRAFT.value,
-        server_default=FormStatus.DRAFT.value,
+
+    # The open-form public URL — null until the admin publishes it directly
+    # (as opposed to attaching it to a campaign, which never touches these).
+    slug: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
+    published: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
     )
+
+    @property
+    def status(self) -> str:
+        """DRAFT/PUBLISHED shown in the Forms list — derived from
+        `published`, not stored separately, so it's never possible for the
+        two to drift out of sync (the exact bug this replaced: a form could
+        previously show "Draft" in the list while already being live and
+        publicly reachable, or vice versa)."""
+        return FormStatus.PUBLISHED.value if self.published else FormStatus.DRAFT.value
 
     # JSONB on Postgres, plain JSON elsewhere (e.g. SQLite in unit tests) —
     # same variant pattern as CampaignLandingPage.builder_data.

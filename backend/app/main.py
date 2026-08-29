@@ -1,10 +1,16 @@
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.common.exceptions import AppException, app_exception_handler, unhandled_exception_handler
+from app.common.exceptions import (
+    AppException,
+    app_exception_handler,
+    request_validation_exception_handler,
+    unhandled_exception_handler,
+)
 from app.core.config import settings
 from app.router import api_router
 
@@ -24,6 +30,7 @@ app.add_middleware(
 )
 
 app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)

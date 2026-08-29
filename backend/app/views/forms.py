@@ -6,16 +6,26 @@ permissive dict-like set of optional attributes rather than a per-type
 schema — cheap to validate, still rejects unsupported field types.
 """
 
-from datetime import datetime
+import re
+from datetime import date, datetime
 from enum import Enum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+# A published form lives at the site root (mysite.com/{slug}), not under a
+# /form/ prefix — so it must never collide with an existing top-level
+# frontend route, or that route would win and the form would silently
+# become unreachable despite the backend thinking it's published.
+RESERVED_SLUGS = {"login", "dashboard", "campaign", "customer", "form", "api", "favicon.ico"}
+
 
 class FormFieldType(str, Enum):
     heading = "heading"
     paragraph = "paragraph"
+    name = "name"
     text = "text"
     email = "email"
     phone = "phone"
@@ -83,8 +93,14 @@ class FormUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
-    status: FormStatusValue | None = None
     builder_data: FormBuilderData | None = None
+    # Publishing this form as an open, tokenless public form at the site
+    # root — mysite.com/{slug} — independent of attaching it to a campaign
+    # (see attach_form_to_campaign). `status` (DRAFT/PUBLISHED, on FormRead)
+    # is derived entirely from `published` — see Form.status — so it isn't
+    # a field here; there's nothing to set it to independently.
+    slug: str | None = Field(default=None, min_length=1, max_length=255)
+    published: bool | None = None
 
     @field_validator("name")
     @classmethod
@@ -96,6 +112,22 @@ class FormUpdate(BaseModel):
             raise ValueError("Name cannot be blank")
         return stripped
 
+    @field_validator("slug")
+    @classmethod
+    def _slug_is_url_safe(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip().lower()
+        if not SLUG_PATTERN.match(stripped):
+            raise ValueError(
+                "Slug must be lowercase letters, numbers, and hyphens only (e.g. summer-signup)"
+            )
+        if stripped in RESERVED_SLUGS:
+            raise ValueError(
+                f'"{stripped}" is a reserved page — choose a different slug'
+            )
+        return stripped
+
 
 class FormRead(BaseModel):
     id: UUID
@@ -103,6 +135,8 @@ class FormRead(BaseModel):
     description: str
     status: FormStatusValue
     builder_data: FormBuilderData
+    slug: str | None
+    published: bool
     created_at: datetime
     updated_at: datetime
 
@@ -124,3 +158,51 @@ class FormsListResponse(BaseModel):
     success: bool = True
     data: list[FormRead]
     meta: FormsMeta
+
+
+class PublicFormData(BaseModel):
+    """Content only — no internal id, status, or anything else — for the
+    public, tokenless /form/{slug} page."""
+
+    name: str
+    builder_data: FormBuilderData
+
+
+class PublicFormResponse(BaseModel):
+    success: bool = True
+    data: PublicFormData
+    meta: dict = {}
+
+
+class GenericFormSubmission(BaseModel):
+    """A tokenless public form submission. Unlike the existing
+    PublicProfileUpdate (which updates one already-known customer
+    identified by a token), this creates or finds a Customer by phone — so
+    name and phone are always required here regardless of whether the
+    admin's form marked them required; a Customer record can't exist
+    without them. Which of email/date_of_birth/address are actually
+    mandatory depends on that specific form's own field config — enforced
+    in app.services.forms.submit_generic_form, not here, since it varies
+    per form."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+    phone: str = Field(min_length=1, max_length=32)
+    email: str | None = None
+    date_of_birth: date | None = None
+    address: str | None = None
+
+    @field_validator("name", "phone")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("This field cannot be blank")
+        return stripped
+
+
+class GenericFormSubmissionResponse(BaseModel):
+    success: bool = True
+    data: dict = {}
+    meta: dict = {}

@@ -68,10 +68,23 @@ export function StepConfirmation({
           </p>
         </div>
 
-        {/* Note about pending integration */}
-        <p className="rounded-lg bg-muted px-4 py-2 text-xs text-muted-foreground">
-          No SMS has been sent — BulkSMS BD sending isn&apos;t connected yet.
-        </p>
+        {/* What actually happens next — SMS sending is live (via BulkSMS BD,
+         * processed by a background worker), but a scheduled send-time isn't
+         * automatic yet, so the two modes need different, honest copy. */}
+        {isScheduled ? (
+          <p className="rounded-lg bg-muted px-4 py-2 text-xs text-muted-foreground">
+            Saved as scheduled. Automatic sending at a future date isn&apos;t available yet in
+            this build — this campaign won&apos;t send on its own.
+          </p>
+        ) : recipientCount > 0 ? (
+          <p className="rounded-lg bg-muted px-4 py-2 text-xs text-muted-foreground">
+            Sending now — messages are going out in the background and should arrive shortly.
+          </p>
+        ) : (
+          <p className="rounded-lg bg-muted px-4 py-2 text-xs text-muted-foreground">
+            No customers matched this audience, so nothing will be sent.
+          </p>
+        )}
 
         {skippedFieldLabels.length > 0 && (
           <p className="text-sm text-muted-foreground">

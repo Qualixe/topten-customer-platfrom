@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AttachToCampaignDialog } from "@/components/dashboard/forms/attach-to-campaign-dialog";
+import { PublishOpenFormDialog } from "@/components/dashboard/forms/publish-open-form-dialog";
 import { FormCanvas } from "@/components/form-builder/FormCanvas";
 import { FormPreview } from "@/components/form-builder/FormPreview";
 import { FormProperties } from "@/components/form-builder/FormProperties";
@@ -190,6 +191,10 @@ export function FormBuilder({ formId }: { formId: string }) {
     <FormProperties field={selectedField} onChange={handlePropertyChange} onDelete={handleDelete} />
   );
   const sidebar = <FormSidebar onAddField={handleAddField} />;
+  const liveUrl =
+    form.published && form.slug && typeof window !== "undefined"
+      ? `${window.location.origin}/${form.slug}`
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -202,7 +207,19 @@ export function FormBuilder({ formId }: { formId: string }) {
         onTogglePreview={() => setPreviewMode((prev) => !prev)}
         onBack={handleBack}
         canManage={canManage}
-        extraAction={<AttachToCampaignDialog formId={formId} />}
+        liveUrl={liveUrl}
+        extraAction={
+          <>
+            <PublishOpenFormDialog
+              formId={formId}
+              formName={name}
+              initialSlug={form.slug}
+              initialPublished={form.published}
+              onSaved={({ slug, published }) => setForm((prev) => (prev ? { ...prev, slug, published } : prev))}
+            />
+            <AttachToCampaignDialog formId={formId} />
+          </>
+        }
       />
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
 

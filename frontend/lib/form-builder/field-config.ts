@@ -3,10 +3,12 @@ import {
   Heading as HeadingIcon,
   Mail,
   MapPin,
+  MousePointerClick,
   Phone as PhoneIcon,
   SeparatorHorizontal,
   TextCursorInput,
   Type,
+  User,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,7 +32,14 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
   paragraph: {
     label: "Paragraph",
     icon: Type,
-    defaultField: { type: "paragraph", label: "Add your paragraph text here." },
+    defaultField: { type: "paragraph", label: "Add your paragraph text here.", align: "left" },
+  },
+  name: {
+    label: "Full Name",
+    icon: User,
+    // Required by default — a submission on an open, tokenless public form
+    // (see /form/[slug]) can't create/find a Customer without a name.
+    defaultField: { type: "name", label: "Full Name", placeholder: "", required: true },
   },
   text: {
     label: "Text Input",
@@ -45,7 +54,8 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
   phone: {
     label: "Phone",
     icon: PhoneIcon,
-    defaultField: { type: "phone", label: "Phone Number", placeholder: "+8801XXXXXXXXX", required: false },
+    // Required by default — same reason as "name" above.
+    defaultField: { type: "phone", label: "Phone Number", placeholder: "+8801XXXXXXXXX", required: true },
   },
   date_of_birth: {
     label: "Date of Birth",
@@ -61,5 +71,10 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
     label: "Divider",
     icon: SeparatorHorizontal,
     defaultField: { type: "divider", label: "" },
+  },
+  submit_button: {
+    label: "Submit Button",
+    icon: MousePointerClick,
+    defaultField: { type: "submit_button", label: "Submit" },
   },
 };
