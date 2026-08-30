@@ -56,7 +56,7 @@ export function StepMessage({
     };
   }, []);
 
-  const usesProfileLink = message.includes("{{profile_link}}");
+  const usesFormLink = message.includes("{{form_link}}");
 
   /** Insert a token at the current cursor position in the textarea. */
   function insertToken(token: string) {
@@ -143,7 +143,7 @@ export function StepMessage({
             <CardHeader>
               <CardTitle>Landing Page</CardTitle>
               <CardDescription>
-                Attach a saved form so {"{{profile_link}}"} becomes a real, working link once this
+                Attach a saved form so {"{{form_link}}"} becomes a real, working link once this
                 campaign sends. Optional — skip this if the message doesn&apos;t need a link.
               </CardDescription>
             </CardHeader>
@@ -164,10 +164,10 @@ export function StepMessage({
                   ))}
                 </SelectContent>
               </Select>
-              {usesProfileLink && !formId && (
+              {usesFormLink && !formId && (
                 <p className="text-xs text-amber-600 dark:text-amber-500">
-                  Your message uses {"{{profile_link}}"} but no form is attached — it will be sent
-                  literally as {"{{profile_link}}"} instead of a real link.
+                  Your message uses {"{{form_link}}"} but no form is attached — it will be sent
+                  literally as {"{{form_link}}"} instead of a real link.
                 </p>
               )}
             </CardContent>

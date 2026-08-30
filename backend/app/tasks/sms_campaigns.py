@@ -190,18 +190,18 @@ async def send_campaign_messages_async(
         ).scalars().all()
 
         for recipient in pending:
-            profile_link = None
+            form_link = None
             if landing_page is not None:
                 token = await get_or_create_campaign_profile_token(
                     session, customer_id=recipient.customer_id, campaign_id=campaign.id
                 )
-                profile_link = (
+                form_link = (
                     f"{settings.FRONTEND_BASE_URL}/campaign/{landing_page.slug}"
                     f"?token={token.token}"
                 )
 
             personalized_message = render_message(
-                campaign.message, customer_name=recipient.name, profile_link=profile_link
+                campaign.message, customer_name=recipient.name, form_link=form_link
             )
             try:
                 result = await gateway_send_sms(

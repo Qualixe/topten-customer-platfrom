@@ -9,7 +9,7 @@ from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import ValidationAppError
 from app.core.config import settings
 from app.models.site_settings import SiteSettings
-from app.views.site_settings import SiteLogoData, SiteLogoResponse
+from app.views.site_settings import BrandColorUpdate, SiteLogoData, SiteLogoResponse
 
 router = APIRouter()
 # Just the logo's current URL — mounted unauthenticated (see app.router)
@@ -45,7 +45,24 @@ def _logo_url(logo_path: str | None) -> str | None:
 @public_router.get("/site-logo", response_model=SiteLogoResponse)
 async def get_public_site_logo(db: AsyncSession = Depends(get_db)) -> SiteLogoResponse:
     row = await _get_or_create_settings_row(db)
-    return SiteLogoResponse(data=SiteLogoData(logo_url=_logo_url(row.logo_path)))
+    return SiteLogoResponse(
+        data=SiteLogoData(logo_url=_logo_url(row.logo_path), brand_color=row.brand_color)
+    )
+
+
+@router.put("/brand-color", response_model=SiteLogoResponse)
+async def update_brand_color(
+    payload: BrandColorUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("settings.manage")),
+) -> SiteLogoResponse:
+    row = await _get_or_create_settings_row(db)
+    row.brand_color = payload.brand_color
+    await db.commit()
+    await db.refresh(row)
+    return SiteLogoResponse(
+        data=SiteLogoData(logo_url=_logo_url(row.logo_path), brand_color=row.brand_color)
+    )
 
 
 @router.put("/logo", response_model=SiteLogoResponse)
@@ -81,7 +98,9 @@ async def upload_site_logo(
     if previous_path and previous_path.exists():
         previous_path.unlink()
 
-    return SiteLogoResponse(data=SiteLogoData(logo_url=_logo_url(row.logo_path)))
+    return SiteLogoResponse(
+        data=SiteLogoData(logo_url=_logo_url(row.logo_path), brand_color=row.brand_color)
+    )
 
 
 @router.delete("/logo", response_model=SiteLogoResponse)
@@ -98,4 +117,4 @@ async def remove_site_logo(
         if old_path.exists():
             old_path.unlink()
 
-    return SiteLogoResponse(data=SiteLogoData(logo_url=None))
+    return SiteLogoResponse(data=SiteLogoData(logo_url=None, brand_color=row.brand_color))

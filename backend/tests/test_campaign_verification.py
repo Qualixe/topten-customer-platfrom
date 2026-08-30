@@ -36,7 +36,7 @@ async def _create_campaign(db_session: AsyncSession, *, name: str = "Campaign A"
         campaign_type="PROFILE_COMPLETION",
         audience_rule_type="GENERAL",
         audience_rule_params={},
-        message="Hi {{customer_name}}, please complete your profile: {{profile_link}}",
+        message="Hi {{customer_name}}, please complete your profile: {{form_link}}",
         sender_id="TopTen",
     )
     db_session.add(campaign)

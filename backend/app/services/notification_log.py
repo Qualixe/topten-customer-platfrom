@@ -61,7 +61,7 @@ def _type_for_campaign(campaign_type: str) -> NotificationType:
 
 
 def _campaign_recipient_to_notification(
-    recipient: CampaignRecipient, campaign: Campaign, *, profile_link: str | None
+    recipient: CampaignRecipient, campaign: Campaign, *, form_link: str | None
 ) -> NotificationRecord:
     sort_key = recipient.sent_at or recipient.failed_at or recipient.created_at
     return NotificationRecord(
@@ -72,7 +72,7 @@ def _campaign_recipient_to_notification(
         recipient_contact=recipient.phone,
         subject=campaign.name,
         message=render_message(
-            campaign.message, customer_name=recipient.name, profile_link=profile_link
+            campaign.message, customer_name=recipient.name, form_link=form_link
         ),
         status=_RECIPIENT_STATUS_MAP.get(recipient.status, NotificationStatus.PENDING),
         sent_at=sort_key,
@@ -101,12 +101,12 @@ def _gift_order_to_notification(order: GiftOrder) -> NotificationRecord:
     )
 
 
-async def _build_profile_link_lookup(
+async def _build_form_link_lookup(
     db: AsyncSession, recipient_rows: list[tuple[CampaignRecipient, Campaign]]
 ) -> dict[tuple[int, int], str]:
-    """Reconstructs the exact `{{profile_link}}` URL each recipient's SMS
+    """Reconstructs the exact `{{form_link}}` URL each recipient's SMS
     actually carried, so the log shows the real link rather than the raw,
-    unresolved `{{profile_link}}` token. Read-only — looks up the token
+    unresolved `{{form_link}}` token. Read-only — looks up the token
     already issued at send time (see app.tasks.sms_campaigns), never issues
     a new one just to render a log entry."""
     campaign_ids = {campaign.id for _, campaign in recipient_rows}
@@ -161,7 +161,7 @@ async def _fetch_all_notifications(db: AsyncSession, *, search: str) -> list[Not
             or_(CampaignRecipient.name.ilike(like), Campaign.name.ilike(like))
         )
     recipient_rows = (await db.execute(recipient_query)).all()
-    profile_links = await _build_profile_link_lookup(db, recipient_rows)
+    form_links = await _build_form_link_lookup(db, recipient_rows)
 
     gift_query = (
         select(GiftOrder)
@@ -183,7 +183,7 @@ async def _fetch_all_notifications(db: AsyncSession, *, search: str) -> list[Not
         _campaign_recipient_to_notification(
             recipient,
             campaign,
-            profile_link=profile_links.get((recipient.customer_id, campaign.id)),
+            form_link=form_links.get((recipient.customer_id, campaign.id)),
         )
         for recipient, campaign in recipient_rows
     ] + [_gift_order_to_notification(order) for order in gift_orders]

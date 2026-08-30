@@ -1,15 +1,21 @@
-import { API_BASE_URL, apiDelete, apiGet, getAuthorizationHeader } from "@/lib/api/client";
+import { API_BASE_URL, apiDelete, apiGet, apiPut, getAuthorizationHeader } from "@/lib/api/client";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { ApiError, NetworkError } from "@/lib/api/types";
+import { DEFAULT_BRAND_COLOR } from "@/lib/theme/brand-color";
+
+export { DEFAULT_BRAND_COLOR };
 
 export interface SiteLogo {
   logoUrl: string | null;
+  /** "#RRGGBB" — drives --primary/--ring app-wide, admin-editable in
+   * Settings → General. */
+  brandColor: string;
 }
 
-/** Reads the current logo URL — unauthenticated, since the logo is shown on
- * pages a logged-out visitor sees too (/login, public customer/campaign
- * profile pages). Upload/remove stay under the protected /settings/logo
- * (see uploadSiteLogo/removeSiteLogo below). */
+/** Reads the current logo URL and brand color — unauthenticated, since both
+ * are shown on pages a logged-out visitor sees too (/login, public
+ * customer/campaign profile pages). Upload/remove/update stay under the
+ * protected /settings/* routes (see below). */
 export async function getSiteLogo(): Promise<SiteLogo> {
   const envelope = await apiGet<ApiEnvelope<SiteLogo>>("/public/site-logo");
   return envelope.data;
@@ -27,6 +33,25 @@ export async function getResolvedLogoUrlSafe(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Current brand color, or the default on any failure — used to inject the
+ * app-wide --primary/--ring CSS variables in the root layout. A branding
+ * lookup failure must never break the page, just fall back to the default. */
+export async function getResolvedBrandColorSafe(): Promise<string> {
+  try {
+    const logo = await getSiteLogo();
+    return logo.brandColor;
+  } catch {
+    return DEFAULT_BRAND_COLOR;
+  }
+}
+
+export async function updateBrandColor(hex: string): Promise<SiteLogo> {
+  const envelope = await apiPut<ApiEnvelope<SiteLogo>>("/settings/brand-color", {
+    brand_color: hex,
+  });
+  return envelope.data;
 }
 
 /** Absolute URL for a logo path returned by the API (which is API-relative,
@@ -67,8 +92,14 @@ export async function uploadSiteLogo(file: File): Promise<SiteLogo> {
     throw new ApiError(message, response.status);
   }
 
-  const envelope = (await response.json()) as ApiEnvelope<{ logo_url: string | null }>;
-  return { logoUrl: envelope.data.logo_url };
+  // Raw `fetch`, not `apiFetch` — the response is still backend snake_case,
+  // unlike every other function here which goes through `apiFetch`'s
+  // automatic camelization.
+  const envelope = (await response.json()) as ApiEnvelope<{
+    logo_url: string | null;
+    brand_color: string;
+  }>;
+  return { logoUrl: envelope.data.logo_url, brandColor: envelope.data.brand_color };
 }
 
 export async function removeSiteLogo(): Promise<SiteLogo> {

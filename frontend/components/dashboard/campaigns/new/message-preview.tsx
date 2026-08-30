@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
-/** The real site origin the profile link would actually use once sent —
- * this component only ever mounts after the user has clicked through the
+/** The real site origin the form link would actually use once sent — this
+ * component only ever mounts after the user has clicked through the
  * campaign wizard to the Message step, well past hydration, so `window`
  * is always available here (no SSR/hydration-mismatch risk). Falls back
  * to a clearly-fake placeholder only in the ssr-render edge case. */
@@ -15,7 +15,7 @@ function previewOrigin(): string {
 function previewRecipient(): Record<string, string> {
   return {
     customer_name: "Amelia Chowdhury",
-    profile_link: `${previewOrigin()}/campaign/vip-profile?token=sample`,
+    form_link: `${previewOrigin()}/campaign/vip-profile?token=sample`,
   };
 }
 
@@ -28,10 +28,10 @@ export const PERSONALIZATION_TOKENS: { token: string; label: string; description
     description: "Insert Customer name — replaced with each recipient's actual name",
   },
   {
-    token: "{{profile_link}}",
-    label: "Profile link",
+    token: "{{form_link}}",
+    label: "Form link",
     description:
-      "Insert Profile link — replaced with each recipient's secure verification link. Only works if this campaign has a published landing page (Campaign detail → Landing Page Builder); otherwise it's left blank.",
+      "Insert Form link — replaced with each recipient's secure link to the attached form. Only works if this campaign has a published landing page (Campaign detail → Landing Page Builder); otherwise it's left blank.",
   },
 ];
 

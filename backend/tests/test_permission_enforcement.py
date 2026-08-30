@@ -216,6 +216,16 @@ async def test_staff_cannot_upload_site_logo(
     assert response.status_code == 403
 
 
+async def test_staff_cannot_update_brand_color(
+    unauthenticated_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _staff_headers(db_session)
+    response = await unauthenticated_client.put(
+        "/api/v1/settings/brand-color", headers=headers, json={"brand_color": "#2563EB"}
+    )
+    assert response.status_code == 403
+
+
 async def test_staff_can_still_view_site_logo(
     unauthenticated_client: AsyncClient, db_session: AsyncSession
 ) -> None:

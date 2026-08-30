@@ -29,18 +29,25 @@ export function NavLink({
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
           active
-            ? "bg-primary/10 text-primary"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            ? "bg-primary text-primary-foreground shadow-sm"
+            : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
         )}
       >
-        <Icon className="size-4 shrink-0" aria-hidden="true" />
+        <span
+          className={cn(
+            "flex size-6 shrink-0 items-center justify-center rounded-md transition-colors",
+            active ? "bg-primary-foreground/15" : "group-hover:bg-primary/10"
+          )}
+        >
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
         <span className="truncate">{item.title}</span>
       </Link>
 
       {item.children && item.children.length > 0 && (
-        <div className="flex flex-col gap-0.5 border-l ml-5 pl-4">
+        <div className="ml-6 flex flex-col gap-0.5 border-l border-border pl-4">
           {item.children.map((child) => {
             const childActive = pathname === child.href;
             return (

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { SettingsCard } from "@/components/dashboard/settings/settings-card";
+import { BrandColorPicker } from "@/components/dashboard/settings/brand-color-picker";
 import { FormField } from "@/components/dashboard/form-field";
 import { SettingsSwitchRow } from "@/components/dashboard/settings/settings-switch-row";
 import { SiteLogoUpload } from "@/components/dashboard/settings/site-logo-upload";
@@ -18,6 +19,8 @@ export function GeneralSettingsForm() {
       description="Basic information about your store"
     >
       <SiteLogoUpload />
+
+      <BrandColorPicker />
 
       <FormField htmlFor="store-name" label="Store Name">
         <Input

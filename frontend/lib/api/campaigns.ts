@@ -190,7 +190,7 @@ export interface CreateCampaignInput {
   status?: SmsCampaignStatus;
   /** A saved Form's id (see lib/api/forms.ts) to attach as this campaign's
    * landing page. Attached and published synchronously as part of
-   * creation — required for {{profile_link}} in the message to resolve to
+   * creation — required for {{form_link}} in the message to resolve to
    * a real link once the campaign sends. */
   formId?: string;
 }

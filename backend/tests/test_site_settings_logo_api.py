@@ -27,13 +27,13 @@ def _use_temp_branding_dir(tmp_path, monkeypatch) -> None:
 async def test_logo_starts_unset(client: AsyncClient) -> None:
     response = await client.get("/api/v1/public/site-logo")
     assert response.status_code == 200
-    assert response.json()["data"] == {"logo_url": None}
+    assert response.json()["data"] == {"logo_url": None, "brand_color": "#EF4444"}
 
 
 async def test_public_site_logo_requires_no_auth(unauthenticated_client: AsyncClient) -> None:
     response = await unauthenticated_client.get("/api/v1/public/site-logo")
     assert response.status_code == 200
-    assert response.json()["data"] == {"logo_url": None}
+    assert response.json()["data"] == {"logo_url": None, "brand_color": "#EF4444"}
 
 
 async def test_uploading_a_logo_returns_a_servable_url(client: AsyncClient) -> None:
@@ -96,8 +96,36 @@ async def test_removing_the_logo_clears_it(client: AsyncClient, tmp_path: Path) 
 
     response = await client.delete("/api/v1/settings/logo")
     assert response.status_code == 200
-    assert response.json()["data"] == {"logo_url": None}
+    assert response.json()["data"] == {"logo_url": None, "brand_color": "#EF4444"}
     assert not logo_path.exists()
 
     follow_up = await client.get("/api/v1/public/site-logo")
     assert follow_up.json()["data"]["logo_url"] is None
+
+
+async def test_brand_color_starts_at_default(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/public/site-logo")
+    assert response.json()["data"]["brand_color"] == "#EF4444"
+
+
+async def test_updating_brand_color_is_reflected_publicly(client: AsyncClient) -> None:
+    response = await client.put("/api/v1/settings/brand-color", json={"brand_color": "#2563eb"})
+    assert response.status_code == 200
+    assert response.json()["data"]["brand_color"] == "#2563EB"
+
+    follow_up = await client.get("/api/v1/public/site-logo")
+    assert follow_up.json()["data"]["brand_color"] == "#2563EB"
+
+
+async def test_brand_color_rejects_invalid_hex(client: AsyncClient) -> None:
+    response = await client.put("/api/v1/settings/brand-color", json={"brand_color": "not-a-color"})
+    assert response.status_code == 422
+
+
+async def test_updating_brand_color_requires_no_auth_to_read(
+    client: AsyncClient, unauthenticated_client: AsyncClient
+) -> None:
+    await client.put("/api/v1/settings/brand-color", json={"brand_color": "#16A34A"})
+
+    response = await unauthenticated_client.get("/api/v1/public/site-logo")
+    assert response.json()["data"]["brand_color"] == "#16A34A"

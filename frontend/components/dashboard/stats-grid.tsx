@@ -26,6 +26,19 @@ const TREND_ICONS: Record<StatTrend, LucideIcon> = {
   neutral: Minus,
 };
 
+/** Cycled by card position so every stats row reads as a set of distinct,
+ * colorful metrics rather than identical gray tiles — the brand color leads
+ * (first card), then a fixed run of complementary accents. */
+const ICON_TONES = [
+  "bg-primary/10 text-primary",
+  "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+  "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+  "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+];
+
 const COLUMNS_CLASS: Record<3 | 4 | 5, string> = {
   3: "sm:grid-cols-3",
   4: "sm:grid-cols-2 lg:grid-cols-4",
@@ -44,16 +57,22 @@ export function StatsGrid({
 }) {
   return (
     <div className={cn("grid gap-4", COLUMNS_CLASS[columns])}>
-      {stats.map((stat) => {
+      {stats.map((stat, index) => {
         const Icon = stat.icon;
         const TrendIcon = stat.trend ? TREND_ICONS[stat.trend] : null;
+        const tone = ICON_TONES[index % ICON_TONES.length];
 
         return (
           <Card key={stat.key}>
             <CardHeader>
               <CardTitle className="flex items-center justify-between font-normal text-muted-foreground">
                 {stat.label}
-                <span className="flex size-8 items-center justify-center rounded-md bg-muted">
+                <span
+                  className={cn(
+                    "flex size-8 items-center justify-center rounded-md",
+                    tone
+                  )}
+                >
                   <Icon className="size-4" aria-hidden="true" />
                 </span>
               </CardTitle>

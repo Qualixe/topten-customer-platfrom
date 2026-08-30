@@ -15,6 +15,13 @@ class SiteSettings(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     logo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # "#RRGGBB" — drives the app's --primary/--ring CSS variables everywhere
+    # (admin sidebar, buttons, focus rings), so the whole UI's accent color
+    # is admin-editable rather than hardcoded. Defaults to the red already
+    # used for TopTen's brand accents elsewhere (e.g. the dashboard charts).
+    brand_color: Mapped[str] = mapped_column(
+        String(7), nullable=False, server_default="#EF4444"
+    )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
