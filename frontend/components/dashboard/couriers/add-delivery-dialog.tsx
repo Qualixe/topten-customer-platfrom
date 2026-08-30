@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  COURIER_PROVIDERS,
   createDelivery,
   listEligibleGiftOrdersForDelivery,
   type CourierProvider,
@@ -32,14 +33,6 @@ import {
 import { getErrorMessage } from "@/lib/api/types";
 
 const SEARCH_DEBOUNCE_MS = 400;
-
-const COURIERS: CourierProvider[] = [
-  "Pathao",
-  "RedX",
-  "Paperfly",
-  "Sundarban Courier",
-  "eCourier",
-];
 
 export function AddDeliveryDialog() {
   const [open, setOpen] = useState(false);
@@ -202,7 +195,7 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
             <SelectValue>{(value: CourierProvider) => value}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {COURIERS.map((option) => (
+            {COURIER_PROVIDERS.map((option) => (
               <SelectItem key={option} value={option}>
                 {option}
               </SelectItem>

@@ -130,6 +130,25 @@ async def test_create_gift_order_without_delivery_address_is_null(
     assert response.json()["data"]["delivery_address"] is None
 
 
+async def test_create_gift_order_with_wish_text(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    customer = await _add_customer(db_session)
+    item = await _add_catalog_item(db_session)
+
+    response = await client.post(
+        "/api/v1/gifts/orders",
+        json={
+            "customer_id": str(customer.public_id),
+            "catalog_item_id": str(item.public_id),
+            "occasion": "BIRTHDAY",
+            "wish_text": "Happy Birthday {{customer_name}}! 🎂",
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["data"]["wish_text"] == "Happy Birthday {{customer_name}}! 🎂"
+
+
 async def test_create_gift_orders_bulk(client: AsyncClient, db_session: AsyncSession) -> None:
     customer_a = await _add_customer(db_session, name="Farhana Akter", phone="+8801711000201")
     customer_b = await _add_customer(db_session, name="Rakib Hossain", phone="+8801711000202")
@@ -154,6 +173,60 @@ async def test_create_gift_orders_bulk(client: AsyncClient, db_session: AsyncSes
     assert by_name["Rakib Hossain"]["delivery_address"] is None
     assert all(order["occasion"] == "VIP_REWARD" for order in data)
     assert all(order["gift_name"] == item.name for order in data)
+
+
+async def test_create_gift_orders_bulk_with_courier_creates_delivery(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    customer = await _add_customer(db_session, name="Nadia Islam", phone="+8801711000205")
+    item = await _add_catalog_item(db_session, stock_quantity=10)
+
+    response = await client.post(
+        "/api/v1/gifts/orders/bulk",
+        json={
+            "recipients": [
+                {
+                    "customer_id": str(customer.public_id),
+                    "delivery_address": "House 5, Road 10",
+                    "courier": "PATHAO",
+                    "tracking_number": "PTH-9001",
+                    "city": "Dhaka",
+                }
+            ],
+            "catalog_item_id": str(item.public_id),
+            "occasion": "BIRTHDAY",
+        },
+    )
+    assert response.status_code == 201
+    order_id = response.json()["data"][0]["id"]
+
+    deliveries_response = await client.get(
+        "/api/v1/couriers/deliveries", params={"search": "Nadia Islam"}
+    )
+    deliveries = deliveries_response.json()["data"]
+    assert len(deliveries) == 1
+    assert deliveries[0]["gift_order"]["id"] == order_id
+    assert deliveries[0]["courier"] == "PATHAO"
+    assert deliveries[0]["tracking_number"] == "PTH-9001"
+    assert deliveries[0]["city"] == "Dhaka"
+    assert deliveries[0]["status"] == "PENDING_PICKUP"
+
+
+async def test_create_gift_orders_bulk_courier_requires_shipping_details(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    customer = await _add_customer(db_session)
+    item = await _add_catalog_item(db_session, stock_quantity=10)
+
+    response = await client.post(
+        "/api/v1/gifts/orders/bulk",
+        json={
+            "recipients": [{"customer_id": str(customer.public_id), "courier": "PATHAO"}],
+            "catalog_item_id": str(item.public_id),
+            "occasion": "BIRTHDAY",
+        },
+    )
+    assert response.status_code == 422
 
 
 async def test_create_gift_orders_bulk_rejects_unknown_customer(
@@ -297,6 +370,40 @@ async def test_send_gift_order_decrements_stock_and_increments_redeemed(
     await db_session.refresh(item)
     assert item.stock_quantity == 4
     assert item.times_redeemed == 1
+
+
+async def test_send_gift_order_uses_wish_text_over_default_template(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await merge_credential_data(
+        db_session,
+        SMS_GATEWAY_PROVIDER,
+        {"api_url": "https://example.com/api/smsapi", "api_key": "key", "sender_id": "TOPTEN"},
+    )
+    customer = await _add_customer(db_session, name="Ayesha Sultana")
+    item = await _add_catalog_item(db_session, stock_quantity=5)
+    order = GiftOrder(
+        customer_id=customer.id,
+        catalog_item_id=item.id,
+        gift_name=item.name,
+        occasion="BIRTHDAY",
+        wish_text="Happiest of birthdays, {{customer_name}}! Enjoy your gift.",
+    )
+    db_session.add(order)
+    await db_session.commit()
+    await db_session.refresh(order)
+
+    mock_result = SendSmsResult(success=True, http_status=200, message="OK")
+    with patch(
+        "app.services.gifts.gateway_send_sms", new=AsyncMock(return_value=mock_result)
+    ) as mock_send:
+        response = await client.patch(
+            f"/api/v1/gifts/orders/{order.public_id}", json={"status": "SENT"}
+        )
+
+    assert response.status_code == 200
+    _, kwargs = mock_send.call_args
+    assert kwargs["message"] == "Happiest of birthdays, Ayesha Sultana! Enjoy your gift."
 
 
 async def test_send_gift_order_sms_failure_still_marks_sent(

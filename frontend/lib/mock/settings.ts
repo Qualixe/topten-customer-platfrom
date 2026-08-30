@@ -35,13 +35,6 @@ export interface NotificationSettings {
   quietHoursEnd: string;
 }
 
-export interface CourierSettings {
-  defaultCourier: string;
-  autoAssignCourier: boolean;
-  deliverySlaDays: number;
-  packagingNotes: string;
-}
-
 export interface AccountSettings {
   fullName: string;
   email: string;
@@ -86,13 +79,6 @@ export const defaultNotificationSettings: NotificationSettings = {
   respectQuietHours: true,
   quietHoursStart: "22:00",
   quietHoursEnd: "08:00",
-};
-
-export const defaultCourierSettings: CourierSettings = {
-  defaultCourier: "Pathao",
-  autoAssignCourier: true,
-  deliverySlaDays: 3,
-  packagingNotes: "Include a printed thank-you card with every gift order.",
 };
 
 export const defaultAccountSettings: AccountSettings = {

@@ -8,6 +8,14 @@ export type CourierProvider =
   | "Sundarban Courier"
   | "eCourier";
 
+export const COURIER_PROVIDERS: CourierProvider[] = [
+  "Pathao",
+  "RedX",
+  "Paperfly",
+  "Sundarban Courier",
+  "eCourier",
+];
+
 export type DeliveryStatus =
   | "Pending Pickup"
   | "In Transit"
@@ -50,7 +58,7 @@ const COURIER_FROM_BACKEND: Record<string, CourierProvider> = {
   ECOURIER: "eCourier",
 };
 
-const COURIER_TO_BACKEND: Record<CourierProvider, string> = {
+export const COURIER_TO_BACKEND: Record<CourierProvider, string> = {
   Pathao: "PATHAO",
   RedX: "REDX",
   Paperfly: "PAPERFLY",

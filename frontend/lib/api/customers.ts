@@ -17,6 +17,8 @@ export interface ListCustomersParams {
   customerType?: CustomerType | "all";
   sortBy?: CustomersSortBy;
   sortDir?: SortDirection;
+  /** Only customers verified through at least one campaign. */
+  verified?: boolean;
 }
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -144,6 +146,7 @@ export async function listCustomers(
       params.customerType && params.customerType !== "all" ? params.customerType : undefined,
     sort_by: params.sortBy ? SORT_BY_TO_BACKEND[params.sortBy] : undefined,
     sort_dir: params.sortDir,
+    verified: params.verified,
   });
 
   const envelope = await apiGet<ApiListEnvelope<CustomerDto>>(`/customers${query}`);

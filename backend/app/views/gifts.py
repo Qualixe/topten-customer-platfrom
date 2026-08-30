@@ -2,8 +2,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.models.delivery import CourierProvider
 from app.models.gift_order import GiftOccasion, GiftOrderStatus
 
 
@@ -119,8 +120,9 @@ class GiftOrderCreate(BaseModel):
     catalog_item_id: UUID
     occasion: GiftOccasion
     delivery_address: str | None = None
+    wish_text: str | None = None
 
-    @field_validator("delivery_address")
+    @field_validator("delivery_address", "wish_text")
     @classmethod
     def _blank_to_none(cls, value: str | None) -> str | None:
         if value is None:
@@ -130,16 +132,39 @@ class GiftOrderCreate(BaseModel):
 
 
 class GiftOrderRecipient(BaseModel):
+    """One recipient in a bulk send — `delivery_address`/`wish_text` are
+    always optional. `courier` opts this recipient into also getting a
+    `Delivery` created in the same request (see
+    app.controllers.gifts.create_gift_orders_bulk_endpoint) — when set,
+    `tracking_number`, `city`, and `delivery_address` become required,
+    since a Delivery can't be created without them."""
+
     customer_id: UUID
     delivery_address: str | None = None
+    wish_text: str | None = None
+    courier: CourierProvider | None = None
+    tracking_number: str | None = None
+    city: str | None = None
+    estimated_delivery: date | None = None
 
-    @field_validator("delivery_address")
+    @field_validator("delivery_address", "wish_text", "tracking_number", "city")
     @classmethod
     def _blank_to_none(cls, value: str | None) -> str | None:
         if value is None:
             return None
         stripped = value.strip()
         return stripped or None
+
+    @model_validator(mode="after")
+    def _courier_requires_shipping_details(self) -> "GiftOrderRecipient":
+        if self.courier is not None and not (
+            self.tracking_number and self.city and self.delivery_address
+        ):
+            raise ValueError(
+                "delivery_address, tracking_number, and city are required when a courier "
+                "is selected"
+            )
+        return self
 
 
 class BulkGiftOrderCreate(BaseModel):
@@ -177,6 +202,7 @@ class GiftOrderRead(BaseModel):
     occasion: GiftOccasion
     status: GiftOrderStatus
     delivery_address: str | None
+    wish_text: str | None
     scheduled_for: date | None
     sent_at: datetime | None
     notification_error: str | None

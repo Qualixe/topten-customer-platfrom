@@ -25,7 +25,10 @@ const PAGE_SIZE = 20;
 /** Multi-select counterpart to GiftPickerField: opens a searchable,
  * checkable list of customers (loaded browsable, not empty until you
  * type) instead of a single-pick dropdown, so a gift can be queued for
- * several recipients at once. */
+ * several recipients at once. Only offers verified customers
+ * (`verified: true`, see `list_customers` in
+ * app/controllers/customers.py — verified through at least one
+ * campaign's profile form) — unverified customers don't show up here. */
 export function CustomerMultiPickerField({
   selected,
   onChange,
@@ -61,6 +64,7 @@ export function CustomerMultiPickerField({
           const result = await listCustomers({
             search: debouncedSearch.trim() || undefined,
             pageSize: PAGE_SIZE,
+            verified: true,
           });
           if (!cancelled) setResults(result.items);
         } finally {
@@ -129,8 +133,9 @@ export function CustomerMultiPickerField({
         <DialogHeader>
           <DialogTitle>Select customers</DialogTitle>
           <DialogDescription>
-            Choose everyone this gift is for — you can add or remove recipients any time before
-            queueing.
+            Choose everyone this gift is for — only verified customers (completed a
+            campaign&apos;s profile form) are shown. You can add or remove recipients any time
+            before queueing.
           </DialogDescription>
         </DialogHeader>
 
@@ -171,11 +176,14 @@ export function CustomerMultiPickerField({
                   </Avatar>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
-                      <span className="block truncate text-sm font-medium">{customer.name}</span>
+                      <span className="truncate text-sm font-medium">{customer.name}</span>
                       {customer.tier === "VIP" && <CustomerTierBadge tier={customer.tier} />}
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {customer.phone}
+                      </span>
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {customer.phone}
+                      {customer.address || "No address on file"}
                     </span>
                   </span>
                   <span

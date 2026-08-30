@@ -1,5 +1,8 @@
+"use client";
+
 import { Eye, FileText, MoreVertical, Pencil, Repeat2, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { FormStatusBadge } from "@/components/dashboard/forms/form-status-badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +45,12 @@ export function FormsTable({
   onDeleteRequest: (form: FormRecord) => void;
   onPreviewRequest: (form: FormRecord) => void;
 }) {
+  const router = useRouter();
+
+  function goToBuilder(form: FormRecord) {
+    router.push(`/dashboard/forms/${form.id}/builder`);
+  }
+
   return (
     <div className="rounded-lg border">
       <Table>
@@ -62,7 +71,19 @@ export function FormsTable({
             </TableRow>
           )}
           {forms.map((form) => (
-            <TableRow key={form.id}>
+            <TableRow
+              key={form.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => goToBuilder(form)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  goToBuilder(form);
+                }
+              }}
+              className="cursor-pointer"
+            >
               <TableCell>
                 <p className="text-sm font-medium">{form.name}</p>
                 <p className="max-w-xs truncate text-xs text-muted-foreground">{form.description}</p>
@@ -71,7 +92,7 @@ export function FormsTable({
                 <FormStatusBadge status={form.status} />
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">{formatUpdatedAt(form.updatedAt)}</TableCell>
-              <TableCell className="text-right">
+              <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${form.name}`} />}

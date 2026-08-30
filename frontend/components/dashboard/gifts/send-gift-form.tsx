@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Check, Gift as GiftIcon, MapPin, Sparkles, X } from "lucide-react";
+import { Cake, Check, Gift as GiftIcon, MapPin, Sparkles, Truck, X } from "lucide-react";
 
 import { CustomerTierBadge } from "@/components/dashboard/customers/tier-badge";
 import { FormField } from "@/components/dashboard/form-field";
@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import type { Customer } from "@/lib/api/customers";
+import { COURIER_PROVIDERS, type CourierProvider } from "@/lib/api/deliveries";
 import {
   createGiftOrdersBulk,
   formatCurrency,
@@ -36,11 +38,45 @@ import { getErrorMessage } from "@/lib/api/types";
 import { getGiftCategoryVisual } from "@/lib/gift-category-visuals";
 import { cn } from "@/lib/utils";
 
+interface RecipientDetails {
+  address: string;
+  wishText: string;
+  shipViaCourier: boolean;
+  courier: CourierProvider;
+  trackingNumber: string;
+  city: string;
+}
+
+function defaultDetails(customer: Customer): RecipientDetails {
+  return {
+    address: customer.address ?? "",
+    wishText: "",
+    shipViaCourier: false,
+    courier: "Pathao",
+    trackingNumber: "",
+    city: "",
+  };
+}
+
+/** "YYYY-MM-DD" -> "Jan 15, 1990" — unlike the Birthdays page's month/day-
+ * only convention (built for recurring reminders), this is a one-time
+ * reference shown while writing a wish, so the year is worth keeping. */
+function formatDob(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
   const router = useRouter();
 
   const [selectedCustomers, setSelectedCustomers] = useState<Customer[]>([]);
-  const [addresses, setAddresses] = useState<Record<string, string>>({});
+  const [details, setDetails] = useState<Record<string, RecipientDetails>>({});
   const [catalogItemId, setCatalogItemId] = useState("");
   const [occasion, setOccasion] = useState<GiftOccasion>("BIRTHDAY");
 
@@ -56,13 +92,12 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
   function handleCustomersChange(next: Customer[]) {
     setSelectedCustomers(next);
     // A customer's address defaults to what's already on file, and stays
-    // as whatever the admin typed if they're removed and re-added within
-    // the same session — only a customer with no prior address here gets
-    // re-defaulted (to "", since they still have none).
-    setAddresses((prev) => {
-      const updated: Record<string, string> = {};
+    // as whatever the admin already typed if they're removed and re-added
+    // within the same session.
+    setDetails((prev) => {
+      const updated: Record<string, RecipientDetails> = {};
       for (const customer of next) {
-        updated[customer.id] = prev[customer.id] ?? customer.address ?? "";
+        updated[customer.id] = prev[customer.id] ?? defaultDetails(customer);
       }
       return updated;
     });
@@ -72,8 +107,8 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
     handleCustomersChange(selectedCustomers.filter((customer) => customer.id !== customerId));
   }
 
-  function handleAddressChange(customerId: string, value: string) {
-    setAddresses((prev) => ({ ...prev, [customerId]: value }));
+  function updateDetails(customerId: string, patch: Partial<RecipientDetails>) {
+    setDetails((prev) => ({ ...prev, [customerId]: { ...prev[customerId], ...patch } }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -84,10 +119,21 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
     setError(null);
     try {
       await createGiftOrdersBulk({
-        recipients: selectedCustomers.map((customer) => ({
-          customerId: customer.id,
-          deliveryAddress: addresses[customer.id],
-        })),
+        recipients: selectedCustomers.map((customer) => {
+          const recipient = details[customer.id];
+          return {
+            customerId: customer.id,
+            deliveryAddress: recipient.address,
+            wishText: recipient.wishText,
+            ...(recipient.shipViaCourier
+              ? {
+                  courier: recipient.courier,
+                  trackingNumber: recipient.trackingNumber,
+                  city: recipient.city,
+                }
+              : {}),
+          };
+        }),
         catalogItemId,
         occasion,
       });
@@ -113,48 +159,137 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
           </FormField>
 
           {selectedCustomers.length > 0 && (
-            <div className="flex flex-col gap-2 rounded-lg border p-2">
-              {selectedCustomers.map((customer) => (
-                <div
-                  key={customer.id}
-                  className="flex flex-col gap-2 rounded-md p-1.5 sm:flex-row sm:items-center"
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:w-48 sm:flex-none">
-                    <Avatar size="sm">
-                      <AvatarFallback>{customer.initials}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-medium">{customer.name}</p>
-                        {customer.tier === "VIP" && <CustomerTierBadge tier={customer.tier} />}
+            <div className="flex flex-col gap-3">
+              {selectedCustomers.map((customer) => {
+                const recipient = details[customer.id];
+                if (!recipient) return null;
+                return (
+                  <div key={customer.id} className="flex flex-col gap-3 rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Avatar size="sm">
+                          <AvatarFallback>{customer.initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="truncate text-sm font-medium">{customer.name}</p>
+                            {customer.tier === "VIP" && (
+                              <CustomerTierBadge tier={customer.tier} />
+                            )}
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {customer.phone}
+                            </span>
+                          </div>
+                          {customer.dateOfBirth && (
+                            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Cake className="size-3" aria-hidden="true" />
+                              {formatDob(customer.dateOfBirth)}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <p className="truncate text-xs text-muted-foreground">{customer.phone}</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove ${customer.name}`}
+                        onClick={() => handleRemoveCustomer(customer.id)}
+                      >
+                        <X className="size-4" />
+                      </Button>
                     </div>
-                  </div>
-                  <div className="relative min-w-0 flex-1">
-                    <MapPin
-                      className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden="true"
-                    />
+
+                    <div className="relative">
+                      <MapPin
+                        className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      <Input
+                        value={recipient.address}
+                        onChange={(event) =>
+                          updateDetails(customer.id, { address: event.target.value })
+                        }
+                        placeholder="Delivery address (optional)"
+                        className="h-8 pl-8 text-sm"
+                        aria-label={`Delivery address for ${customer.name}`}
+                      />
+                    </div>
+
                     <Input
-                      value={addresses[customer.id] ?? ""}
-                      onChange={(event) => handleAddressChange(customer.id, event.target.value)}
-                      placeholder="Delivery address (optional)"
-                      className="h-8 pl-8 text-sm"
-                      aria-label={`Delivery address for ${customer.name}`}
+                      value={recipient.wishText}
+                      onChange={(event) =>
+                        updateDetails(customer.id, { wishText: event.target.value })
+                      }
+                      placeholder="Wish text (optional) — e.g. Happy Birthday, {{customer_name}}!"
+                      className="h-8 text-sm"
+                      aria-label={`Wish text for ${customer.name}`}
                     />
+
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={recipient.shipViaCourier}
+                        onCheckedChange={(checked) =>
+                          updateDetails(customer.id, { shipViaCourier: checked === true })
+                        }
+                      />
+                      <Truck className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                      Ship via courier
+                    </label>
+
+                    {recipient.shipViaCourier && (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <Select
+                          value={recipient.courier}
+                          onValueChange={(value) =>
+                            updateDetails(customer.id, {
+                              courier: (value as CourierProvider) ?? "Pathao",
+                            })
+                          }
+                        >
+                          <SelectTrigger
+                            className="h-8 text-sm"
+                            aria-label={`Courier for ${customer.name}`}
+                          >
+                            <SelectValue>{(value: CourierProvider) => value}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COURIER_PROVIDERS.map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={recipient.trackingNumber}
+                          onChange={(event) =>
+                            updateDetails(customer.id, { trackingNumber: event.target.value })
+                          }
+                          placeholder="Tracking number"
+                          className="h-8 text-sm"
+                          aria-label={`Tracking number for ${customer.name}`}
+                          required={recipient.shipViaCourier}
+                        />
+                        <Input
+                          value={recipient.city}
+                          onChange={(event) =>
+                            updateDetails(customer.id, { city: event.target.value })
+                          }
+                          placeholder="City"
+                          className="h-8 text-sm"
+                          aria-label={`City for ${customer.name}`}
+                          required={recipient.shipViaCourier}
+                        />
+                        {!recipient.address && (
+                          <p className="col-span-full text-xs text-destructive">
+                            A delivery address is required to ship via courier.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Remove ${customer.name}`}
-                    onClick={() => handleRemoveCustomer(customer.id)}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -206,6 +341,9 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
                       <AvatarFallback>{customer.initials}</AvatarFallback>
                     </Avatar>
                     <p className="truncate text-xs text-muted-foreground">{customer.name}</p>
+                    {details[customer.id]?.shipViaCourier && (
+                      <Truck className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    )}
                   </div>
                 ))}
               </div>
@@ -267,7 +405,8 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
 
           <p className="text-xs text-muted-foreground">
             This queues one order per customer — nothing is sent until you schedule or send it
-            from the Gifts page.
+            from the Gifts page. Recipients with courier shipping checked also get their
+            delivery created right away.
           </p>
 
           <div className="flex flex-col gap-2 pt-1">

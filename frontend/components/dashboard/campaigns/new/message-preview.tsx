@@ -1,10 +1,23 @@
 import { cn } from "@/lib/utils";
 
-/** Sample recipient used when rendering token substitution in the preview. */
-const PREVIEW_RECIPIENT = {
-  customer_name: "Amelia Chowdhury",
-  profile_link: "https://topten.example/campaign/vip-profile?token=sample",
-};
+/** The real site origin the profile link would actually use once sent —
+ * this component only ever mounts after the user has clicked through the
+ * campaign wizard to the Message step, well past hydration, so `window`
+ * is always available here (no SSR/hydration-mismatch risk). Falls back
+ * to a clearly-fake placeholder only in the ssr-render edge case. */
+function previewOrigin(): string {
+  return typeof window !== "undefined" ? window.location.origin : "https://your-site.example";
+}
+
+/** Sample recipient used when rendering token substitution in the preview —
+ * a real domain (not a fake "topten.example" placeholder) so what's shown
+ * actually matches what a recipient's SMS link would look like. */
+function previewRecipient(): Record<string, string> {
+  return {
+    customer_name: "Amelia Chowdhury",
+    profile_link: `${previewOrigin()}/campaign/vip-profile?token=sample`,
+  };
+}
 
 /** Supported personalisation tokens, their display label, and the tooltip
  * shown when hovering the insert button. */
@@ -27,8 +40,9 @@ export const PERSONALIZATION_TOKENS: { token: string; label: string; description
  * preview reflects what a real recipient would see.
  */
 function resolveTokens(message: string): string {
+  const recipient = previewRecipient();
   return message.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-    return (PREVIEW_RECIPIENT as Record<string, string>)[key] ?? `{{${key}}}`;
+    return recipient[key] ?? `{{${key}}}`;
   });
 }
 
@@ -66,7 +80,7 @@ export function MessagePreview({
           <div className="flex justify-start">
             <div
               className={cn(
-                "max-w-[90%] rounded-2xl rounded-tl-sm px-3 py-2 text-[11px] leading-relaxed",
+                "max-w-[90%] rounded-2xl rounded-tl-sm px-3 py-2 text-[11px] leading-relaxed break-words whitespace-pre-wrap",
                 isEmpty
                   ? "border border-dashed border-border text-muted-foreground italic"
                   : "bg-card ring-1 ring-foreground/10 text-card-foreground"

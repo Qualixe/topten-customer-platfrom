@@ -12,7 +12,9 @@ from app.core.config import settings
 from app.models.gift_catalog_item import GiftCatalogItem
 from app.models.gift_category import GiftCategory
 from app.models.gift_order import GiftOrder, GiftOrderStatus
+from app.services import deliveries as deliveries_service
 from app.services.gifts import (
+    BulkGiftRecipient,
     cancel_gift_order,
     create_catalog_item,
     create_category,
@@ -338,6 +340,7 @@ async def create_gift_order_endpoint(
         catalog_item_id=payload.catalog_item_id,
         occasion=payload.occasion,
         delivery_address=payload.delivery_address,
+        wish_text=payload.wish_text,
     )
     return GiftOrderResponse(data=GiftOrderRead.model_validate(order))
 
@@ -353,12 +356,33 @@ async def create_gift_orders_bulk_endpoint(
     orders = await create_gift_orders_bulk(
         db,
         recipients=[
-            (recipient.customer_id, recipient.delivery_address)
+            BulkGiftRecipient(
+                customer_id=recipient.customer_id,
+                delivery_address=recipient.delivery_address,
+                wish_text=recipient.wish_text,
+            )
             for recipient in payload.recipients
         ],
         catalog_item_id=payload.catalog_item_id,
         occasion=payload.occasion,
     )
+
+    # Recipients that opted into courier shipping (validated together with
+    # tracking_number/city/delivery_address on GiftOrderRecipient) get a
+    # Delivery created right away too — the whole point of doing this from
+    # Send Gift instead of a separate trip to the Couriers page.
+    for order, recipient in zip(orders, payload.recipients, strict=True):
+        if recipient.courier is not None:
+            await deliveries_service.create_delivery(
+                db,
+                gift_order_id=order.id,
+                courier=recipient.courier.value,
+                tracking_number=recipient.tracking_number,
+                address=recipient.delivery_address,
+                city=recipient.city,
+                estimated_delivery=recipient.estimated_delivery,
+            )
+
     return BulkGiftOrdersResponse(data=[GiftOrderRead.model_validate(order) for order in orders])
 
 

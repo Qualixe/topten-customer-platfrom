@@ -116,6 +116,9 @@ async def list_customers(
     is_vip: bool | None = Query(None),
     customer_type: str | None = Query(None, description="GENERAL, VIP, or VVIP"),
     profile_status: str | None = Query(None, description="COMPLETE or INCOMPLETE"),
+    verified: bool | None = Query(
+        None, description="True to only return customers verified through at least one campaign"
+    ),
     created_from: date | None = Query(None),
     created_to: date | None = Query(None),
     sort_by: str | None = Query(None),
@@ -159,6 +162,20 @@ async def list_customers(
         filters.append(is_complete)
     elif profile_status == "INCOMPLETE":
         filters.append(~is_complete)
+
+    # Verification is a per-(customer, campaign) fact on CampaignRecipient,
+    # not a stored Customer column — a customer counts as "verified" here
+    # if they've completed at least one campaign's profile form, regardless
+    # of which campaign or how many.
+    if verified:
+        filters.append(
+            select(CampaignRecipient.id)
+            .where(
+                CampaignRecipient.customer_id == Customer.id,
+                CampaignRecipient.verification_status == VerificationStatus.VERIFIED.value,
+            )
+            .exists()
+        )
 
     if created_from is not None:
         filters.append(Customer.created_at >= created_from)

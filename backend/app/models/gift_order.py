@@ -40,7 +40,11 @@ class GiftOrder(Base):
     the customer's saved `Customer.address` in the UI, editable per
     recipient) — separate from `Delivery.address`, which is a snapshot
     taken later, only for orders that actually go out via courier. Not
-    every gift order becomes a Delivery, so this field stays optional."""
+    every gift order becomes a Delivery, so this field stays optional.
+
+    `wish_text` overrides the fixed "gift sent" SMS template for this one
+    order — typed by the admin at queue time (see
+    render_gift_sms_message). Null means "use the default template"."""
 
     __tablename__ = "gift_orders"
     __table_args__ = (Index("ix_gift_orders_customer_id", "customer_id"),)
@@ -69,6 +73,7 @@ class GiftOrder(Base):
     )
 
     delivery_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    wish_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     scheduled_for: Mapped[date | None] = mapped_column(Date, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -90,7 +90,9 @@ def _gift_order_to_notification(order: GiftOrder) -> NotificationRecord:
         recipient_contact=order.customer.phone,
         subject="Your gift is on the way",
         message=render_gift_sms_message(
-            customer_name=order.customer.name, gift_name=order.gift_name
+            customer_name=order.customer.name,
+            gift_name=order.gift_name,
+            wish_text=order.wish_text,
         ),
         status=NotificationStatus.FAILED if order.notification_error else NotificationStatus.SENT,
         sent_at=order.sent_at,

@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/client";
 import type { ApiEnvelope, ApiListEnvelope } from "@/lib/api/types";
 import { ApiError, NetworkError } from "@/lib/api/types";
+import { COURIER_TO_BACKEND, type CourierProvider } from "@/lib/api/deliveries";
 
 /** Categories are admin-managed rows (see `listGiftCategories` etc. below),
  * not a fixed list — this is just the id/name shape a gift references. */
@@ -241,6 +242,7 @@ export interface GiftOrder {
   occasion: GiftOccasion;
   status: GiftOrderStatus;
   deliveryAddress: string | null;
+  wishText: string | null;
   scheduledFor: string | null;
   sentAt: string | null;
   notificationError: string | null;
@@ -254,6 +256,7 @@ interface GiftOrderDto {
   occasion: GiftOccasion;
   status: GiftOrderStatus;
   deliveryAddress: string | null;
+  wishText: string | null;
   scheduledFor: string | null;
   sentAt: string | null;
   notificationError: string | null;
@@ -282,6 +285,7 @@ function mapDtoToGiftOrder(dto: GiftOrderDto): GiftOrder {
     occasion: dto.occasion,
     status: dto.status,
     deliveryAddress: dto.deliveryAddress,
+    wishText: dto.wishText,
     scheduledFor: dto.scheduledFor,
     sentAt: dto.sentAt,
     notificationError: dto.notificationError,
@@ -328,6 +332,7 @@ export interface CreateGiftOrderInput {
   catalogItemId: string;
   occasion: GiftOccasion;
   deliveryAddress?: string;
+  wishText?: string;
 }
 
 /** Creates a new gift order (status PENDING) — the entry point for "sending
@@ -339,12 +344,27 @@ export async function createGiftOrder(input: CreateGiftOrderInput): Promise<Gift
     catalog_item_id: input.catalogItemId,
     occasion: input.occasion,
     delivery_address: input.deliveryAddress || undefined,
+    wish_text: input.wishText || undefined,
   });
   return mapDtoToGiftOrder(envelope.data);
 }
 
+export interface BulkGiftRecipientInput {
+  customerId: string;
+  deliveryAddress?: string;
+  wishText?: string;
+  /** Set all three (plus deliveryAddress) to also create a courier
+   * Delivery for this recipient in the same request — no separate trip to
+   * the Couriers page. */
+  courier?: CourierProvider;
+  trackingNumber?: string;
+  city?: string;
+  /** ISO "YYYY-MM-DD". */
+  estimatedDelivery?: string;
+}
+
 export interface CreateGiftOrdersBulkInput {
-  recipients: { customerId: string; deliveryAddress?: string }[];
+  recipients: BulkGiftRecipientInput[];
   catalogItemId: string;
   occasion: GiftOccasion;
 }
@@ -359,6 +379,11 @@ export async function createGiftOrdersBulk(input: CreateGiftOrdersBulkInput): Pr
     recipients: input.recipients.map((recipient) => ({
       customer_id: recipient.customerId,
       delivery_address: recipient.deliveryAddress || undefined,
+      wish_text: recipient.wishText || undefined,
+      courier: recipient.courier ? COURIER_TO_BACKEND[recipient.courier] : undefined,
+      tracking_number: recipient.trackingNumber || undefined,
+      city: recipient.city || undefined,
+      estimated_delivery: recipient.estimatedDelivery || undefined,
     })),
     catalog_item_id: input.catalogItemId,
     occasion: input.occasion,
