@@ -193,6 +193,19 @@ async def test_missing_address_is_rejected(client: AsyncClient) -> None:
     assert response.status_code == 422
 
 
+async def test_address_shorter_than_ten_characters_is_rejected(client: AsyncClient) -> None:
+    """Matches Pathao's own minimum for a shippable address."""
+    created = await _create_customer(client)
+    token = await _issue_token(client, created["id"])
+
+    response = await client.patch(
+        f"/api/v1/public/customer-profile/{token}",
+        json={"date_of_birth": "1995-05-10", "address": "Dhaka"},
+    )
+    assert response.status_code == 422
+    assert "10 characters" in response.json()["detail"]
+
+
 async def test_future_date_of_birth_is_rejected(client: AsyncClient) -> None:
     created = await _create_customer(client)
     token = await _issue_token(client, created["id"])

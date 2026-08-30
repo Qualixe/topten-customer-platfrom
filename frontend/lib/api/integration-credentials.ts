@@ -138,6 +138,10 @@ export interface PathaoCredentials {
   clientSecret: SecretField;
   username: PlainField;
   password: SecretField;
+  storeId: PlainField;
+  /** Whether dispatching hits Pathao's sandbox or its real, live API.
+   * Defaults true (sandbox) until deliberately turned off. */
+  sandbox: boolean;
 }
 
 export interface PathaoCredentialsInput {
@@ -145,6 +149,8 @@ export interface PathaoCredentialsInput {
   clientSecret?: string;
   username?: string;
   password?: string;
+  storeId?: string;
+  sandbox?: boolean;
 }
 
 export async function getPathaoCredentials(): Promise<PathaoCredentials> {
@@ -160,6 +166,37 @@ export async function updatePathaoCredentials(
     client_secret: input.clientSecret,
     username: input.username,
     password: input.password,
+    store_id: input.storeId,
+    sandbox: input.sandbox,
   });
+  return envelope.data;
+}
+
+export interface PathaoLocation {
+  id: number;
+  name: string;
+}
+
+export async function listPathaoStores(): Promise<PathaoLocation[]> {
+  const envelope = await apiGet<ApiEnvelope<PathaoLocation[]>>("/couriers/pathao/stores");
+  return envelope.data;
+}
+
+export async function listPathaoCities(): Promise<PathaoLocation[]> {
+  const envelope = await apiGet<ApiEnvelope<PathaoLocation[]>>("/couriers/pathao/cities");
+  return envelope.data;
+}
+
+export async function listPathaoZones(cityId: number): Promise<PathaoLocation[]> {
+  const envelope = await apiGet<ApiEnvelope<PathaoLocation[]>>(
+    `/couriers/pathao/cities/${cityId}/zones`
+  );
+  return envelope.data;
+}
+
+export async function listPathaoAreas(zoneId: number): Promise<PathaoLocation[]> {
+  const envelope = await apiGet<ApiEnvelope<PathaoLocation[]>>(
+    `/couriers/pathao/zones/${zoneId}/areas`
+  );
   return envelope.data;
 }

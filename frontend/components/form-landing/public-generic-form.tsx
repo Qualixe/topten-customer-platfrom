@@ -10,6 +10,10 @@ import type { FormField } from "@/lib/form-builder/types";
 
 const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 const EMPTY_VALUES: GenericFormValues = { name: "", phone: "", email: "", dateOfBirth: "", address: "" };
+// Matches Pathao's own minimum for a shippable address (see
+// app/services/pathao.py) — checked whenever an address is given, not just
+// when the form marks it required.
+const MIN_ADDRESS_LENGTH = 10;
 
 /** Renders a form's fields as a real, working, tokenless public form —
  * decorative fields (heading/paragraph/divider/submit button) via the same
@@ -40,6 +44,10 @@ export function PublicGenericForm({ slug, fields }: { slug: string; fields: Form
         errors.push(`${field.label} is required.`);
       }
       if (field.type === "address" && !values.address.trim()) errors.push(`${field.label} is required.`);
+    }
+
+    if (values.address.trim() && values.address.trim().length < MIN_ADDRESS_LENGTH) {
+      errors.push(`Please enter your full address (at least ${MIN_ADDRESS_LENGTH} characters).`);
     }
 
     return errors;

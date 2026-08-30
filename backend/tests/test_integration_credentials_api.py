@@ -170,6 +170,8 @@ async def test_pathao_credentials_start_unset(client: AsyncClient) -> None:
         "client_secret": {"is_secret": True, "is_set": False},
         "username": {"is_secret": False, "value": None},
         "password": {"is_secret": True, "is_set": False},
+        "store_id": {"is_secret": False, "value": None},
+        "sandbox": True,
     }
 
 
@@ -181,6 +183,8 @@ async def test_setting_pathao_credentials_never_echoes_secrets_back(client: Asyn
             "client_secret": "top-secret",
             "username": "store@topten.com.bd",
             "password": "hunter2",
+            "store_id": "401253",
+            "sandbox": False,
         },
     )
     assert response.status_code == 200
@@ -190,6 +194,8 @@ async def test_setting_pathao_credentials_never_echoes_secrets_back(client: Asyn
     assert data["client_secret"] == {"is_secret": True, "is_set": True}
     assert data["username"] == {"is_secret": False, "value": "store@topten.com.bd"}
     assert data["password"] == {"is_secret": True, "is_set": True}
+    assert data["store_id"] == {"is_secret": False, "value": "401253"}
+    assert data["sandbox"] is False
     assert "top-secret" not in response.text
     assert "hunter2" not in response.text
 

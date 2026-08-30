@@ -136,8 +136,12 @@ class GiftOrderRecipient(BaseModel):
     always optional. `courier` opts this recipient into also getting a
     `Delivery` created in the same request (see
     app.controllers.gifts.create_gift_orders_bulk_endpoint) — when set,
-    `tracking_number`, `city`, and `delivery_address` become required,
-    since a Delivery can't be created without them."""
+    `city` and `delivery_address` become required, and shipping is fulfilled
+    one of two ways: set `tracking_number` for a shipment already booked
+    elsewhere, or (Pathao only) leave it unset and set
+    `pathao_city_id`/`pathao_zone_id`/`pathao_area_id` plus
+    `recipient_name`/`recipient_phone` to dispatch through Pathao's real API —
+    same two paths as `DeliveryCreate` (see app.views.deliveries)."""
 
     customer_id: UUID
     delivery_address: str | None = None
@@ -147,7 +151,20 @@ class GiftOrderRecipient(BaseModel):
     city: str | None = None
     estimated_delivery: date | None = None
 
-    @field_validator("delivery_address", "wish_text", "tracking_number", "city")
+    pathao_city_id: int | None = None
+    pathao_zone_id: int | None = None
+    pathao_area_id: int | None = None
+    recipient_name: str | None = None
+    recipient_phone: str | None = None
+
+    @field_validator(
+        "delivery_address",
+        "wish_text",
+        "tracking_number",
+        "city",
+        "recipient_name",
+        "recipient_phone",
+    )
     @classmethod
     def _blank_to_none(cls, value: str | None) -> str | None:
         if value is None:
@@ -157,13 +174,29 @@ class GiftOrderRecipient(BaseModel):
 
     @model_validator(mode="after")
     def _courier_requires_shipping_details(self) -> "GiftOrderRecipient":
-        if self.courier is not None and not (
-            self.tracking_number and self.city and self.delivery_address
-        ):
+        if self.courier is None:
+            return self
+
+        if not (self.city and self.delivery_address):
             raise ValueError(
-                "delivery_address, tracking_number, and city are required when a courier "
-                "is selected"
+                "delivery_address and city are required when a courier is selected"
             )
+
+        has_pathao_dispatch = bool(
+            self.pathao_city_id and self.pathao_zone_id and self.pathao_area_id
+        )
+        if not self.tracking_number and not has_pathao_dispatch:
+            raise ValueError(
+                "Provide a tracking number, or (Pathao only) select a city/zone/area to "
+                "dispatch automatically."
+            )
+        if has_pathao_dispatch:
+            if self.courier != CourierProvider.PATHAO:
+                raise ValueError("Automatic dispatch is only available for Pathao.")
+            if not self.recipient_name or not self.recipient_phone:
+                raise ValueError(
+                    "recipient_name and recipient_phone are required to dispatch via Pathao."
+                )
         return self
 
 

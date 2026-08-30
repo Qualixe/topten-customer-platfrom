@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Check } from "lucide-react";
+import { Check, Search } from "lucide-react";
 
 import { FormField } from "@/components/dashboard/form-field";
+import { SettingsSwitchRow } from "@/components/dashboard/settings/settings-switch-row";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,8 +17,10 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   getPathaoCredentials,
+  listPathaoStores,
   updatePathaoCredentials,
   type PathaoCredentials,
+  type PathaoLocation,
 } from "@/lib/api/integration-credentials";
 import { getErrorMessage } from "@/lib/api/types";
 
@@ -29,10 +32,16 @@ export function PathaoCredentialsForm() {
   const [clientSecret, setClientSecret] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [storeId, setStoreId] = useState("");
+  const [sandbox, setSandbox] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  const [stores, setStores] = useState<PathaoLocation[] | null>(null);
+  const [storesLoading, setStoresLoading] = useState(false);
+  const [storesError, setStoresError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +52,8 @@ export function PathaoCredentialsForm() {
         setStatus(data);
         setClientId(data.clientId.value ?? "");
         setUsername(data.username.value ?? "");
+        setStoreId(data.storeId.value ?? "");
+        setSandbox(data.sandbox);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -72,6 +83,8 @@ export function PathaoCredentialsForm() {
         clientSecret: clientSecret || undefined,
         username,
         password: password || undefined,
+        storeId,
+        sandbox,
       });
       setStatus(updated);
       setClientSecret("");
@@ -86,13 +99,30 @@ export function PathaoCredentialsForm() {
     }
   }
 
+  async function handleLookupStores() {
+    setStoresLoading(true);
+    setStoresError(null);
+    try {
+      const result = await listPathaoStores();
+      setStores(result);
+      if (result.length === 1) setStoreId(String(result[0].id));
+    } catch (err) {
+      setStoresError(
+        getErrorMessage(err, "Unable to fetch stores. Save your credentials first.")
+      );
+    } finally {
+      setStoresLoading(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Pathao</CardTitle>
         <CardDescription>
-          API credentials for booking deliveries through Pathao Courier. Stored on the
-          server for when courier dispatch is connected.
+          Real API credentials for dispatching deliveries through Pathao Courier — saving
+          these lets &ldquo;Add Delivery&rdquo; create a live shipment and pull back a real
+          tracking number instead of you typing one in by hand.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -157,6 +187,62 @@ export function PathaoCredentialsForm() {
               />
             </FormField>
           </div>
+
+          <FormField
+            htmlFor="pathao-store-id"
+            label="Store ID"
+            description="The store this business ships from, from your Pathao merchant account."
+          >
+            <div className="flex gap-2">
+              <Input
+                id="pathao-store-id"
+                inputMode="numeric"
+                value={storeId}
+                onChange={(event) => setStoreId(event.target.value)}
+                placeholder="e.g. 401253"
+                disabled={loading}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleLookupStores}
+                disabled={loading || storesLoading}
+              >
+                <Search />
+                {storesLoading ? "Looking up…" : "Look up my stores"}
+              </Button>
+            </div>
+            {storesError && <p className="mt-1.5 text-sm text-destructive">{storesError}</p>}
+            {stores && stores.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1 rounded-lg border p-1.5">
+                {stores.map((store) => (
+                  <button
+                    key={store.id}
+                    type="button"
+                    onClick={() => setStoreId(String(store.id))}
+                    className="flex items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted/50"
+                  >
+                    <span>{store.name}</span>
+                    <span className="text-xs text-muted-foreground">#{store.id}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {stores && stores.length === 0 && (
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                No stores found on this Pathao account yet.
+              </p>
+            )}
+          </FormField>
+
+          <SettingsSwitchRow
+            id="pathao-sandbox"
+            label="Sandbox mode"
+            description="Test against Pathao's sandbox instead of creating real shipments. Turn this off only once you're ready to dispatch for real."
+            checked={sandbox}
+            onCheckedChange={setSandbox}
+          />
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>

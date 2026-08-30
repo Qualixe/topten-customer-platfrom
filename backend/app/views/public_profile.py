@@ -44,10 +44,13 @@ class PublicProfileUpdate(BaseModel):
 
     @field_validator("address")
     @classmethod
-    def _address_not_blank(cls, value: str) -> str:
+    def _address_long_enough(cls, value: str) -> str:
         stripped = value.strip()
-        if not stripped:
-            raise ValueError("Address cannot be blank")
+        # 10 chars matches Pathao's own minimum for a shippable address —
+        # confirmed by a real "must be at least 10 characters" rejection
+        # from Pathao's live API (see app.services.pathao).
+        if len(stripped) < 10:
+            raise ValueError("Please enter your full address (at least 10 characters)")
         return stripped
 
     @field_validator("email", mode="before")

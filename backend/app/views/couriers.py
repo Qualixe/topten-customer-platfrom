@@ -8,6 +8,10 @@ class PathaoCredentialsStatus(BaseModel):
     client_secret: SecretFieldStatus
     username: PlainFieldStatus
     password: SecretFieldStatus
+    store_id: PlainFieldStatus
+    # Whether dispatching hits Pathao's sandbox or its real, live API —
+    # defaults true (sandbox) until an admin deliberately turns it off.
+    sandbox: bool
 
 
 class PathaoCredentialsResponse(BaseModel):
@@ -24,11 +28,24 @@ class PathaoCredentialsUpdate(BaseModel):
     client_secret: str | None = None
     username: str | None = None
     password: str | None = None
+    store_id: str | None = None
+    sandbox: bool | None = None
 
-    @field_validator("client_id", "client_secret", "username", "password")
+    @field_validator("client_id", "client_secret", "username", "password", "store_id")
     @classmethod
     def _blank_to_none(cls, value: str | None) -> str | None:
         if value is None:
             return None
         stripped = value.strip()
         return stripped or None
+
+
+class PathaoLocation(BaseModel):
+    id: int
+    name: str
+
+
+class PathaoLocationsResponse(BaseModel):
+    success: bool = True
+    data: list[PathaoLocation]
+    meta: dict = {}

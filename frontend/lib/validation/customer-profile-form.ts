@@ -28,7 +28,7 @@ export const customerProfileFormSchema = z.object({
   address: z
     .string()
     .trim()
-    .min(5, "Please enter your full address")
+    .min(10, "Please enter your full address (at least 10 characters)")
     .max(500, "Address is too long"),
   email: z
     .string()

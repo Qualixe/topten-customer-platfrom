@@ -1,5 +1,5 @@
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { FormField } from "@/lib/form-builder/types";
 
 export function AddressField({
@@ -19,11 +19,12 @@ export function AddressField({
         {field.label}
         {field.required && <span className="text-destructive"> *</span>}
       </Label>
-      <Input
+      <Textarea
         placeholder={field.placeholder}
         disabled={!preview && !onChange}
         value={onChange ? (value ?? "") : undefined}
         onChange={onChange ? (event) => onChange(event.target.value) : undefined}
+        className="min-h-16"
       />
     </div>
   );

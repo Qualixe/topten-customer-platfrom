@@ -14,10 +14,14 @@ from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import NotFoundError
 from app.services import deliveries as service
 from app.services import gifts as gifts_service
+from app.services import pathao as pathao_service
+from app.services.pathao import PATHAO_PROVIDER
 from app.views.couriers import (
     PathaoCredentialsResponse,
     PathaoCredentialsStatus,
     PathaoCredentialsUpdate,
+    PathaoLocation,
+    PathaoLocationsResponse,
 )
 from app.views.deliveries import (
     DeliveriesListResponse,
@@ -35,8 +39,6 @@ from app.views.deliveries import (
 
 router = APIRouter()
 
-PATHAO_PROVIDER = "pathao"
-
 
 def _to_status(data: dict[str, str | None]) -> PathaoCredentialsStatus:
     return PathaoCredentialsStatus(
@@ -44,6 +46,8 @@ def _to_status(data: dict[str, str | None]) -> PathaoCredentialsStatus:
         client_secret=SecretFieldStatus(is_set=bool(data.get("client_secret"))),
         username=PlainFieldStatus(value=data.get("username")),
         password=SecretFieldStatus(is_set=bool(data.get("password"))),
+        store_id=PlainFieldStatus(value=data.get("store_id")),
+        sandbox=bool(data.get("sandbox", True)),
     )
 
 
@@ -65,6 +69,46 @@ async def update_pathao_credentials(
     updates = payload.model_dump(exclude_unset=True)
     data = await merge_credential_data(db, PATHAO_PROVIDER, updates)
     return PathaoCredentialsResponse(data=_to_status(data))
+
+
+def _to_locations(locations: list) -> PathaoLocationsResponse:
+    return PathaoLocationsResponse(
+        data=[PathaoLocation(id=item.id, name=item.name) for item in locations]
+    )
+
+
+@router.get("/pathao/stores", response_model=PathaoLocationsResponse)
+async def list_pathao_stores(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("couriers.manage")),
+) -> PathaoLocationsResponse:
+    return _to_locations(await pathao_service.list_pathao_stores(db))
+
+
+@router.get("/pathao/cities", response_model=PathaoLocationsResponse)
+async def list_pathao_cities(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("couriers.manage")),
+) -> PathaoLocationsResponse:
+    return _to_locations(await pathao_service.list_pathao_cities(db))
+
+
+@router.get("/pathao/cities/{city_id}/zones", response_model=PathaoLocationsResponse)
+async def list_pathao_zones(
+    city_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("couriers.manage")),
+) -> PathaoLocationsResponse:
+    return _to_locations(await pathao_service.list_pathao_zones(db, city_id))
+
+
+@router.get("/pathao/zones/{zone_id}/areas", response_model=PathaoLocationsResponse)
+async def list_pathao_areas(
+    zone_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("couriers.manage")),
+) -> PathaoLocationsResponse:
+    return _to_locations(await pathao_service.list_pathao_areas(db, zone_id))
 
 
 # Static path segments are registered before "/{delivery_id}" for the same
@@ -134,12 +178,17 @@ async def create_delivery(
 
     delivery = await service.create_delivery(
         db,
-        gift_order_id=gift_order.id,
+        gift_order=gift_order,
         courier=payload.courier.value,
-        tracking_number=payload.tracking_number,
         address=payload.address,
         city=payload.city,
         estimated_delivery=payload.estimated_delivery,
+        tracking_number=payload.tracking_number,
+        pathao_city_id=payload.pathao_city_id,
+        pathao_zone_id=payload.pathao_zone_id,
+        pathao_area_id=payload.pathao_area_id,
+        recipient_name=payload.recipient_name,
+        recipient_phone=payload.recipient_phone,
     )
     return DeliveryResponse(data=DeliveryRead.model_validate(delivery))
 

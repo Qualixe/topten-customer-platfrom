@@ -224,21 +224,37 @@ export async function listEligibleGiftOrdersForDelivery(
 export interface CreateDeliveryInput {
   giftOrderId: string;
   courier: CourierProvider;
-  trackingNumber: string;
   address: string;
   city: string;
   /** ISO date string (yyyy-mm-dd). */
   estimatedDelivery?: string;
+
+  /** Set this OR the Pathao dispatch fields below — never both. */
+  trackingNumber?: string;
+
+  /** Live Pathao dispatch: leave `trackingNumber` unset and fill these in
+   * instead — the backend calls Pathao's real API and returns a genuine
+   * tracking number. Only valid when `courier` is "Pathao". */
+  pathaoCityId?: number;
+  pathaoZoneId?: number;
+  pathaoAreaId?: number;
+  recipientName?: string;
+  recipientPhone?: string;
 }
 
 export async function createDelivery(input: CreateDeliveryInput): Promise<Delivery> {
   const envelope = await apiPost<ApiEnvelope<DeliveryDto>>("/couriers/deliveries", {
     gift_order_id: input.giftOrderId,
     courier: COURIER_TO_BACKEND[input.courier],
-    tracking_number: input.trackingNumber,
+    tracking_number: input.trackingNumber || undefined,
     address: input.address,
     city: input.city,
     estimated_delivery: input.estimatedDelivery || undefined,
+    pathao_city_id: input.pathaoCityId,
+    pathao_zone_id: input.pathaoZoneId,
+    pathao_area_id: input.pathaoAreaId,
+    recipient_name: input.recipientName,
+    recipient_phone: input.recipientPhone,
   });
   return mapDtoToDelivery(envelope.data);
 }

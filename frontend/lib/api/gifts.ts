@@ -353,14 +353,23 @@ export interface BulkGiftRecipientInput {
   customerId: string;
   deliveryAddress?: string;
   wishText?: string;
-  /** Set all three (plus deliveryAddress) to also create a courier
-   * Delivery for this recipient in the same request — no separate trip to
-   * the Couriers page. */
+  /** Set (plus deliveryAddress/city) to also create a courier Delivery for
+   * this recipient in the same request — no separate trip to the Couriers
+   * page. Ship it one of two ways: set `trackingNumber` for a shipment
+   * already booked elsewhere, or (Pathao only) leave it unset and set
+   * `pathaoCityId`/`pathaoZoneId`/`pathaoAreaId` plus `recipientName`/
+   * `recipientPhone` to dispatch through Pathao's real API. */
   courier?: CourierProvider;
   trackingNumber?: string;
   city?: string;
   /** ISO "YYYY-MM-DD". */
   estimatedDelivery?: string;
+
+  pathaoCityId?: number;
+  pathaoZoneId?: number;
+  pathaoAreaId?: number;
+  recipientName?: string;
+  recipientPhone?: string;
 }
 
 export interface CreateGiftOrdersBulkInput {
@@ -384,6 +393,11 @@ export async function createGiftOrdersBulk(input: CreateGiftOrdersBulkInput): Pr
       tracking_number: recipient.trackingNumber || undefined,
       city: recipient.city || undefined,
       estimated_delivery: recipient.estimatedDelivery || undefined,
+      pathao_city_id: recipient.pathaoCityId,
+      pathao_zone_id: recipient.pathaoZoneId,
+      pathao_area_id: recipient.pathaoAreaId,
+      recipient_name: recipient.recipientName,
+      recipient_phone: recipient.recipientPhone,
     })),
     catalog_item_id: input.catalogItemId,
     occasion: input.occasion,

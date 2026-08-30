@@ -215,6 +215,12 @@ async def submit_generic_form(
         verb = "is" if len(missing) == 1 else "are"
         raise ValidationAppError(f"{', '.join(missing)} {verb} required")
 
+    # 10 chars matches Pathao's own minimum for a shippable address (see
+    # app.services.pathao) — checked whenever an address is given, not just
+    # when the form marks it required.
+    if submission.address and len(submission.address.strip()) < 10:
+        raise ValidationAppError("Please enter your full address (at least 10 characters)")
+
     try:
         normalized = normalize_phone(submission.phone)
     except InvalidPhoneNumberError as exc:

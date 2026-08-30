@@ -375,12 +375,17 @@ async def create_gift_orders_bulk_endpoint(
         if recipient.courier is not None:
             await deliveries_service.create_delivery(
                 db,
-                gift_order_id=order.id,
+                gift_order=order,
                 courier=recipient.courier.value,
                 tracking_number=recipient.tracking_number,
                 address=recipient.delivery_address,
                 city=recipient.city,
                 estimated_delivery=recipient.estimated_delivery,
+                pathao_city_id=recipient.pathao_city_id,
+                pathao_zone_id=recipient.pathao_zone_id,
+                pathao_area_id=recipient.pathao_area_id,
+                recipient_name=recipient.recipient_name,
+                recipient_phone=recipient.recipient_phone,
             )
 
     return BulkGiftOrdersResponse(data=[GiftOrderRead.model_validate(order) for order in orders])

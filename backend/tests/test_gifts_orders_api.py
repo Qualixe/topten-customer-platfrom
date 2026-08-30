@@ -212,6 +212,93 @@ async def test_create_gift_orders_bulk_with_courier_creates_delivery(
     assert deliveries[0]["status"] == "PENDING_PICKUP"
 
 
+async def test_create_gift_orders_bulk_dispatches_live_via_pathao(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    from app.common.pathao_client import PathaoOrderResult, PathaoToken
+    from app.services.pathao import PATHAO_PROVIDER
+
+    await merge_credential_data(
+        db_session,
+        PATHAO_PROVIDER,
+        {
+            "client_id": "client-123",
+            "client_secret": "secret-abc",
+            "username": "store@topten.com.bd",
+            "password": "hunter2",
+            "store_id": "401253",
+            "sandbox": True,
+        },
+    )
+    customer = await _add_customer(db_session, name="Nadia Islam", phone="+8801711000206")
+    item = await _add_catalog_item(db_session, stock_quantity=10)
+
+    mock_token = PathaoToken(access_token="mock-token", expires_in=7776000)
+    mock_result = PathaoOrderResult(
+        consignment_id="DZ010523G674QD", order_status="Pending", delivery_fee=70
+    )
+    with (
+        patch("app.common.pathao_client.issue_token", new=AsyncMock(return_value=mock_token)),
+        patch(
+            "app.common.pathao_client.create_order", new=AsyncMock(return_value=mock_result)
+        ) as mock_create,
+    ):
+        response = await client.post(
+            "/api/v1/gifts/orders/bulk",
+            json={
+                "recipients": [
+                    {
+                        "customer_id": str(customer.public_id),
+                        "delivery_address": "House 6, Block A, Road 3, Mirpur 11",
+                        "courier": "PATHAO",
+                        "city": "Dhaka - Mirpur",
+                        "pathao_city_id": 1,
+                        "pathao_zone_id": 20,
+                        "pathao_area_id": 100,
+                        "recipient_name": "Nadia Islam",
+                        "recipient_phone": "+8801711000206",
+                    }
+                ],
+                "catalog_item_id": str(item.public_id),
+                "occasion": "BIRTHDAY",
+            },
+        )
+
+    assert response.status_code == 201
+
+    deliveries_response = await client.get(
+        "/api/v1/couriers/deliveries", params={"search": "Nadia Islam"}
+    )
+    deliveries = deliveries_response.json()["data"]
+    assert len(deliveries) == 1
+    assert deliveries[0]["tracking_number"] == "DZ010523G674QD"
+    assert mock_create.call_args.kwargs["recipient_city"] == 1
+
+
+async def test_create_gift_orders_bulk_pathao_requires_tracking_or_dispatch_fields(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    customer = await _add_customer(db_session)
+    item = await _add_catalog_item(db_session)
+
+    response = await client.post(
+        "/api/v1/gifts/orders/bulk",
+        json={
+            "recipients": [
+                {
+                    "customer_id": str(customer.public_id),
+                    "delivery_address": "House 5, Road 10",
+                    "courier": "PATHAO",
+                    "city": "Dhaka",
+                }
+            ],
+            "catalog_item_id": str(item.public_id),
+            "occasion": "BIRTHDAY",
+        },
+    )
+    assert response.status_code == 422
+
+
 async def test_create_gift_orders_bulk_courier_requires_shipping_details(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:

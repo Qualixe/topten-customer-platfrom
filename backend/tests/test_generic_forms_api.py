@@ -137,7 +137,7 @@ async def test_submit_twice_with_same_phone_updates_not_duplicates(
             "name": "Karim",
             "phone": "01711000222",
             "email": "karim@example.com",
-            "address": "Dhaka",
+            "address": "House 5, Dhaka",
         },
     )
     await client.post(
@@ -154,7 +154,7 @@ async def test_submit_twice_with_same_phone_updates_not_duplicates(
     # Name updates from the newer submission, but address (omitted the
     # second time) is never blanked out by a later submission.
     assert customers[0].name == "Karim Rahman"
-    assert customers[0].address == "Dhaka"
+    assert customers[0].address == "House 5, Dhaka"
 
 
 async def test_submit_rejects_missing_field_the_form_marks_required(
@@ -181,6 +181,27 @@ async def test_submit_rejects_invalid_phone(client: AsyncClient) -> None:
         json={"name": "Bad Phone", "phone": "not-a-phone"},
     )
     assert response.status_code == 422
+
+
+async def test_submit_rejects_address_shorter_than_ten_characters(client: AsyncClient) -> None:
+    """Matches Pathao's own minimum for a shippable address — checked
+    whenever an address is given, even though this form doesn't mark it
+    required."""
+    await _create_and_publish_form(
+        client, slug="short-address-signup", builder_data=BUILDER_DATA_WITH_REQUIRED_EMAIL
+    )
+
+    response = await client.post(
+        "/api/v1/public/forms/short-address-signup/submit",
+        json={
+            "name": "Short Address",
+            "phone": "01711000444",
+            "email": "short@example.com",
+            "address": "Dhaka",
+        },
+    )
+    assert response.status_code == 422
+    assert "10 characters" in response.json()["detail"]
 
 
 async def test_submit_to_unpublished_form_404s(client: AsyncClient) -> None:

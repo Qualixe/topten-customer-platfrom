@@ -7,6 +7,12 @@ import { useState, type FormEvent } from "react";
 import { Cake, Check, Gift as GiftIcon, MapPin, Sparkles, Truck, X } from "lucide-react";
 
 import { CustomerTierBadge } from "@/components/dashboard/customers/tier-badge";
+import {
+  EMPTY_PATHAO_LOCATION,
+  MIN_PATHAO_ADDRESS_LENGTH,
+  PathaoLocationPicker,
+  type PathaoLocationValue,
+} from "@/components/dashboard/couriers/pathao-location-picker";
 import { FormField } from "@/components/dashboard/form-field";
 import { CustomerMultiPickerField } from "@/components/dashboard/gifts/customer-multi-picker-field";
 import { GiftPickerField } from "@/components/dashboard/gifts/gift-picker-field";
@@ -24,6 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@/lib/api/customers";
 import { COURIER_PROVIDERS, type CourierProvider } from "@/lib/api/deliveries";
 import {
@@ -43,8 +51,12 @@ interface RecipientDetails {
   wishText: string;
   shipViaCourier: boolean;
   courier: CourierProvider;
+  dispatchMode: "manual" | "pathao";
   trackingNumber: string;
   city: string;
+  pathaoLocation: PathaoLocationValue;
+  recipientName: string;
+  recipientPhone: string;
 }
 
 function defaultDetails(customer: Customer): RecipientDetails {
@@ -53,8 +65,12 @@ function defaultDetails(customer: Customer): RecipientDetails {
     wishText: "",
     shipViaCourier: false,
     courier: "Pathao",
+    dispatchMode: "pathao",
     trackingNumber: "",
     city: "",
+    pathaoLocation: EMPTY_PATHAO_LOCATION,
+    recipientName: customer.name,
+    recipientPhone: customer.phone,
   };
 }
 
@@ -87,7 +103,14 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
   const giftVisual = selectedGift ? getGiftCategoryVisual(selectedGift.category.name) : null;
   const giftImageUrl = selectedGift ? resolveGiftImageUrl(selectedGift.imageUrl) : null;
   const GiftVisualIcon = giftVisual?.icon;
-  const canSubmit = selectedCustomers.length > 0 && Boolean(catalogItemId);
+  const hasInvalidLiveDispatchAddress = selectedCustomers.some((customer) => {
+    const recipient = details[customer.id];
+    if (!recipient?.shipViaCourier || recipient.courier !== "Pathao") return false;
+    if (recipient.dispatchMode !== "pathao") return false;
+    return recipient.address.trim().length < MIN_PATHAO_ADDRESS_LENGTH;
+  });
+  const canSubmit =
+    selectedCustomers.length > 0 && Boolean(catalogItemId) && !hasInvalidLiveDispatchAddress;
 
   function handleCustomersChange(next: Customer[]) {
     setSelectedCustomers(next);
@@ -121,6 +144,10 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
       await createGiftOrdersBulk({
         recipients: selectedCustomers.map((customer) => {
           const recipient = details[customer.id];
+          const isLiveDispatch =
+            recipient.shipViaCourier &&
+            recipient.courier === "Pathao" &&
+            recipient.dispatchMode === "pathao";
           return {
             customerId: customer.id,
             deliveryAddress: recipient.address,
@@ -128,8 +155,16 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
             ...(recipient.shipViaCourier
               ? {
                   courier: recipient.courier,
-                  trackingNumber: recipient.trackingNumber,
                   city: recipient.city,
+                  ...(isLiveDispatch
+                    ? {
+                        pathaoCityId: recipient.pathaoLocation.cityId ?? undefined,
+                        pathaoZoneId: recipient.pathaoLocation.zoneId ?? undefined,
+                        pathaoAreaId: recipient.pathaoLocation.areaId ?? undefined,
+                        recipientName: recipient.recipientName,
+                        recipientPhone: recipient.recipientPhone,
+                      }
+                    : { trackingNumber: recipient.trackingNumber }),
                 }
               : {}),
           };
@@ -201,19 +236,29 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
 
                     <div className="relative">
                       <MapPin
-                        className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+                        className="pointer-events-none absolute top-2.5 left-2.5 size-3.5 text-muted-foreground"
                         aria-hidden="true"
                       />
-                      <Input
+                      <Textarea
                         value={recipient.address}
                         onChange={(event) =>
                           updateDetails(customer.id, { address: event.target.value })
                         }
                         placeholder="Delivery address (optional)"
-                        className="h-8 pl-8 text-sm"
+                        className="min-h-16 pl-8 text-sm"
                         aria-label={`Delivery address for ${customer.name}`}
                       />
                     </div>
+                    {recipient.shipViaCourier &&
+                      recipient.courier === "Pathao" &&
+                      recipient.dispatchMode === "pathao" &&
+                      recipient.address.trim().length > 0 &&
+                      recipient.address.trim().length < MIN_PATHAO_ADDRESS_LENGTH && (
+                        <p className="text-xs text-destructive">
+                          Pathao requires at least {MIN_PATHAO_ADDRESS_LENGTH} characters for the
+                          address.
+                        </p>
+                      )}
 
                     <Input
                       value={recipient.wishText}
@@ -237,51 +282,110 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
                     </label>
 
                     {recipient.shipViaCourier && (
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        <Select
-                          value={recipient.courier}
-                          onValueChange={(value) =>
-                            updateDetails(customer.id, {
-                              courier: (value as CourierProvider) ?? "Pathao",
-                            })
-                          }
-                        >
-                          <SelectTrigger
-                            className="h-8 text-sm"
-                            aria-label={`Courier for ${customer.name}`}
+                      <div className="flex flex-col gap-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <Select
+                            value={recipient.courier}
+                            onValueChange={(value) =>
+                              updateDetails(customer.id, {
+                                courier: (value as CourierProvider) ?? "Pathao",
+                              })
+                            }
                           >
-                            <SelectValue>{(value: CourierProvider) => value}</SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {COURIER_PROVIDERS.map((option) => (
-                              <SelectItem key={option} value={option}>
-                                {option}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          value={recipient.trackingNumber}
-                          onChange={(event) =>
-                            updateDetails(customer.id, { trackingNumber: event.target.value })
-                          }
-                          placeholder="Tracking number"
-                          className="h-8 text-sm"
-                          aria-label={`Tracking number for ${customer.name}`}
-                          required={recipient.shipViaCourier}
-                        />
-                        <Input
-                          value={recipient.city}
-                          onChange={(event) =>
-                            updateDetails(customer.id, { city: event.target.value })
-                          }
-                          placeholder="City"
-                          className="h-8 text-sm"
-                          aria-label={`City for ${customer.name}`}
-                          required={recipient.shipViaCourier}
-                        />
+                            <SelectTrigger
+                              className="h-8 text-sm"
+                              aria-label={`Courier for ${customer.name}`}
+                            >
+                              <SelectValue>{(value: CourierProvider) => value}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {COURIER_PROVIDERS.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={recipient.city}
+                            onChange={(event) =>
+                              updateDetails(customer.id, { city: event.target.value })
+                            }
+                            placeholder="City"
+                            className="h-8 text-sm"
+                            aria-label={`City for ${customer.name}`}
+                            required={recipient.shipViaCourier}
+                          />
+                        </div>
+
+                        {recipient.courier === "Pathao" && (
+                          <Tabs
+                            value={recipient.dispatchMode}
+                            onValueChange={(value) =>
+                              updateDetails(customer.id, {
+                                dispatchMode: value as "manual" | "pathao",
+                              })
+                            }
+                          >
+                            <TabsList className="h-7">
+                              <TabsTrigger value="pathao" className="text-xs">
+                                Dispatch via Pathao
+                              </TabsTrigger>
+                              <TabsTrigger value="manual" className="text-xs">
+                                Enter tracking number
+                              </TabsTrigger>
+                            </TabsList>
+                          </Tabs>
+                        )}
+
+                        {recipient.courier === "Pathao" && recipient.dispatchMode === "pathao" ? (
+                          <div className="flex flex-col gap-2">
+                            <PathaoLocationPicker
+                              value={recipient.pathaoLocation}
+                              onChange={(pathaoLocation) =>
+                                updateDetails(customer.id, { pathaoLocation })
+                              }
+                            />
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <Input
+                                value={recipient.recipientName}
+                                onChange={(event) =>
+                                  updateDetails(customer.id, { recipientName: event.target.value })
+                                }
+                                placeholder="Recipient name"
+                                className="h-8 text-sm"
+                                aria-label={`Recipient name for ${customer.name}`}
+                                required
+                              />
+                              <Input
+                                value={recipient.recipientPhone}
+                                onChange={(event) =>
+                                  updateDetails(customer.id, {
+                                    recipientPhone: event.target.value,
+                                  })
+                                }
+                                placeholder="Recipient phone"
+                                className="h-8 text-sm"
+                                aria-label={`Recipient phone for ${customer.name}`}
+                                required
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <Input
+                            value={recipient.trackingNumber}
+                            onChange={(event) =>
+                              updateDetails(customer.id, { trackingNumber: event.target.value })
+                            }
+                            placeholder="Tracking number"
+                            className="h-8 text-sm"
+                            aria-label={`Tracking number for ${customer.name}`}
+                            required={recipient.shipViaCourier}
+                          />
+                        )}
+
                         {!recipient.address && (
-                          <p className="col-span-full text-xs text-destructive">
+                          <p className="text-xs text-destructive">
                             A delivery address is required to ship via courier.
                           </p>
                         )}

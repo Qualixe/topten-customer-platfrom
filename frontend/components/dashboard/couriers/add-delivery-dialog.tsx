@@ -5,6 +5,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Search, Truck } from "lucide-react";
 
 import { FormField } from "@/components/dashboard/form-field";
+import {
+  EMPTY_PATHAO_LOCATION,
+  MIN_PATHAO_ADDRESS_LENGTH,
+  PathaoLocationPicker,
+  type PathaoLocationValue,
+} from "@/components/dashboard/couriers/pathao-location-picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   COURIER_PROVIDERS,
   createDelivery,
@@ -73,13 +81,20 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [courier, setCourier] = useState<CourierProvider>("Pathao");
+  const [dispatchMode, setDispatchMode] = useState<"manual" | "pathao">("pathao");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [estimatedDelivery, setEstimatedDelivery] = useState("");
 
+  const [pathaoLocation, setPathaoLocation] = useState<PathaoLocationValue>(EMPTY_PATHAO_LOCATION);
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isLiveDispatch = courier === "Pathao" && dispatchMode === "pathao";
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -119,10 +134,18 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
       await createDelivery({
         giftOrderId: selectedOrder.id,
         courier,
-        trackingNumber,
         address,
         city,
         estimatedDelivery: estimatedDelivery || undefined,
+        ...(isLiveDispatch
+          ? {
+              pathaoCityId: pathaoLocation.cityId ?? undefined,
+              pathaoZoneId: pathaoLocation.zoneId ?? undefined,
+              pathaoAreaId: pathaoLocation.areaId ?? undefined,
+              recipientName,
+              recipientPhone,
+            }
+          : { trackingNumber }),
       });
       router.refresh();
       onClose();
@@ -190,7 +213,10 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
       </FormField>
 
       <FormField htmlFor="delivery-courier" label="Courier">
-        <Select value={courier} onValueChange={(value) => setCourier((value as CourierProvider) ?? "Pathao")}>
+        <Select
+          value={courier}
+          onValueChange={(value) => setCourier((value as CourierProvider) ?? "Pathao")}
+        >
           <SelectTrigger id="delivery-courier">
             <SelectValue>{(value: CourierProvider) => value}</SelectValue>
           </SelectTrigger>
@@ -204,25 +230,67 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
         </Select>
       </FormField>
 
-      <FormField htmlFor="delivery-tracking" label="Tracking Number">
-        <Input
-          id="delivery-tracking"
-          value={trackingNumber}
-          onChange={(event) => setTrackingNumber(event.target.value)}
-          placeholder="e.g. PTH-2026001"
-          required
-        />
-      </FormField>
+      {courier === "Pathao" && (
+        <Tabs value={dispatchMode} onValueChange={(value) => setDispatchMode(value as "manual" | "pathao")}>
+          <TabsList>
+            <TabsTrigger value="pathao">Dispatch via Pathao</TabsTrigger>
+            <TabsTrigger value="manual">Enter tracking number</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {isLiveDispatch ? (
+        <>
+          <PathaoLocationPicker value={pathaoLocation} onChange={setPathaoLocation} />
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField htmlFor="delivery-recipient-name" label="Recipient Name">
+              <Input
+                id="delivery-recipient-name"
+                value={recipientName}
+                onChange={(event) => setRecipientName(event.target.value)}
+                required
+              />
+            </FormField>
+
+            <FormField htmlFor="delivery-recipient-phone" label="Recipient Phone">
+              <Input
+                id="delivery-recipient-phone"
+                value={recipientPhone}
+                onChange={(event) => setRecipientPhone(event.target.value)}
+                placeholder="e.g. 01XXXXXXXXX"
+                required
+              />
+            </FormField>
+          </div>
+        </>
+      ) : (
+        <FormField htmlFor="delivery-tracking" label="Tracking Number">
+          <Input
+            id="delivery-tracking"
+            value={trackingNumber}
+            onChange={(event) => setTrackingNumber(event.target.value)}
+            placeholder="e.g. PTH-2026001"
+            required
+          />
+        </FormField>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField htmlFor="delivery-address" label="Address">
-          <Input
+          <Textarea
             id="delivery-address"
             value={address}
             onChange={(event) => setAddress(event.target.value)}
             placeholder="House, road, area"
+            className="min-h-16 text-sm"
             required
           />
+          {isLiveDispatch && address.trim().length > 0 && address.trim().length < MIN_PATHAO_ADDRESS_LENGTH && (
+            <p className="mt-1 text-xs text-destructive">
+              Pathao requires at least {MIN_PATHAO_ADDRESS_LENGTH} characters for the address.
+            </p>
+          )}
         </FormField>
 
         <FormField htmlFor="delivery-city" label="City">
@@ -250,7 +318,20 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
       <DialogFooter showCloseButton>
         <Button
           type="submit"
-          disabled={submitting || !selectedOrder || !trackingNumber || !address || !city}
+          disabled={
+            submitting ||
+            !selectedOrder ||
+            !address ||
+            !city ||
+            (isLiveDispatch
+              ? !pathaoLocation.cityId ||
+                !pathaoLocation.zoneId ||
+                !pathaoLocation.areaId ||
+                !recipientName ||
+                !recipientPhone ||
+                address.trim().length < MIN_PATHAO_ADDRESS_LENGTH
+              : !trackingNumber)
+          }
         >
           {submitting ? "Adding…" : "Add Delivery"}
         </Button>

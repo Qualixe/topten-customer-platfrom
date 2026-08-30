@@ -14,6 +14,7 @@ from app.common.exceptions import ValidationAppError
 from app.models.customer import Customer
 from app.models.delivery import Delivery, DeliveryStatus
 from app.models.gift_order import GiftOrder, GiftOrderStatus
+from app.services import pathao as pathao_service
 from app.views.deliveries import DeliveryStats
 
 
@@ -129,23 +130,50 @@ async def list_eligible_gift_orders(
 async def create_delivery(
     db: AsyncSession,
     *,
-    gift_order_id: int,
+    gift_order: GiftOrder,
     courier: str,
-    tracking_number: str,
     address: str,
     city: str,
     estimated_delivery: date | None,
+    tracking_number: str | None = None,
+    pathao_city_id: int | None = None,
+    pathao_zone_id: int | None = None,
+    pathao_area_id: int | None = None,
+    recipient_name: str | None = None,
+    recipient_phone: str | None = None,
 ) -> Delivery:
+    """`tracking_number` is used as-is when given (a shipment already
+    booked elsewhere, just being logged here). Otherwise — Pathao only —
+    `pathao_city_id`/`pathao_zone_id`/`pathao_area_id` trigger a real
+    dispatch through Pathao's API (see app.services.pathao), and the
+    tracking number comes back from that call instead."""
     existing = (
-        await db.execute(select(Delivery).where(Delivery.gift_order_id == gift_order_id))
+        await db.execute(select(Delivery).where(Delivery.gift_order_id == gift_order.id))
     ).scalar_one_or_none()
     if existing is not None:
         raise ValidationAppError("This gift order already has a delivery.")
 
+    final_tracking_number = tracking_number
+    if final_tracking_number is None:
+        assert pathao_city_id and pathao_zone_id and pathao_area_id
+        assert recipient_name and recipient_phone
+        order = await pathao_service.dispatch_pathao_order(
+            db,
+            recipient_name=recipient_name,
+            recipient_phone=recipient_phone,
+            recipient_address=address,
+            city_id=pathao_city_id,
+            zone_id=pathao_zone_id,
+            area_id=pathao_area_id,
+            merchant_order_id=str(gift_order.public_id),
+            item_description=gift_order.gift_name,
+        )
+        final_tracking_number = order.consignment_id
+
     delivery = Delivery(
-        gift_order_id=gift_order_id,
+        gift_order_id=gift_order.id,
         courier=courier,
-        tracking_number=tracking_number,
+        tracking_number=final_tracking_number,
         address=address,
         city=city,
         estimated_delivery=estimated_delivery,
