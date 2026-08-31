@@ -19,6 +19,11 @@ class CampaignStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
+class CampaignChannel(str, enum.Enum):
+    SMS = "SMS"
+    EMAIL = "EMAIL"
+
+
 class CampaignType(str, enum.Enum):
     """What kind of campaign this is — independent of who it targets (that's
     `audience_rule_type`). Used by the NEVER_RECEIVED_TYPE /
@@ -81,6 +86,16 @@ class Campaign(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     campaign_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
 
+    # SMS (the original, default channel) or EMAIL. Everything below that's
+    # channel-specific — sender_id/sms_segments/estimated_cost for SMS,
+    # subject for EMAIL — is nullable/zeroed for the channel it doesn't
+    # apply to, enforced at the Pydantic layer (see app.views.sms_campaigns)
+    # rather than the DB.
+    channel: Mapped[str] = mapped_column(
+        String(10), nullable=False, default=CampaignChannel.SMS.value,
+        server_default=CampaignChannel.SMS.value, index=True,
+    )
+
     audience_rule_type: Mapped[str] = mapped_column(String(30), nullable=False)
     # JSONB on Postgres, plain JSON elsewhere (e.g. SQLite in a future unit
     # test) — see app.services.sms_campaigns_audience for the shape per rule.
@@ -89,7 +104,10 @@ class Campaign(Base):
     )
 
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    sender_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Required for SMS, unused for EMAIL (which uses `subject` below instead).
+    sender_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Required for EMAIL, unused for SMS (which has no subject line).
+    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     total_recipients: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"

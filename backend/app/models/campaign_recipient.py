@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -72,6 +72,15 @@ class CampaignRecipient(Base):
     )
     phone: Mapped[str] = mapped_column(String(32), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Populated at resolve time same as phone/name, regardless of the
+    # campaign's channel — cheap to always copy, and means an EMAIL
+    # campaign's audience resolution (see app.tasks.sms_campaigns) can
+    # filter on it directly rather than joining back to Customer.
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Also copied at resolve time — feeds the `{{birthday}}` personalization
+    # token (see app.services.sms_campaigns_personalization) with the same
+    # point-in-time-snapshot guarantee as name/phone/email.
+    date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     status: Mapped[str] = mapped_column(
         String(20),

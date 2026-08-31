@@ -15,15 +15,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CAMPAIGN_TYPE_LABELS, type CampaignType } from "@/lib/api/campaigns";
+import { CAMPAIGN_TYPE_LABELS, type CampaignChannel, type CampaignType } from "@/lib/api/campaigns";
 
 const CAMPAIGN_TYPE_OPTIONS = Object.entries(CAMPAIGN_TYPE_LABELS) as [CampaignType, string][];
+
+const CHANNEL_LABELS: Record<CampaignChannel, string> = {
+  SMS: "SMS",
+  EMAIL: "Email",
+};
 
 interface StepDetailsProps {
   name: string;
   onNameChange: (value: string) => void;
   campaignType: CampaignType | "";
   onCampaignTypeChange: (value: CampaignType) => void;
+  channel: CampaignChannel;
+  onChannelChange: (value: CampaignChannel) => void;
   senderId: string;
   onSenderIdChange: (value: string) => void;
   onNext: () => void;
@@ -34,12 +41,16 @@ export function StepDetails({
   onNameChange,
   campaignType,
   onCampaignTypeChange,
+  channel,
+  onChannelChange,
   senderId,
   onSenderIdChange,
   onNext,
 }: StepDetailsProps) {
   const canContinue =
-    name.trim().length > 0 && senderId.trim().length > 0 && campaignType.length > 0;
+    name.trim().length > 0 &&
+    campaignType.length > 0 &&
+    (channel === "EMAIL" || senderId.trim().length > 0);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,7 +64,7 @@ export function StepDetails({
           <CardTitle>Campaign details</CardTitle>
           <CardDescription>
             Give your campaign a descriptive name, choose what kind of
-            campaign it is, and set the sender ID recipients will see.
+            campaign it is and which channel it sends through.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -66,6 +77,18 @@ export function StepDetails({
               autoFocus
               required
             />
+          </FormField>
+
+          <FormField htmlFor="campaign-channel" label="Channel">
+            <Select value={channel} onValueChange={(value) => onChannelChange(value as CampaignChannel)}>
+              <SelectTrigger id="campaign-channel">
+                <SelectValue>{(value: CampaignChannel) => CHANNEL_LABELS[value]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="SMS">SMS</SelectItem>
+                <SelectItem value="EMAIL">Email</SelectItem>
+              </SelectContent>
+            </Select>
           </FormField>
 
           <FormField
@@ -90,15 +113,17 @@ export function StepDetails({
             </Select>
           </FormField>
 
-          <FormField htmlFor="campaign-sender-id" label="Sender ID">
-            <Input
-              id="campaign-sender-id"
-              value={senderId}
-              onChange={(e) => onSenderIdChange(e.target.value)}
-              placeholder="e.g. TopTen"
-              required
-            />
-          </FormField>
+          {channel === "SMS" && (
+            <FormField htmlFor="campaign-sender-id" label="Sender ID">
+              <Input
+                id="campaign-sender-id"
+                value={senderId}
+                onChange={(e) => onSenderIdChange(e.target.value)}
+                placeholder="e.g. TopTen"
+                required
+              />
+            </FormField>
+          )}
         </CardContent>
       </Card>
 

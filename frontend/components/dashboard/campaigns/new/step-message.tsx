@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
 
 import { FormField } from "@/components/dashboard/form-field";
 import { MessageAnalysisBar } from "@/components/dashboard/campaigns/new/message-analysis-bar";
-import { MessagePreview, PERSONALIZATION_TOKENS } from "@/components/dashboard/campaigns/new/message-preview";
+import { MessagePreview } from "@/components/dashboard/campaigns/new/message-preview";
+import { TokenToolbar } from "@/components/dashboard/messaging/token-toolbar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,13 +17,17 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { CampaignChannel } from "@/lib/api/campaigns";
 import { listForms, type FormRecord } from "@/lib/api/forms";
+import { listTemplates, type MessageTemplate } from "@/lib/api/templates";
 import { analyzeSmsMessage } from "@/lib/sms";
 
 interface StepMessageProps {
+  channel: CampaignChannel;
   message: string;
   onMessageChange: (value: string) => void;
+  subject: string;
+  onSubjectChange: (value: string) => void;
   formId: string;
   onFormIdChange: (formId: string) => void;
   onBack: () => void;
@@ -31,8 +35,11 @@ interface StepMessageProps {
 }
 
 export function StepMessage({
+  channel,
   message,
   onMessageChange,
+  subject,
+  onSubjectChange,
   formId,
   onFormIdChange,
   onBack,
@@ -41,6 +48,7 @@ export function StepMessage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const analysis = analyzeSmsMessage(message);
   const [forms, setForms] = useState<FormRecord[]>([]);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,26 +64,29 @@ export function StepMessage({
     };
   }, []);
 
-  const usesFormLink = message.includes("{{form_link}}");
+  useEffect(() => {
+    let cancelled = false;
+    listTemplates({ channel, pageSize: 100 })
+      .then((page) => {
+        if (!cancelled) setTemplates(page.items);
+      })
+      .catch(() => {
+        if (!cancelled) setTemplates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [channel]);
 
-  /** Insert a token at the current cursor position in the textarea. */
-  function insertToken(token: string) {
-    const el = textareaRef.current;
-    if (!el) return;
-
-    const start = el.selectionStart ?? message.length;
-    const end = el.selectionEnd ?? message.length;
-    const next =
-      message.slice(0, start) + token + message.slice(end);
-    onMessageChange(next);
-
-    // Restore focus and move cursor to end of inserted token
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + token.length;
-      el.setSelectionRange(pos, pos);
-    });
+  function applyTemplate(templateId: string | null) {
+    const template = templates.find((t) => t.id === templateId);
+    if (!template) return;
+    onMessageChange(template.body);
+    if (channel === "EMAIL" && template.subject) onSubjectChange(template.subject);
   }
+
+  const usesFormLink = message.includes("{{form_link}}");
+  const canContinue = message.trim().length > 0 && (channel === "SMS" || subject.trim().length > 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -86,38 +97,65 @@ export function StepMessage({
             <CardHeader>
               <CardTitle>Write your message</CardTitle>
               <CardDescription>
-                Compose the SMS that will be sent to your audience. Use
-                personalisation tokens to address each customer by name.
+                {channel === "EMAIL"
+                  ? "Compose the email that will be sent to your audience. Use personalisation tokens to address each customer by name."
+                  : "Compose the SMS that will be sent to your audience. Use personalisation tokens to address each customer by name."}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {/* Personalisation tokens */}
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Personalisation
-                </p>
-                <TooltipProvider>
-                  <div className="flex flex-wrap gap-2">
-                    {PERSONALIZATION_TOKENS.map(({ token, description }) => (
-                      <Tooltip key={token}>
-                        <TooltipTrigger
-                          render={
-                            <button
-                              type="button"
-                              onClick={() => insertToken(token)}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-primary/50 bg-primary/5 px-2.5 py-1 text-xs font-mono font-medium text-primary transition-colors hover:border-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            >
-                              <Sparkles className="size-3" aria-hidden="true" />
-                              {token}
-                            </button>
-                          }
-                        />
-                        <TooltipContent>{description}</TooltipContent>
-                      </Tooltip>
+              {/* Import template — always shown; disabled with a hint when
+               * no templates exist for this channel yet. */}
+              <FormField htmlFor="campaign-start-from-template" label="Import from template">
+                <Select
+                  value=""
+                  onValueChange={applyTemplate}
+                  disabled={templates.length === 0}
+                >
+                  <SelectTrigger id="campaign-start-from-template" aria-label="Import from template">
+                    <SelectValue
+                      placeholder={
+                        templates.length === 0
+                          ? `No ${channel === "EMAIL" ? "email" : "SMS"} templates saved yet`
+                          : "Choose a template to pre-fill this message…"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
+                      </SelectItem>
                     ))}
-                  </div>
-                </TooltipProvider>
-              </div>
+                  </SelectContent>
+                </Select>
+                {templates.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Save reusable messages in{" "}
+                    <a
+                      href="/dashboard/templates"
+                      className="underline underline-offset-2 hover:text-foreground"
+                    >
+                      Templates
+                    </a>{" "}
+                    to import them here.
+                  </p>
+                )}
+              </FormField>
+
+              {channel === "EMAIL" && (
+                <FormField htmlFor="campaign-subject" label="Subject">
+                  <Textarea
+                    id="campaign-subject"
+                    value={subject}
+                    onChange={(e) => onSubjectChange(e.target.value)}
+                    placeholder="e.g. This month's newsletter"
+                    className="min-h-10 resize-none"
+                    required
+                  />
+                </FormField>
+              )}
+
+              <TokenToolbar value={message} onChange={onMessageChange} textareaRef={textareaRef} />
 
               <Separator />
 
@@ -128,14 +166,19 @@ export function StepMessage({
                   id="campaign-message"
                   value={message}
                   onChange={(e) => onMessageChange(e.target.value)}
-                  placeholder="Type your SMS message here, or click a token above to personalise it…"
+                  placeholder={
+                    channel === "EMAIL"
+                      ? "Type your email body here, or click a token above to personalise it…"
+                      : "Type your SMS message here, or click a token above to personalise it…"
+                  }
                   className="min-h-32 resize-y font-mono text-sm"
                   autoFocus
                 />
               </FormField>
 
-              {/* Live analysis */}
-              <MessageAnalysisBar analysis={analysis} />
+              {/* Live analysis — SMS-specific segment/cost estimate, not
+               * meaningful for EMAIL (no per-message cost model). */}
+              {channel === "SMS" && <MessageAnalysisBar analysis={analysis} />}
             </CardContent>
           </Card>
 
@@ -174,22 +217,22 @@ export function StepMessage({
           </Card>
         </div>
 
-        {/* Right: phone preview */}
+        {/* Right: preview */}
         <div className="hidden lg:flex lg:items-start">
-          <MessagePreview message={message} />
+          <MessagePreview message={message} channel={channel} subject={subject} />
         </div>
       </div>
 
       {/* Mobile preview */}
       <div className="lg:hidden">
-        <MessagePreview message={message} />
+        <MessagePreview message={message} channel={channel} subject={subject} />
       </div>
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack}>
           Back
         </Button>
-        <Button onClick={onNext} disabled={!message.trim()}>
+        <Button onClick={onNext} disabled={!canContinue}>
           Continue to Review
         </Button>
       </div>

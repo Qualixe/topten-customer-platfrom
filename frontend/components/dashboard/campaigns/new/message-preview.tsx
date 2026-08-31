@@ -16,16 +16,49 @@ function previewRecipient(): Record<string, string> {
   return {
     customer_name: "Amelia Chowdhury",
     form_link: `${previewOrigin()}/campaign/vip-profile?token=sample`,
+    phone: "+8801711000101",
+    email: "amelia@example.com",
+    birthday: "March 15",
+    current_date: new Date().toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }),
   };
 }
 
 /** Supported personalisation tokens, their display label, and the tooltip
- * shown when hovering the insert button. */
+ * shown when hovering the insert button. Not offered: {{city}} (only a
+ * free-text address is stored, no structured city field) and {{company}}
+ * (no such concept on a Customer record) — neither has real data to
+ * insert. */
 export const PERSONALIZATION_TOKENS: { token: string; label: string; description: string }[] = [
   {
     token: "{{customer_name}}",
     label: "Customer name",
     description: "Insert Customer name — replaced with each recipient's actual name",
+  },
+  {
+    token: "{{phone}}",
+    label: "Phone",
+    description: "Insert Phone — replaced with each recipient's phone number",
+  },
+  {
+    token: "{{email}}",
+    label: "Email",
+    description:
+      "Insert Email — replaced with each recipient's email address, when one is on file",
+  },
+  {
+    token: "{{birthday}}",
+    label: "Birthday",
+    description:
+      "Insert Birthday — replaced with each recipient's date of birth (e.g. March 15), when one is on file",
+  },
+  {
+    token: "{{current_date}}",
+    label: "Current date",
+    description: "Insert Current date — replaced with the date the message is actually sent",
   },
   {
     token: "{{form_link}}",
@@ -49,10 +82,19 @@ function resolveTokens(message: string): string {
 export function MessagePreview({
   message,
   senderName = "TopTen",
+  channel = "SMS",
+  subject = "",
 }: {
   message: string;
   senderName?: string;
+  channel?: "SMS" | "EMAIL";
+  /** Only rendered when channel is EMAIL. */
+  subject?: string;
 }) {
+  if (channel === "EMAIL") {
+    return <EmailPreview subject={subject} body={message} fromName={senderName} />;
+  }
+
   const resolved = resolveTokens(message);
   const isEmpty = message.trim().length === 0;
 
@@ -99,6 +141,50 @@ export function MessagePreview({
 
       {/* Token legend */}
       {!isEmpty && message.includes("{{") && (
+        <p className="text-center text-xs text-muted-foreground">
+          Tokens shown with sample values
+        </p>
+      )}
+    </div>
+  );
+}
+
+function EmailPreview({
+  subject,
+  body,
+  fromName,
+}: {
+  subject: string;
+  body: string;
+  fromName: string;
+}) {
+  const resolvedSubject = resolveTokens(subject);
+  const resolvedBody = resolveTokens(body);
+  const isEmpty = body.trim().length === 0;
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        Live preview
+      </p>
+
+      <div className="mx-auto w-72 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+        <div className="border-b border-border px-4 py-3">
+          <p className="text-xs text-muted-foreground">From: {fromName}</p>
+          <p className="mt-1 text-sm font-semibold text-card-foreground">
+            {subject.trim() ? resolvedSubject : "(no subject)"}
+          </p>
+        </div>
+        <div className="min-h-[14rem] px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words">
+          {isEmpty ? (
+            <span className="text-muted-foreground italic">Your message will appear here…</span>
+          ) : (
+            resolvedBody
+          )}
+        </div>
+      </div>
+
+      {!isEmpty && (subject.includes("{{") || body.includes("{{")) && (
         <p className="text-center text-xs text-muted-foreground">
           Tokens shown with sample values
         </p>

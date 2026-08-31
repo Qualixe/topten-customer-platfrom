@@ -1,9 +1,13 @@
+import csv
+import io
+from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import ColumnElement, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,11 +25,14 @@ from app.views.customers import (
     CustomerProfileTokenIssued,
     CustomerProfileTokenResponse,
     CustomerRead,
+    CustomerSegments,
+    CustomerSegmentsResponse,
     CustomersListResponse,
     CustomersMeta,
     CustomerStats,
     CustomerStatsResponse,
     CustomerUpdate,
+    SegmentBucket,
     UpcomingBirthday,
     UpcomingBirthdaysResponse,
     VerifiedCustomerRead,
@@ -105,25 +112,20 @@ async def create_customer(
     return CustomerCreateResponse(data=CustomerRead.model_validate(customer))
 
 
-@router.get("", response_model=CustomersListResponse)
-async def list_customers(
-    db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_permission("customers.view")),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    search: str | None = Query(None, description="Matches name, phone, or email"),
-    status: str | None = Query(None),
-    is_vip: bool | None = Query(None),
-    customer_type: str | None = Query(None, description="GENERAL, VIP, or VVIP"),
-    profile_status: str | None = Query(None, description="COMPLETE or INCOMPLETE"),
-    verified: bool | None = Query(
-        None, description="True to only return customers verified through at least one campaign"
-    ),
-    created_from: date | None = Query(None),
-    created_to: date | None = Query(None),
-    sort_by: str | None = Query(None),
-    sort_dir: Literal["asc", "desc"] = Query("asc"),
-) -> CustomersListResponse:
+def _build_customer_filters(
+    *,
+    search: str | None,
+    status: str | None,
+    is_vip: bool | None,
+    customer_type: str | None,
+    profile_status: str | None,
+    verified: bool | None,
+    created_from: date | None,
+    created_to: date | None,
+) -> list[ColumnElement]:
+    """Shared WHERE-clause builder for `GET /customers` and
+    `GET /customers/export` — the export must return exactly the rows the
+    list view would show for the same filters."""
     filters: list[ColumnElement] = []
 
     search = (search or "").strip()
@@ -182,6 +184,39 @@ async def list_customers(
     if created_to is not None:
         filters.append(Customer.created_at < created_to + timedelta(days=1))
 
+    return filters
+
+
+@router.get("", response_model=CustomersListResponse)
+async def list_customers(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, description="Matches name, phone, or email"),
+    status: str | None = Query(None),
+    is_vip: bool | None = Query(None),
+    customer_type: str | None = Query(None, description="GENERAL, VIP, or VVIP"),
+    profile_status: str | None = Query(None, description="COMPLETE or INCOMPLETE"),
+    verified: bool | None = Query(
+        None, description="True to only return customers verified through at least one campaign"
+    ),
+    created_from: date | None = Query(None),
+    created_to: date | None = Query(None),
+    sort_by: str | None = Query(None),
+    sort_dir: Literal["asc", "desc"] = Query("asc"),
+) -> CustomersListResponse:
+    filters = _build_customer_filters(
+        search=search,
+        status=status,
+        is_vip=is_vip,
+        customer_type=customer_type,
+        profile_status=profile_status,
+        verified=verified,
+        created_from=created_from,
+        created_to=created_to,
+    )
+
     count_query = select(func.count()).select_from(Customer)
     list_query = select(Customer)
     for condition in filters:
@@ -200,6 +235,118 @@ async def list_customers(
     return CustomersListResponse(
         data=[CustomerRead.model_validate(customer) for customer in customers],
         meta=CustomersMeta(page=page, page_size=page_size, total=total, total_pages=total_pages),
+    )
+
+
+_EXPORT_CHUNK_SIZE = 500
+_EXPORT_COLUMNS = (
+    "Customer ID",
+    "Name",
+    "Phone",
+    "Email",
+    "Address",
+    "Date of Birth",
+    "Customer Type",
+    "VIP",
+    "Total Spent",
+    "Status",
+    "Profile Status",
+    "Created At",
+)
+
+
+def _customer_export_row(customer: Customer) -> tuple[str, ...]:
+    record = CustomerRead.model_validate(customer)
+    return (
+        str(record.id),
+        record.name,
+        record.phone,
+        record.email or "",
+        record.address or "",
+        record.date_of_birth.isoformat() if record.date_of_birth else "",
+        record.customer_type.value,
+        "Yes" if record.is_vip else "No",
+        str(record.total_spent),
+        record.status,
+        record.profile_status,
+        record.created_at.isoformat(),
+    )
+
+
+async def _stream_customers_csv(
+    db: AsyncSession, filters: list[ColumnElement], order_clause: ColumnElement
+) -> AsyncIterator[str]:
+    """Writes the header immediately, then streams matching customers in
+    fixed-size pages (rather than loading the whole table into memory) —
+    same chunked-processing spirit as the CSV *import* pipeline in
+    `app/tasks/imports.py`, just in reverse."""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+
+    writer.writerow(_EXPORT_COLUMNS)
+    yield buffer.getvalue()
+    buffer.seek(0)
+    buffer.truncate(0)
+
+    offset = 0
+    while True:
+        query = select(Customer)
+        for condition in filters:
+            query = query.where(condition)
+        query = query.order_by(order_clause).offset(offset).limit(_EXPORT_CHUNK_SIZE)
+
+        page_rows = (await db.execute(query)).scalars().all()
+        if not page_rows:
+            break
+
+        for customer in page_rows:
+            writer.writerow(_customer_export_row(customer))
+        yield buffer.getvalue()
+        buffer.seek(0)
+        buffer.truncate(0)
+
+        if len(page_rows) < _EXPORT_CHUNK_SIZE:
+            break
+        offset += _EXPORT_CHUNK_SIZE
+
+
+@router.get("/export")
+async def export_customers_csv(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+    search: str | None = Query(None, description="Matches name, phone, or email"),
+    status: str | None = Query(None),
+    is_vip: bool | None = Query(None),
+    customer_type: str | None = Query(None, description="GENERAL, VIP, or VVIP"),
+    profile_status: str | None = Query(None, description="COMPLETE or INCOMPLETE"),
+    verified: bool | None = Query(
+        None, description="True to only return customers verified through at least one campaign"
+    ),
+    created_from: date | None = Query(None),
+    created_to: date | None = Query(None),
+    sort_by: str | None = Query(None),
+    sort_dir: Literal["asc", "desc"] = Query("asc"),
+) -> StreamingResponse:
+    """Same filters as `GET /customers`, minus pagination — every matching
+    row is exported, not just the current page."""
+    filters = _build_customer_filters(
+        search=search,
+        status=status,
+        is_vip=is_vip,
+        customer_type=customer_type,
+        profile_status=profile_status,
+        verified=verified,
+        created_from=created_from,
+        created_to=created_to,
+    )
+    order_column = _SORTABLE_COLUMNS.get(sort_by or "", Customer.name)
+    order_clause = order_column.desc() if sort_dir == "desc" else order_column.asc()
+
+    filename = f"customers-{datetime.now(UTC):%Y%m%d-%H%M%S}.csv"
+    return StreamingResponse(
+        _stream_customers_csv(db, filters, order_clause),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -241,6 +388,62 @@ async def get_customer_stats(
             vip_customers=vip_customers,
             birthdays_this_month=birthdays_this_month,
             total_revenue=total_revenue,
+        )
+    )
+
+
+_STATUS_LABELS = {member.value: member.value.capitalize() for member in CustomerStatus}
+
+
+async def _segment_buckets(
+    db: AsyncSession, column: ColumnElement, labels: dict[str, str]
+) -> list[SegmentBucket]:
+    """Grouped counts for one dimension, sorted largest-first. Values with
+    zero customers never appear (nothing to `GROUP BY`), matching the "only
+    show populated segments" display in the reference design."""
+    query = select(column, func.count()).group_by(column).order_by(func.count().desc())
+    rows = (await db.execute(query)).all()
+    return [
+        SegmentBucket(value=value, label=labels.get(value, value), count=count)
+        for value, count in rows
+    ]
+
+
+async def _tier_buckets(db: AsyncSession) -> list[SegmentBucket]:
+    """VIP vs Regular, grouped by `is_vip` — the field the "VIP Customers"
+    page and the customers list's Tier filter both actually use. Not
+    `customer_type` (GENERAL/VIP/VVIP): that enum is never set by any flow
+    in this app yet and every row is stuck at GENERAL, so grouping by it
+    would hide real VIP customers behind a single meaningless bucket."""
+    query = (
+        select(Customer.is_vip, func.count())
+        .group_by(Customer.is_vip)
+        .order_by(func.count().desc())
+    )
+    rows = (await db.execute(query)).all()
+    return [
+        SegmentBucket(
+            value="VIP" if is_vip else "REGULAR",
+            label="VIP" if is_vip else "Regular",
+            count=count,
+        )
+        for is_vip, count in rows
+    ]
+
+
+@router.get("/segments", response_model=CustomerSegmentsResponse)
+async def get_customer_segments(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+) -> CustomerSegmentsResponse:
+    """Live breakdowns for campaign targeting. Only reports dimensions the
+    schema actually has meaningful data for (status, VIP tier) — city,
+    gender, group, and tag aren't stored yet, so the frontend renders those
+    as empty placeholders instead of this endpoint faking data for them."""
+    return CustomerSegmentsResponse(
+        data=CustomerSegments(
+            by_status=await _segment_buckets(db, Customer.status, _STATUS_LABELS),
+            by_tier=await _tier_buckets(db),
         )
     )
 

@@ -14,6 +14,7 @@ import {
   createCampaign,
   type AudienceCounts,
   type AudienceRule,
+  type CampaignChannel,
   type CampaignType,
 } from "@/lib/api/campaigns";
 import type { Customer } from "@/lib/api/customers";
@@ -79,7 +80,9 @@ export function CampaignComposer({
   // Form state
   const [campaignName, setCampaignName] = useState("");
   const [campaignType, setCampaignType] = useState<CampaignType | "">("");
+  const [channel, setChannel] = useState<CampaignChannel>("SMS");
   const [senderId, setSenderId] = useState(defaultSenderId);
+  const [subject, setSubject] = useState("");
   const [audienceRule, setAudienceRule] = useState<AudienceRule | null>(null);
   const [pickedCustomers, setPickedCustomers] = useState<Customer[]>([]);
   const [message, setMessage] = useState("");
@@ -108,8 +111,10 @@ export function CampaignComposer({
       name: campaignName,
       campaignType,
       audienceRule,
+      channel,
       message,
-      senderId,
+      senderId: channel === "SMS" ? senderId : undefined,
+      subject: channel === "EMAIL" ? subject : undefined,
       scheduledAt: scheduledAtIso,
       status: "SCHEDULED",
       formId: formId || undefined,
@@ -156,6 +161,8 @@ export function CampaignComposer({
           onNameChange={setCampaignName}
           campaignType={campaignType}
           onCampaignTypeChange={setCampaignType}
+          channel={channel}
+          onChannelChange={setChannel}
           senderId={senderId}
           onSenderIdChange={setSenderId}
           onNext={next}
@@ -178,8 +185,11 @@ export function CampaignComposer({
 
       {currentStep === 3 && (
         <StepMessage
+          channel={channel}
           message={message}
           onMessageChange={setMessage}
+          subject={subject}
+          onSubjectChange={setSubject}
           formId={formId}
           onFormIdChange={setFormId}
           onBack={back}
@@ -194,8 +204,10 @@ export function CampaignComposer({
           audienceLabel={describeAudienceRule(audienceRule)}
           audienceRule={audienceRule}
           audienceCounts={audienceCounts}
+          channel={channel}
           message={message}
           senderId={senderId}
+          subject={subject}
           ratePerSegmentBdt={ratePerSegmentBdt}
           smsAccount={smsAccount}
           onBack={back}

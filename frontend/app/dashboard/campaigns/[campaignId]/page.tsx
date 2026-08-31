@@ -78,7 +78,11 @@ export default async function CampaignDetailPage({
               <h2 className="text-2xl font-semibold tracking-tight">{campaign.name}</h2>
               <CampaignStatusBadge status={campaign.status} />
             </div>
-            <p className="text-sm text-muted-foreground">Sender ID: {campaign.senderId}</p>
+            <p className="text-sm text-muted-foreground">
+              {campaign.channel === "EMAIL"
+                ? `Subject: ${campaign.subject}`
+                : `Sender ID: ${campaign.senderId}`}
+            </p>
           </div>
         </div>
         {canManage && (

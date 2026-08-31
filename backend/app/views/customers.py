@@ -122,6 +122,35 @@ class CustomerStatsResponse(BaseModel):
     meta: dict = {}
 
 
+class SegmentBucket(BaseModel):
+    """One populated value within a segment dimension, e.g. `{"value":
+    "active", "label": "Active", "count": 42}` for the "by status"
+    dimension. Values with zero customers are omitted entirely rather than
+    listed with a 0 count."""
+
+    value: str
+    label: str
+    count: int
+
+
+class CustomerSegments(BaseModel):
+    """Breakdowns the data actually supports today. `by_tier` groups by
+    `is_vip` (VIP/Regular) — the field actually used elsewhere in the app —
+    not the `customer_type` enum, which every customer is currently stuck
+    at GENERAL for. `by_city`, `by_gender`, `by_group`, and `by_tag` aren't
+    in the schema yet, so the frontend shows those as "No data yet" rather
+    than this endpoint returning empty lists for them."""
+
+    by_status: list[SegmentBucket]
+    by_tier: list[SegmentBucket]
+
+
+class CustomerSegmentsResponse(BaseModel):
+    success: bool = True
+    data: CustomerSegments
+    meta: dict = {}
+
+
 class UpcomingBirthday(BaseModel):
     id: UUID
     name: str

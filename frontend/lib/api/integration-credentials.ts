@@ -133,6 +133,59 @@ export async function getSmsGatewayBalance(): Promise<SmsBalance> {
   return envelope.data;
 }
 
+/** Mailchimp Transactional (Mandrill) — one API key, POST JSON per email.
+ * See `app.common.email_client` on the backend. `fromAddress` must be a
+ * verified sending address/domain in the Mailchimp Transactional account,
+ * or sends are rejected. */
+export interface EmailCredentials {
+  apiKey: SecretField;
+  fromAddress: PlainField;
+  fromName: PlainField;
+}
+
+export interface EmailCredentialsInput {
+  apiKey?: string;
+  fromAddress?: string;
+  fromName?: string;
+}
+
+export async function getEmailCredentials(): Promise<EmailCredentials> {
+  const envelope = await apiGet<ApiEnvelope<EmailCredentials>>("/notifications/email/credentials");
+  return envelope.data;
+}
+
+export async function updateEmailCredentials(
+  input: EmailCredentialsInput
+): Promise<EmailCredentials> {
+  const envelope = await apiPut<ApiEnvelope<EmailCredentials>>("/notifications/email/credentials", {
+    api_key: input.apiKey,
+    from_address: input.fromAddress,
+    from_name: input.fromName,
+  });
+  return envelope.data;
+}
+
+export interface TestEmailResult {
+  success: boolean;
+  message: string;
+}
+
+/** Sends one real email via the configured Mailchimp Transactional API key
+ * to an address typed in here — never derived from customer data — to
+ * verify the saved key/from address work. */
+export async function sendEmailTestEmail(input: {
+  toAddress: string;
+  subject: string;
+  body: string;
+}): Promise<TestEmailResult> {
+  const envelope = await apiPost<ApiEnvelope<TestEmailResult>>("/notifications/email/test-email", {
+    to_address: input.toAddress,
+    subject: input.subject,
+    body: input.body,
+  });
+  return envelope.data;
+}
+
 export interface PathaoCredentials {
   clientId: PlainField;
   clientSecret: SecretField;

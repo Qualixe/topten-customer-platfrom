@@ -1,7 +1,13 @@
 """Import every model module here so Alembic autogenerate (via
 app.models.base.Base.metadata) can discover all tables."""
 
-from app.models.campaign import AudienceRuleType, Campaign, CampaignStatus, CampaignType
+from app.models.campaign import (
+    AudienceRuleType,
+    Campaign,
+    CampaignChannel,
+    CampaignStatus,
+    CampaignType,
+)
 from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.campaign_recipient import (
     CampaignRecipient,
@@ -19,6 +25,7 @@ from app.models.gift_order import GiftOccasion, GiftOrder, GiftOrderStatus
 from app.models.import_batch import ImportBatch, ImportBatchStatus
 from app.models.import_row_error import ImportRowError
 from app.models.integration_credential import IntegrationCredential
+from app.models.message_template import MessageTemplate, MessageTemplateChannel
 from app.models.permission import Permission
 from app.models.role import Role, role_permissions
 from app.models.site_settings import SiteSettings
@@ -28,6 +35,7 @@ from app.models.user_permission_override import UserPermissionOverride
 __all__ = [
     "AudienceRuleType",
     "Campaign",
+    "CampaignChannel",
     "CampaignLandingPage",
     "CampaignRecipient",
     "CampaignRecipientStatus",
@@ -51,6 +59,8 @@ __all__ = [
     "ImportBatchStatus",
     "ImportRowError",
     "IntegrationCredential",
+    "MessageTemplate",
+    "MessageTemplateChannel",
     "Permission",
     "Role",
     "SiteSettings",

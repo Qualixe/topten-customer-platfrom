@@ -2,16 +2,18 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.campaign import AudienceRuleType, CampaignStatus, CampaignType
+from app.models.campaign import AudienceRuleType, CampaignChannel, CampaignStatus, CampaignType
 from app.models.campaign_recipient import CampaignRecipientStatus
 from app.services.sms_campaigns_audience import AudienceRule
 
 MAX_MESSAGE_LENGTH = 1600  # ~10 GSM-7 segments — a generous sanity cap
+MAX_SUBJECT_LENGTH = 255
 
 __all__ = [
     "MAX_MESSAGE_LENGTH",
+    "MAX_SUBJECT_LENGTH",
     "AudienceRule",
     "AudienceRuleType",
     "AudienceCounts",
@@ -39,8 +41,12 @@ class CampaignCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     campaign_type: CampaignType
     audience_rule: AudienceRule
+    channel: CampaignChannel = CampaignChannel.SMS
     message: str = Field(min_length=1, max_length=MAX_MESSAGE_LENGTH)
-    sender_id: str = Field(min_length=1, max_length=20)
+    # Required for SMS, ignored for EMAIL — see _channel_fields_present below.
+    sender_id: str | None = Field(default=None, max_length=20)
+    # Required for EMAIL, ignored for SMS — see _channel_fields_present below.
+    subject: str | None = Field(default=None, max_length=MAX_SUBJECT_LENGTH)
     scheduled_at: datetime | None = None
     status: CampaignStatus = CampaignStatus.DRAFT
     # Optional saved Form (see app.models.form) to attach as this
@@ -50,34 +56,45 @@ class CampaignCreate(BaseModel):
     # after, so attaching afterward would race the send.
     form_id: UUID | None = None
 
-    @field_validator("name", "sender_id", "message")
+    @field_validator("name", "sender_id", "subject", "message")
     @classmethod
-    def _not_blank(cls, value: str) -> str:
+    def _not_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         stripped = value.strip()
         if not stripped:
             raise ValueError("This field cannot be blank")
         return stripped
 
+    @model_validator(mode="after")
+    def _channel_fields_present(self) -> "CampaignCreate":
+        if self.channel == CampaignChannel.SMS and not self.sender_id:
+            raise ValueError("sender_id is required for an SMS campaign")
+        if self.channel == CampaignChannel.EMAIL and not self.subject:
+            raise ValueError("subject is required for an EMAIL campaign")
+        return self
+
 
 class CampaignUpdate(BaseModel):
-    """PATCH body. `campaign_type` and `audience_rule` are deliberately not
-    fields on this model at all — the recipient snapshot is frozen at
-    creation and must never change, so the rule that produced it can't
-    change either. `extra="forbid"` makes an attempt to PATCH them (or any
-    other unknown field) a loud 422 rather than a silently-ignored no-op.
-    If `message` changes, `sms_segments` (and `estimated_cost`, once
-    recipients are resolved) are recomputed server-side — see the
-    endpoint."""
+    """PATCH body. `campaign_type`, `audience_rule`, and `channel` are
+    deliberately not fields on this model at all — the recipient snapshot
+    is frozen at creation and must never change, so neither the rule that
+    produced it nor the channel it was sent through can change either.
+    `extra="forbid"` makes an attempt to PATCH them (or any other unknown
+    field) a loud 422 rather than a silently-ignored no-op. If `message`
+    changes, `sms_segments` (and `estimated_cost`, once recipients are
+    resolved) are recomputed server-side — see the endpoint."""
 
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     message: str | None = Field(default=None, min_length=1, max_length=MAX_MESSAGE_LENGTH)
     sender_id: str | None = Field(default=None, min_length=1, max_length=20)
+    subject: str | None = Field(default=None, min_length=1, max_length=MAX_SUBJECT_LENGTH)
     scheduled_at: datetime | None = None
     status: CampaignStatus | None = None
 
-    @field_validator("name", "sender_id", "message")
+    @field_validator("name", "sender_id", "subject", "message")
     @classmethod
     def _not_blank(cls, value: str | None) -> str | None:
         if value is None:
@@ -94,10 +111,12 @@ class CampaignRead(BaseModel):
     id: UUID = Field(validation_alias="public_id")
     name: str
     campaign_type: CampaignType
+    channel: CampaignChannel
     audience_rule_type: AudienceRuleType
     audience_rule_params: dict
     message: str
-    sender_id: str
+    sender_id: str | None
+    subject: str | None
     total_recipients: int
     sms_segments: int
     estimated_cost: Decimal
@@ -187,6 +206,7 @@ class CampaignRecipientRead(BaseModel):
     id: UUID = Field(validation_alias="public_id")
     customer_id: UUID
     phone: str
+    email: str | None
     status: CampaignRecipientStatus
     provider_message_id: str | None
     sent_at: datetime | None

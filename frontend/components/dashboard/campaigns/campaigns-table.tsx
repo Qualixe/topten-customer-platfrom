@@ -1,6 +1,7 @@
 import { Megaphone } from "lucide-react";
 
 import { CampaignStatusBadge } from "@/components/dashboard/campaigns/campaign-status-badge";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
@@ -75,6 +76,7 @@ export function CampaignsTable({ campaigns }: { campaigns: SmsCampaign[] }) {
           <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow>
               <TableHead>Campaign</TableHead>
+              <TableHead>Channel</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Audience</TableHead>
               <TableHead>Recipients</TableHead>
@@ -87,7 +89,7 @@ export function CampaignsTable({ campaigns }: { campaigns: SmsCampaign[] }) {
           <TableBody>
             {campaigns.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="p-0">
+                <TableCell colSpan={9} className="p-0">
                   <EmptyState
                     icon={Megaphone}
                     title="No campaigns found"
@@ -111,6 +113,11 @@ export function CampaignsTable({ campaigns }: { campaigns: SmsCampaign[] }) {
                       </p>
                     </div>
                   </TableCell>
+                  <TableCell>
+                    <Badge variant={campaign.channel === "EMAIL" ? "default" : "secondary"}>
+                      {campaign.channel === "EMAIL" ? "Email" : "SMS"}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {CAMPAIGN_TYPE_LABELS[campaign.campaignType]}
                   </TableCell>
@@ -123,7 +130,7 @@ export function CampaignsTable({ campaigns }: { campaigns: SmsCampaign[] }) {
                       : "Resolving…"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {campaign.smsSegments} SMS
+                    {campaign.channel === "EMAIL" ? "—" : `${campaign.smsSegments} SMS`}
                   </TableCell>
                   <TableCell>
                     <CampaignStatusBadge status={campaign.status} />

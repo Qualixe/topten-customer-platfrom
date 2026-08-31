@@ -16,6 +16,7 @@ import {
 import { AccountSettingsForm } from "@/components/dashboard/settings/account-settings-form";
 import { BirthdaySettingsForm } from "@/components/dashboard/settings/birthday-settings-form";
 import { CustomerSettingsForm } from "@/components/dashboard/settings/customer-settings-form";
+import { EmailCredentialsForm } from "@/components/dashboard/settings/email-credentials-form";
 import { GeneralSettingsForm } from "@/components/dashboard/settings/general-settings-form";
 import { NotificationSettingsForm } from "@/components/dashboard/settings/notification-settings-form";
 import { PathaoCredentialsForm } from "@/components/dashboard/settings/pathao-credentials-form";
@@ -75,6 +76,7 @@ export function SettingsTabs() {
       </TabsContent>
       <TabsContent value="integrations" keepMounted className="flex flex-col gap-6">
         <SmsGatewayCredentialsForm />
+        <EmailCredentialsForm />
       </TabsContent>
       <TabsContent value="users" keepMounted>
         <UsersSettings />

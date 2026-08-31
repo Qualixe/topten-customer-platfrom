@@ -74,18 +74,25 @@ function audienceRuleToQueryParams(rule: AudienceRule): Record<string, string> {
   return params;
 }
 
+export type CampaignChannel = "SMS" | "EMAIL";
+
 export interface SmsCampaign {
   id: string;
   name: string;
   campaignType: CampaignType;
+  channel: CampaignChannel;
   audienceRuleType: AudienceRuleType;
   /** Camelized params for the rule above — e.g. { sinceDate: "2026-08-19" }
    * or { campaignType: "PROFILE_COMPLETION", beforeDate: "2026-08-19" }. */
   audienceRuleParams: Record<string, string>;
   message: string;
-  senderId: string;
+  /** Only set for an SMS campaign. */
+  senderId: string | null;
+  /** Only set for an EMAIL campaign. */
+  subject: string | null;
   /** Always server-computed — never trust a client-supplied value for this. */
   totalRecipients: number;
+  /** No per-segment cost model for EMAIL — always 0 for that channel. */
   smsSegments: number;
   estimatedCost: number;
   scheduledAt: string | null;
@@ -102,10 +109,12 @@ interface SmsCampaignDto {
   id: string;
   name: string;
   campaignType: CampaignType;
+  channel: CampaignChannel;
   audienceRuleType: AudienceRuleType;
   audienceRuleParams: Record<string, string>;
   message: string;
-  senderId: string;
+  senderId: string | null;
+  subject: string | null;
   totalRecipients: number;
   smsSegments: number;
   estimatedCost: string | number;
@@ -121,10 +130,12 @@ function mapDtoToCampaign(dto: SmsCampaignDto): SmsCampaign {
     id: dto.id,
     name: dto.name,
     campaignType: dto.campaignType,
+    channel: dto.channel,
     audienceRuleType: dto.audienceRuleType,
     audienceRuleParams: dto.audienceRuleParams,
     message: dto.message,
     senderId: dto.senderId,
+    subject: dto.subject,
     totalRecipients: dto.totalRecipients,
     smsSegments: dto.smsSegments,
     estimatedCost: Number(dto.estimatedCost),
@@ -183,8 +194,12 @@ export interface CreateCampaignInput {
   name: string;
   campaignType: CampaignType;
   audienceRule: AudienceRule;
+  channel: CampaignChannel;
   message: string;
-  senderId: string;
+  /** Required for SMS, ignored for EMAIL. */
+  senderId?: string;
+  /** Required for EMAIL, ignored for SMS. */
+  subject?: string;
   /** ISO datetime string. Omit for an unscheduled draft. */
   scheduledAt?: string;
   status?: SmsCampaignStatus;
@@ -227,8 +242,10 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Create
     name: input.name,
     campaign_type: input.campaignType,
     audience_rule: audienceRuleBody,
+    channel: input.channel,
     message: input.message,
     sender_id: input.senderId,
+    subject: input.subject,
     scheduled_at: input.scheduledAt,
     status: input.status,
     form_id: input.formId,
@@ -247,6 +264,7 @@ export interface UpdateCampaignInput {
   name?: string;
   message?: string;
   senderId?: string;
+  subject?: string;
   scheduledAt?: string | null;
   status?: SmsCampaignStatus;
 }
@@ -259,6 +277,7 @@ export async function updateCampaign(
   if (input.name !== undefined) body.name = input.name;
   if (input.message !== undefined) body.message = input.message;
   if (input.senderId !== undefined) body.sender_id = input.senderId;
+  if (input.subject !== undefined) body.subject = input.subject;
   if (input.scheduledAt !== undefined) body.scheduled_at = input.scheduledAt;
   if (input.status !== undefined) body.status = input.status;
 
@@ -343,6 +362,7 @@ export interface CampaignRecipient {
   id: string;
   customerId: string;
   phone: string;
+  email: string | null;
   status: CampaignRecipientStatus;
   providerMessageId: string | null;
   sentAt: string | null;

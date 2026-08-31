@@ -1,4 +1,13 @@
-import { apiDelete, apiGet, apiPatch, apiPost, buildQueryString } from "@/lib/api/client";
+import {
+  API_BASE_URL,
+  apiDelete,
+  apiGet,
+  apiPatch,
+  apiPost,
+  buildQueryString,
+  getAuthorizationHeader,
+} from "@/lib/api/client";
+import { ApiError, NetworkError } from "@/lib/api/types";
 import type { ApiEnvelope, ApiListEnvelope, PaginatedResponse } from "@/lib/api/types";
 import type { Customer, CustomerStatus, CustomerTier, CustomerType } from "@/lib/mock/customers";
 
@@ -126,6 +135,23 @@ const SORT_BY_TO_BACKEND: Record<CustomersSortBy, string | undefined> = {
   totalOrders: undefined,
 };
 
+/** Shared by `listCustomers` and `exportCustomersCsv` — the export must
+ * apply the exact same filters as whatever page of results is on screen. */
+function buildCustomersFilterQuery(
+  params: Omit<ListCustomersParams, "page" | "pageSize">
+): Record<string, string | number | boolean | undefined> {
+  return {
+    search: params.search?.trim() || undefined,
+    status: params.status && params.status !== "all" ? params.status.toLowerCase() : undefined,
+    is_vip: params.tier && params.tier !== "all" ? params.tier === "VIP" : undefined,
+    customer_type:
+      params.customerType && params.customerType !== "all" ? params.customerType : undefined,
+    sort_by: params.sortBy ? SORT_BY_TO_BACKEND[params.sortBy] : undefined,
+    sort_dir: params.sortDir,
+    verified: params.verified,
+  };
+}
+
 /**
  * Fetches a page of customers from `GET /api/v1/customers`, filtered, sorted,
  * and paginated server-side.
@@ -139,14 +165,7 @@ export async function listCustomers(
   const query = buildQueryString({
     page,
     page_size: pageSize,
-    search: params.search?.trim() || undefined,
-    status: params.status && params.status !== "all" ? params.status.toLowerCase() : undefined,
-    is_vip: params.tier && params.tier !== "all" ? params.tier === "VIP" : undefined,
-    customer_type:
-      params.customerType && params.customerType !== "all" ? params.customerType : undefined,
-    sort_by: params.sortBy ? SORT_BY_TO_BACKEND[params.sortBy] : undefined,
-    sort_dir: params.sortDir,
-    verified: params.verified,
+    ...buildCustomersFilterQuery(params),
   });
 
   const envelope = await apiGet<ApiListEnvelope<CustomerDto>>(`/customers${query}`);
@@ -157,6 +176,47 @@ export async function listCustomers(
     page: envelope.meta.page,
     pageSize: envelope.meta.pageSize,
   };
+}
+
+/**
+ * Downloads `GET /api/v1/customers/export` (every customer matching the
+ * given filters, not just one page) as a CSV file. Bypasses `apiFetch`
+ * (JSON-only) for a raw `fetch` the same way `uploadCustomerImport` does for
+ * its own non-JSON request — a plain `<a href>` can't carry the
+ * `Authorization` header this API requires.
+ */
+export async function exportCustomersCsv(
+  params: Omit<ListCustomersParams, "page" | "pageSize"> = {}
+): Promise<void> {
+  const query = buildQueryString(buildCustomersFilterQuery(params));
+
+  let response: Response;
+  try {
+    const authHeader = await getAuthorizationHeader();
+    response = await fetch(`${API_BASE_URL}/customers/export${query}`, {
+      headers: authHeader,
+    });
+  } catch (error) {
+    throw new NetworkError(error instanceof Error ? error.message : undefined);
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new ApiError(body || response.statusText, response.status);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? "customers-export.csv";
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 export type ProfileStatus = "COMPLETE" | "INCOMPLETE";

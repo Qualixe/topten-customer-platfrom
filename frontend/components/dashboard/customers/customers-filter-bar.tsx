@@ -8,6 +8,7 @@ import {
   buildCustomersHref,
   type CustomersUrlParams,
 } from "@/components/dashboard/customers/customers-url";
+import { ExportCustomersButton } from "@/components/dashboard/customers/export-customers-button";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -55,15 +56,18 @@ export function CustomersFilterBar({
   }
 
   return (
-    <CustomersToolbar
-      search={searchValue}
-      onSearchChange={handleSearchChange}
-      tierFilter={current.tier}
-      onTierFilterChange={(value) => navigate({ tier: value })}
-      statusFilter={current.status}
-      onStatusFilterChange={(value) => navigate({ status: value })}
-      customerTypeFilter={current.customerType}
-      onCustomerTypeFilterChange={(value) => navigate({ customerType: value })}
-    />
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <CustomersToolbar
+        search={searchValue}
+        onSearchChange={handleSearchChange}
+        tierFilter={current.tier}
+        onTierFilterChange={(value) => navigate({ tier: value })}
+        statusFilter={current.status}
+        onStatusFilterChange={(value) => navigate({ status: value })}
+        customerTypeFilter={current.customerType}
+        onCustomerTypeFilterChange={(value) => navigate({ customerType: value })}
+      />
+      <ExportCustomersButton filters={current} />
+    </div>
   );
 }

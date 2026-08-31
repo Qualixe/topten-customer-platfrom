@@ -36,6 +36,7 @@ from app.models.gift_order import GiftOrder
 from app.models.import_batch import ImportBatch
 from app.models.import_row_error import ImportRowError
 from app.models.integration_credential import IntegrationCredential
+from app.models.message_template import MessageTemplate
 from app.models.permission import Permission
 from app.models.role import Role, role_permissions
 from app.models.site_settings import SiteSettings
@@ -74,6 +75,7 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
             GiftCategory,
             Customer,
             IntegrationCredential,
+            MessageTemplate,
             SiteSettings,
             UserPermissionOverride,
             User,

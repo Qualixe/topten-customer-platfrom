@@ -9,6 +9,7 @@ from app.controllers import (
     gifts,
     health,
     imports,
+    message_templates,
     notification_log,
     notifications,
     public_profile,
@@ -58,3 +59,9 @@ api_router.include_router(users.router, prefix="/users", tags=["users"], depende
 api_router.include_router(roles.router, prefix="/roles", tags=["roles"], dependencies=_protected)
 api_router.include_router(gifts.router, prefix="/gifts", tags=["gifts"], dependencies=_protected)
 api_router.include_router(forms.router, prefix="/forms", tags=["forms"], dependencies=_protected)
+api_router.include_router(
+    message_templates.router,
+    prefix="/message-templates",
+    tags=["message-templates"],
+    dependencies=_protected,
+)

@@ -29,6 +29,7 @@ import {
   getAudiencePreviewCount,
   type AudienceCounts,
   type AudienceRule,
+  type CampaignChannel,
 } from "@/lib/api/campaigns";
 
 type SendMode = "now" | "schedule";
@@ -48,10 +49,14 @@ interface StepReviewProps {
   audienceLabel: string;
   audienceRule: AudienceRule;
   audienceCounts: AudienceCounts;
+  channel: CampaignChannel;
   message: string;
+  /** Only meaningful for SMS. */
   senderId: string;
+  /** Only meaningful for EMAIL. */
+  subject: string;
   /** Bulk SMS BD has no pricing API — this is the admin-configured rate
-   * from settings, always a real (never mock) value. */
+   * from settings, always a real (never mock) value. Unused for EMAIL. */
   ratePerSegmentBdt: number;
   smsAccount: SmsAccount;
   onBack: () => void;
@@ -88,13 +93,16 @@ export function StepReview({
   audienceLabel,
   audienceRule,
   audienceCounts,
+  channel,
   message,
   senderId,
+  subject,
   ratePerSegmentBdt,
   smsAccount,
   onBack,
   onSubmit,
 }: StepReviewProps) {
+  const isEmail = channel === "EMAIL";
   const [sendMode, setSendMode] = useState<SendMode>("now");
   const [scheduledAt, setScheduledAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -125,13 +133,12 @@ export function StepReview({
   const analysis = analyzeSmsMessage(message);
   const { segmentCount } = analysis;
   const totalSms = segmentCount * recipientCount;
-  const estimatedCost = estimateSmsCost(
-    segmentCount,
-    recipientCount,
-    ratePerSegmentBdt
-  );
+  // No per-message cost model for EMAIL — no balance to check either.
+  const estimatedCost = isEmail
+    ? 0
+    : estimateSmsCost(segmentCount, recipientCount, ratePerSegmentBdt);
   const balanceAfter = smsAccount.balanceCredits - estimatedCost;
-  const insufficientBalance = estimatedCost > smsAccount.balanceCredits;
+  const insufficientBalance = !isEmail && estimatedCost > smsAccount.balanceCredits;
 
   const canSubmit =
     !submitting &&
@@ -174,11 +181,11 @@ export function StepReview({
                 label="Type"
                 value={campaignTypeLabel}
               />
-              <SummaryRow
-                icon={Send}
-                label="Sender ID"
-                value={senderId}
-              />
+              {isEmail ? (
+                <SummaryRow icon={Send} label="Subject" value={subject} />
+              ) : (
+                <SummaryRow icon={Send} label="Sender ID" value={senderId} />
+              )}
               <SummaryRow
                 icon={Users}
                 label="Audience"
@@ -189,20 +196,25 @@ export function StepReview({
                 label="Recipients"
                 value={recipientCount.toLocaleString("en-US")}
               />
-              <SummaryRow
-                icon={MessageSquare}
-                label="SMS segments per message"
-                value={segmentCount}
-              />
-              <SummaryRow
-                icon={MessageSquare}
-                label="Total SMS"
-                value={totalSms.toLocaleString("en-US")}
-              />
+              {!isEmail && (
+                <>
+                  <SummaryRow
+                    icon={MessageSquare}
+                    label="SMS segments per message"
+                    value={segmentCount}
+                  />
+                  <SummaryRow
+                    icon={MessageSquare}
+                    label="Total SMS"
+                    value={totalSms.toLocaleString("en-US")}
+                  />
+                </>
+              )}
             </CardContent>
           </Card>
 
-          {/* Cost & balance */}
+          {/* Cost & balance — SMS only, no per-message cost model for EMAIL */}
+          {!isEmail && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -247,6 +259,7 @@ export function StepReview({
               </div>
             )}
           </Card>
+          )}
 
           {/* Message preview — encoding info */}
           <Card>
@@ -254,10 +267,13 @@ export function StepReview({
               <CardTitle>Message</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
+              {isEmail && subject.trim() && (
+                <p className="text-sm font-medium">Subject: {subject}</p>
+              )}
               <p className="rounded-lg bg-muted/50 p-3 font-mono text-sm whitespace-pre-wrap">
                 {message}
               </p>
-              <MessageAnalysisBar analysis={analysis} />
+              {!isEmail && <MessageAnalysisBar analysis={analysis} />}
             </CardContent>
           </Card>
 
@@ -312,9 +328,9 @@ export function StepReview({
           </Card>
         </div>
 
-        {/* Phone preview */}
+        {/* Preview */}
         <div className="hidden lg:flex lg:items-start">
-          <MessagePreview message={message} />
+          <MessagePreview message={message} channel={channel} subject={subject} />
         </div>
       </div>
 

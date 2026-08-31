@@ -143,3 +143,57 @@ class SmsBalanceResponse(BaseModel):
     success: bool = True
     data: SmsBalance
     meta: dict = {}
+
+
+class EmailCredentialsStatus(BaseModel):
+    """Mailchimp Transactional (Mandrill) — see app.common.email_client.
+    `from_address` must be a verified sending domain/address in the
+    Mailchimp Transactional account, or sends will be rejected."""
+
+    api_key: SecretFieldStatus
+    from_address: PlainFieldStatus
+    from_name: PlainFieldStatus
+
+
+class EmailCredentialsResponse(BaseModel):
+    success: bool = True
+    data: EmailCredentialsStatus
+    meta: dict = {}
+
+
+class EmailCredentialsUpdate(BaseModel):
+    """PATCH-style body — omitted fields are left unchanged; a field sent as
+    blank/null clears it (and falls back to its default, if it has one)."""
+
+    api_key: str | None = None
+    from_address: str | None = None
+    from_name: str | None = None
+
+    @field_validator("api_key", "from_address", "from_name")
+    @classmethod
+    def _blank_to_none(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+
+class TestEmailRequest(BaseModel):
+    """A deliberate, one-off send to an address the caller explicitly typed
+    in — never derived from stored customer data — same intent as
+    TestSmsRequest."""
+
+    to_address: str = Field(min_length=1)
+    subject: str = Field(min_length=1, max_length=255)
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class TestEmailResult(BaseModel):
+    success: bool
+    message: str
+
+
+class TestEmailResponse(BaseModel):
+    success: bool = True
+    data: TestEmailResult
+    meta: dict = {}

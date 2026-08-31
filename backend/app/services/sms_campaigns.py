@@ -30,6 +30,7 @@ from app.services.sms_campaigns_sms_utils import analyze_sms_message
 from app.views.sms_campaigns import CampaignRecipientRead, CampaignStats
 
 SMS_GATEWAY_PROVIDER = "sms_gateway"
+EMAIL_PROVIDER = "email"
 
 # The six audience rules with no parameters — what GET /audience-counts
 # reports all at once so the campaign composer can show every option's size
@@ -135,6 +136,7 @@ async def list_campaign_recipients(
             id=recipient.public_id,
             customer_id=customer_public_id,
             phone=recipient.phone,
+            email=recipient.email,
             status=recipient.status,
             provider_message_id=recipient.provider_message_id,
             sent_at=recipient.sent_at,

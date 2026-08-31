@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import NotFoundError
-from app.models.campaign import AudienceRuleType, Campaign, CampaignType
+from app.models.campaign import AudienceRuleType, Campaign, CampaignChannel, CampaignType
 from app.models.campaign_landing_page import CampaignLandingPage
 from app.services import campaign_landing_pages as landing_page_service
 from app.services import forms as forms_service
@@ -159,11 +159,19 @@ async def create_campaign(
     campaign = Campaign(
         name=payload.name,
         campaign_type=payload.campaign_type.value,
+        channel=payload.channel.value,
         audience_rule_type=rule.rule_type.value,
         audience_rule_params=rule.storage_params(),
         message=payload.message,
         sender_id=payload.sender_id,
-        sms_segments=service.compute_sms_segments(payload.message),
+        subject=payload.subject,
+        # No per-segment cost model for EMAIL — stays 0, same as before
+        # `estimated_cost` is resolved (see app.tasks.sms_campaigns).
+        sms_segments=(
+            service.compute_sms_segments(payload.message)
+            if payload.channel == CampaignChannel.SMS
+            else 0
+        ),
         scheduled_at=payload.scheduled_at,
         status=payload.status.value,
     )
@@ -260,7 +268,7 @@ async def update_campaign(
     for field, value in updates.items():
         setattr(campaign, field, value)
 
-    if "message" in updates:
+    if "message" in updates and campaign.channel == CampaignChannel.SMS.value:
         campaign.sms_segments = service.compute_sms_segments(campaign.message)
         if campaign.recipients_resolved_at is not None:
             rate = await service.get_sms_rate_per_segment(db)

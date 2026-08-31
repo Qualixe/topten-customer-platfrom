@@ -26,7 +26,7 @@ function NewCampaignHeader() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">New Campaign</h2>
         <p className="text-sm text-muted-foreground">
-          Compose and send a bulk SMS to your customers.
+          Compose and send a bulk SMS or Email campaign to your customers.
         </p>
       </div>
     </div>

@@ -8,6 +8,7 @@ from app.common.credentials import (
     merge_credential_data,
 )
 from app.common.dependencies import get_db, require_permission
+from app.common.email_client import send_email
 from app.common.phone import InvalidPhoneNumberError, normalize_phone
 from app.common.rate_limit import rate_limit
 from app.common.sms_gateway_client import RequestStyle, get_balance, send_sms
@@ -17,11 +18,17 @@ from app.views.notifications import (
     DEFAULT_MESSAGE_FIELD,
     DEFAULT_NUMBER_FIELD,
     DEFAULT_SENDER_ID_FIELD,
+    EmailCredentialsResponse,
+    EmailCredentialsStatus,
+    EmailCredentialsUpdate,
     SmsBalance,
     SmsBalanceResponse,
     SmsGatewayCredentialsResponse,
     SmsGatewayCredentialsStatus,
     SmsGatewayCredentialsUpdate,
+    TestEmailRequest,
+    TestEmailResponse,
+    TestEmailResult,
     TestSmsRequest,
     TestSmsResponse,
     TestSmsResult,
@@ -30,6 +37,7 @@ from app.views.notifications import (
 router = APIRouter(dependencies=[Depends(require_permission("settings.manage"))])
 
 SMS_GATEWAY_PROVIDER = "sms_gateway"
+EMAIL_PROVIDER = "email"
 
 
 def _to_status(data: dict[str, str | None]) -> SmsGatewayCredentialsStatus:
@@ -164,3 +172,58 @@ async def get_sms_gateway_balance(db: AsyncSession = Depends(get_db)) -> SmsBala
             message=result.message,
         )
     )
+
+
+def _to_email_status(data: dict[str, str | None]) -> EmailCredentialsStatus:
+    return EmailCredentialsStatus(
+        api_key=SecretFieldStatus(is_set=bool(data.get("api_key"))),
+        from_address=PlainFieldStatus(value=data.get("from_address")),
+        from_name=PlainFieldStatus(value=data.get("from_name")),
+    )
+
+
+@router.get("/email/credentials", response_model=EmailCredentialsResponse)
+async def get_email_credentials(
+    db: AsyncSession = Depends(get_db),
+) -> EmailCredentialsResponse:
+    row = await get_or_create_credential_row(db, EMAIL_PROVIDER)
+    return EmailCredentialsResponse(data=_to_email_status(row.data))
+
+
+@router.put("/email/credentials", response_model=EmailCredentialsResponse)
+async def update_email_credentials(
+    payload: EmailCredentialsUpdate, db: AsyncSession = Depends(get_db)
+) -> EmailCredentialsResponse:
+    updates = payload.model_dump(exclude_unset=True)
+    data = await merge_credential_data(db, EMAIL_PROVIDER, updates)
+    return EmailCredentialsResponse(data=_to_email_status(data))
+
+
+@router.post("/email/test-email", response_model=TestEmailResponse)
+async def send_email_test_email(
+    payload: TestEmailRequest,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(rate_limit("test-email", max_requests=5, window_seconds=60)),
+) -> TestEmailResponse:
+    """Sends one real email to an address the caller explicitly typed in,
+    using the configured Mailchimp Transactional credentials. Deliberately
+    never wired to campaigns/customer data — this is for verifying the API
+    key actually works, not for reaching real customers."""
+    row = await get_or_create_credential_row(db, EMAIL_PROVIDER)
+    api_key = row.data.get("api_key")
+    from_address = row.data.get("from_address")
+    if not api_key or not from_address:
+        raise HTTPException(
+            status_code=422,
+            detail="Save a Mailchimp Transactional API key and from address before sending a test.",
+        )
+
+    result = await send_email(
+        api_key=api_key,
+        from_address=from_address,
+        from_name=row.data.get("from_name"),
+        to_address=payload.to_address,
+        subject=payload.subject,
+        body=payload.body,
+    )
+    return TestEmailResponse(data=TestEmailResult(success=result.success, message=result.message))
