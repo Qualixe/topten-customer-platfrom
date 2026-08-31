@@ -28,8 +28,6 @@ export default defineRailway(() => {
 
   const frontend = service("frontend", {
     source: github("Qualixe/topten-customer-platfrom", { branch: "master", rootDirectory: "frontend" }),
-    build: "npm ci && npm run build",
-    start: "npm start",
     env: {
       NODE_ENV: "production",
       // NEXT_PUBLIC_* is baked in at build time — set this manually in the Railway
