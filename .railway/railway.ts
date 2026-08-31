@@ -1,8 +1,8 @@
 import { defineRailway, project, service, postgres, redis, github } from "railway/iac";
 
 // Your Railway public domains — update these if services are recreated
-const BACKEND_DOMAIN = "backend-production-xxxx.up.railway.app"; // ← replace with real backend domain
-const FRONTEND_DOMAIN = "frontend-production-8808.up.railway.app"; // ← already known from the error
+const BACKEND_DOMAIN = "backend-production-9e73.up.railway.app";
+const FRONTEND_DOMAIN = "frontend-production-8808.up.railway.app";
 
 export default defineRailway(() => {
   const db = postgres("database");
