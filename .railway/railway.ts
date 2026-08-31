@@ -5,7 +5,7 @@ export default defineRailway(() => {
   const cache = redis("cache");
 
   const backend = service("backend", {
-    source: github("Qualixe/topten-customer-platfrom", { rootDirectory: "backend" }),
+    source: github("Qualixe/topten-customer-platfrom", { branch: "master", rootDirectory: "backend" }),
     start: "bash start.sh",
     env: {
       DATABASE_URL: db.env.DATABASE_URL,
@@ -17,7 +17,7 @@ export default defineRailway(() => {
   });
 
   const celeryWorker = service("celery-worker", {
-    source: github("Qualixe/topten-customer-platfrom", { rootDirectory: "backend" }),
+    source: github("Qualixe/topten-customer-platfrom", { branch: "master", rootDirectory: "backend" }),
     start: "bash worker.sh",
     env: {
       DATABASE_URL: db.env.DATABASE_URL,
@@ -27,7 +27,7 @@ export default defineRailway(() => {
   });
 
   const frontend = service("frontend", {
-    source: github("Qualixe/topten-customer-platfrom", { rootDirectory: "frontend" }),
+    source: github("Qualixe/topten-customer-platfrom", { branch: "master", rootDirectory: "frontend" }),
     start: "npm start",
     env: {
       NODE_ENV: "production",
