@@ -19,6 +19,10 @@ export default defineRailway(() => {
       // Allow requests from the frontend domain
       CORS_ORIGINS: `https://${FRONTEND_DOMAIN}`,
       FRONTEND_BASE_URL: `https://${FRONTEND_DOMAIN}`,
+      // Bootstrap admin — change these in the Railway dashboard after first deploy
+      INITIAL_ADMIN_EMAIL: "admin@topten.com.bd",
+      INITIAL_ADMIN_PASSWORD: "changeme123",
+      INITIAL_ADMIN_NAME: "Admin",
     },
   });
 

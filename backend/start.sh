@@ -14,5 +14,8 @@ fi
 echo "Running migrations..."
 alembic upgrade head
 
+echo "Seeding roles, permissions and bootstrap admin..."
+python -m scripts.seed_auth
+
 echo "Starting server..."
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
