@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.dependencies import get_current_user, get_db
+from app.common.rate_limit import rate_limit
 from app.core.security import create_access_token
 from app.models import User
 from app.services.auth import authenticate, change_password, to_auth_user
@@ -12,7 +13,11 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> LoginResponse:
+async def login(
+    payload: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(rate_limit("login", max_requests=10, window_seconds=60)),
+) -> LoginResponse:
     user = await authenticate(db, email=payload.email, password=payload.password)
     token = create_access_token(user_public_id=str(user.public_id))
     return LoginResponse(data=LoginData(token=token, user=to_auth_user(user)))

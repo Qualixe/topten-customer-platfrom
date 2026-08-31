@@ -22,7 +22,11 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days — matches the backe
 export async function login(email: string, password: string): Promise<AuthUser> {
   const envelope = await apiPost<ApiEnvelope<LoginDataDto>>("/auth/login", { email, password });
   const { token, user } = envelope.data;
-  document.cookie = `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+  // Secure only over https — added conditionally so local http dev (where
+  // the browser would otherwise silently refuse to store the cookie) keeps
+  // working, while anything deployed over https gets the flag automatically.
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
   return user;
 }
 

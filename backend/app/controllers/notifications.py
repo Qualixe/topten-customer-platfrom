@@ -9,6 +9,7 @@ from app.common.credentials import (
 )
 from app.common.dependencies import get_db, require_permission
 from app.common.phone import InvalidPhoneNumberError, normalize_phone
+from app.common.rate_limit import rate_limit
 from app.common.sms_gateway_client import RequestStyle, get_balance, send_sms
 from app.core.config import settings
 from app.views.notifications import (
@@ -77,7 +78,9 @@ async def update_sms_gateway_credentials(
 
 @router.post("/sms-gateway/test-sms", response_model=TestSmsResponse)
 async def send_sms_gateway_test_sms(
-    payload: TestSmsRequest, db: AsyncSession = Depends(get_db)
+    payload: TestSmsRequest,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(rate_limit("test-sms", max_requests=5, window_seconds=60)),
 ) -> TestSmsResponse:
     """Sends one real SMS to a number the caller explicitly typed in, using
     the configured gateway's full request shape (URL, method/body style,

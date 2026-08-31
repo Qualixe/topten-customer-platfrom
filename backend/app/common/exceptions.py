@@ -1,6 +1,10 @@
+import logging
+
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger("app.errors")
 
 
 class AppException(Exception):
@@ -71,6 +75,9 @@ async def request_validation_exception_handler(
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    # Full traceback goes to the server log only — the client always gets
+    # the same generic message, never the exception details, SQL, or paths.
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error"},

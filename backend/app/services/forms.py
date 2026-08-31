@@ -235,9 +235,10 @@ async def submit_generic_form(
             name=submission.name, phone=submission.phone, normalized_phone=normalized
         )
         db.add(customer)
-    else:
-        customer.name = submission.name
-        customer.phone = submission.phone
+    # An existing customer's name/phone are never overwritten here — this is
+    # a public, tokenless endpoint identified only by phone digits, so
+    # accepting arbitrary name changes for a matched record would let
+    # anyone silently rename a real customer they don't otherwise control.
 
     if submission.email:
         customer.email = submission.email

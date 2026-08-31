@@ -26,6 +26,7 @@ from app.views.imports import (
 router = APIRouter(dependencies=[Depends(require_permission("imports.manage"))])
 
 UPLOAD_READ_CHUNK_SIZE = 1024 * 1024  # 1 MB — streamed to disk, never buffered whole.
+MAX_IMPORT_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB — generous for a POS CSV export.
 
 
 @router.post(
@@ -56,11 +57,22 @@ async def upload_customer_import(
 
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
-    destination = upload_dir / f"{uuid.uuid4()}_{file.filename}"
+    # Only the extension from the client filename is trusted for the stored
+    # path — the rest of the name is user-controlled and stored separately
+    # on the batch row (file_name) for display, never used as a path segment.
+    destination = upload_dir / f"{uuid.uuid4()}{Path(file.filename).suffix}"
 
-    with destination.open("wb") as out_file:
-        while chunk := await file.read(UPLOAD_READ_CHUNK_SIZE):
-            out_file.write(chunk)
+    total_bytes = 0
+    try:
+        with destination.open("wb") as out_file:
+            while chunk := await file.read(UPLOAD_READ_CHUNK_SIZE):
+                total_bytes += len(chunk)
+                if total_bytes > MAX_IMPORT_SIZE_BYTES:
+                    raise ValidationAppError("Import file must be smaller than 50 MB")
+                out_file.write(chunk)
+    except ValidationAppError:
+        destination.unlink(missing_ok=True)
+        raise
 
     batch = ImportBatch(
         file_name=file.filename,

@@ -1,7 +1,11 @@
 from decimal import Decimal
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEFAULT_SECRET_KEY = "change-me-in-production"
+_DEFAULT_ADMIN_PASSWORD = "changeme123"
 
 
 class Settings(BaseSettings):
@@ -30,7 +34,7 @@ class Settings(BaseSettings):
 
     API_V1_PREFIX: str = "/api/v1"
 
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = _DEFAULT_SECRET_KEY
 
     # Auth: JWT signing reuses SECRET_KEY rather than a second secret — this
     # is a single-app deployment, not multiple services that need
@@ -41,7 +45,7 @@ class Settings(BaseSettings):
     # Bootstrap admin, created by scripts/seed_auth.py (not on every
     # startup) — change these before running it against anything real.
     INITIAL_ADMIN_EMAIL: str = "admin@topten.com.bd"
-    INITIAL_ADMIN_PASSWORD: str = "changeme123"
+    INITIAL_ADMIN_PASSWORD: str = _DEFAULT_ADMIN_PASSWORD
     INITIAL_ADMIN_NAME: str = "Admin"
 
     # POS customer import settings.
@@ -80,6 +84,30 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """A psycopg2 URL for Alembic, derived from the async DATABASE_URL."""
         return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+
+    @model_validator(mode="after")
+    def _reject_insecure_production_config(self) -> "Settings":
+        """Fail fast at startup rather than silently running production with
+        a publicly-known JWT signing key (forgeable auth for every user) or
+        the documented default admin password."""
+        if self.APP_ENV == "production":
+            if self.SECRET_KEY == _DEFAULT_SECRET_KEY:
+                raise ValueError(
+                    "SECRET_KEY is still the default value — set a real random "
+                    "secret before running with APP_ENV=production."
+                )
+            if self.INITIAL_ADMIN_PASSWORD == _DEFAULT_ADMIN_PASSWORD:
+                raise ValueError(
+                    "INITIAL_ADMIN_PASSWORD is still the default value — set a "
+                    "real password before running with APP_ENV=production."
+                )
+            if "*" in self.cors_origins_list:
+                raise ValueError(
+                    "CORS_ORIGINS cannot be '*' when APP_ENV=production — the API "
+                    "allows credentialed requests, so a wildcard origin would let "
+                    "any website make authenticated calls on a logged-in user's behalf."
+                )
+        return self
 
 
 @lru_cache

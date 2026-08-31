@@ -23,6 +23,26 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.up.railway.app" },
     ],
   },
+  // Baseline hardening headers — none of these restrict scripts/styles, so
+  // they can't break existing pages. A Content-Security-Policy is left out
+  // deliberately: it needs careful testing against Next's hydration/inline
+  // styles and Recharts before it can be turned on safely.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

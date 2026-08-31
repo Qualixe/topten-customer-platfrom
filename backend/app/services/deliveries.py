@@ -147,6 +147,12 @@ async def create_delivery(
     `pathao_city_id`/`pathao_zone_id`/`pathao_area_id` trigger a real
     dispatch through Pathao's API (see app.services.pathao), and the
     tracking number comes back from that call instead."""
+    # Lock the gift order row first so two concurrent requests for the same
+    # order (e.g. a double-click) serialize instead of both passing the
+    # "no existing delivery" check and both booking a real Pathao shipment.
+    await db.execute(
+        select(GiftOrder).where(GiftOrder.id == gift_order.id).with_for_update()
+    )
     existing = (
         await db.execute(select(Delivery).where(Delivery.gift_order_id == gift_order.id))
     ).scalar_one_or_none()

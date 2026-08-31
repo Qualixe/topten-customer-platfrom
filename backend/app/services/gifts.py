@@ -291,6 +291,14 @@ async def send_gift_order(db: AsyncSession, order: GiftOrder) -> GiftOrder:
     error) is recorded on `notification_error` but never blocks the
     status transition: the gift itself was handed over regardless of
     whether the courtesy text went through."""
+    # Lock the row and re-check status under the lock — without this, two
+    # concurrent "Send" requests for the same order (double-click) could
+    # both pass the status check before either commits, both send the SMS,
+    # and both decrement stock.
+    locked = (
+        await db.execute(select(GiftOrder).where(GiftOrder.id == order.id).with_for_update())
+    ).scalar_one()
+    order.status = locked.status
     if order.status not in (GiftOrderStatus.PENDING.value, GiftOrderStatus.SCHEDULED.value):
         raise ValidationAppError(f"Cannot send a gift order that is already {order.status}")
 

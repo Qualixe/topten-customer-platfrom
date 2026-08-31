@@ -62,6 +62,15 @@ router = APIRouter()
 ALLOWED_IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
 MAX_GIFT_IMAGE_SIZE_BYTES = 2 * 1024 * 1024
 
+# See the identical comment in app/controllers/site_settings.py — the stored
+# extension must come from the validated content-type, never the client-
+# supplied filename.
+_EXTENSION_BY_CONTENT_TYPE = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
+
 
 def _gift_image_url(image_path: str | None) -> str | None:
     if not image_path:
@@ -256,7 +265,7 @@ async def upload_catalog_item_image(
     upload_dir = Path(settings.GIFT_IMAGE_UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    extension = Path(file.filename or "").suffix or ".png"
+    extension = _EXTENSION_BY_CONTENT_TYPE[file.content_type]
     destination = upload_dir / f"{uuid.uuid4()}{extension}"
     destination.write_bytes(contents)
 

@@ -151,9 +151,11 @@ async def test_submit_twice_with_same_phone_updates_not_duplicates(
         )
     ).scalars().all()
     assert len(customers) == 1
-    # Name updates from the newer submission, but address (omitted the
-    # second time) is never blanked out by a later submission.
-    assert customers[0].name == "Karim Rahman"
+    # A second submission never creates a duplicate row, but it also never
+    # renames an existing customer — this is a public, tokenless endpoint,
+    # so name/phone are only ever set when the customer is first created.
+    # Address (omitted the second time) is likewise never blanked out.
+    assert customers[0].name == "Karim"
     assert customers[0].address == "House 5, Dhaka"
 
 

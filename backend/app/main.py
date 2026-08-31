@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -14,11 +14,16 @@ from app.common.exceptions import (
 from app.core.config import settings
 from app.router import api_router
 
+# API docs reveal every route/schema — fine for development, unnecessary
+# attack-surface information in production.
+_docs_enabled = settings.APP_ENV != "production"
+
 app = FastAPI(
     title=settings.APP_NAME,
     version="0.1.0",
-    docs_url="/docs",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
 app.add_middleware(
@@ -28,6 +33,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Baseline hardening headers, safe for a JSON API — none of these
+    restrict scripts/styles, so they can't break existing responses. A full
+    Content-Security-Policy belongs on the frontend, which is what actually
+    renders HTML."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 
 app.add_exception_handler(AppException, app_exception_handler)
 app.add_exception_handler(RequestValidationError, request_validation_exception_handler)

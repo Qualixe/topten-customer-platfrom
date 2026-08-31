@@ -25,6 +25,16 @@ public_router = APIRouter()
 ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
 MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024
 
+# The stored file's extension must come from the validated content-type, not
+# the client-supplied filename — a request can pass the content-type check
+# above while naming the file "x.html", which would then be served back by
+# StaticFiles with a text/html content-type (stored-content-spoofing/XSS).
+_EXTENSION_BY_CONTENT_TYPE = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
+
 
 async def _get_or_create_settings_row(db: AsyncSession) -> SiteSettings:
     row = (await db.execute(select(SiteSettings))).scalars().first()
@@ -83,7 +93,7 @@ async def upload_site_logo(
     upload_dir = Path(settings.BRANDING_UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    extension = Path(file.filename or "").suffix or ".png"
+    extension = _EXTENSION_BY_CONTENT_TYPE[file.content_type]
     destination = upload_dir / f"{uuid.uuid4()}{extension}"
     destination.write_bytes(contents)
 

@@ -178,6 +178,12 @@ async def send_campaign_messages_async(
             )
         ).scalar_one_or_none()
 
+        # FOR UPDATE SKIP LOCKED: if this task is somehow running twice at
+        # once for the same campaign (overlapping retry, accidental double
+        # trigger), each invocation locks the PENDING rows it's about to
+        # send and the other skips them instead of blocking — so the same
+        # recipient never gets SMS'd twice. Rows already sent by the other
+        # invocation are excluded anyway once its per-recipient commits land.
         pending = (
             await session.execute(
                 select(CampaignRecipient)
@@ -186,6 +192,7 @@ async def send_campaign_messages_async(
                     CampaignRecipient.status == CampaignRecipientStatus.PENDING.value,
                 )
                 .order_by(CampaignRecipient.id)
+                .with_for_update(skip_locked=True)
             )
         ).scalars().all()
 

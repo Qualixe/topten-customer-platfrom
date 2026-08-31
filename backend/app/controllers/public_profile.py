@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.dependencies import get_db
 from app.common.exceptions import NotFoundError
+from app.common.rate_limit import rate_limit
 from app.models.campaign import Campaign
 from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.campaign_recipient import CampaignRecipient, VerificationStatus
@@ -89,7 +90,9 @@ async def _build_profile_data(
 
 @router.get("/customer-profile/{token}", response_model=PublicProfileResponse)
 async def get_public_customer_profile(
-    token: str, db: AsyncSession = Depends(get_db)
+    token: str,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(rate_limit("public-profile", max_requests=30, window_seconds=60)),
 ) -> PublicProfileResponse:
     token_row = await _resolve_token_row(db, token)
     customer = await db.get(Customer, token_row.customer_id)
@@ -102,7 +105,10 @@ async def get_public_customer_profile(
 
 @router.patch("/customer-profile/{token}", response_model=PublicProfileResponse)
 async def update_public_customer_profile(
-    token: str, payload: PublicProfileUpdate, db: AsyncSession = Depends(get_db)
+    token: str,
+    payload: PublicProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(rate_limit("public-profile", max_requests=30, window_seconds=60)),
 ) -> PublicProfileResponse:
     token_row = await _resolve_token_row(db, token)
     customer = await db.get(Customer, token_row.customer_id)
@@ -174,7 +180,10 @@ async def get_public_form(slug: str, db: AsyncSession = Depends(get_db)) -> Publ
 
 @router.post("/forms/{slug}/submit", response_model=GenericFormSubmissionResponse)
 async def submit_public_form(
-    slug: str, payload: GenericFormSubmission, db: AsyncSession = Depends(get_db)
+    slug: str,
+    payload: GenericFormSubmission,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(rate_limit("public-form-submit", max_requests=10, window_seconds=60)),
 ) -> GenericFormSubmissionResponse:
     """Unlike /customer-profile/{token} (updates one customer already
     identified by a token), this has no token — anyone can submit, and the
