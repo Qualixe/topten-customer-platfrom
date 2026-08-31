@@ -1,56 +1,40 @@
-import { defineRailway, project, service, postgres, redis } from "railway/iac";
+import { defineRailway, project, service, postgres, redis, github } from "railway/iac";
 
 export default defineRailway(() => {
   const db = postgres("database");
   const cache = redis("cache");
 
   const backend = service("backend", {
-    source: {
-      repo: ".",
-      rootDirectory: "backend",
-    },
-    build: "pip install -r requirements.txt",
+    source: github("Qualixe/topten-customer-platfrom", { rootDirectory: "backend" }),
     start: "bash start.sh",
     env: {
-      DATABASE_URL: db.databaseUrl,
-      REDIS_URL: cache.redisUrl,
+      DATABASE_URL: db.env.DATABASE_URL,
+      REDIS_URL: cache.env.REDIS_URL,
       APP_ENV: "production",
-      // Set SECRET_KEY manually in the Railway dashboard — do not hardcode
-      CORS_ORIGINS: "https://${{ frontend.RAILWAY_PUBLIC_DOMAIN }}",
-      FRONTEND_BASE_URL: "https://${{ frontend.RAILWAY_PUBLIC_DOMAIN }}",
-      UPLOAD_DIR: "/app/var/uploads/imports",
-      BRANDING_UPLOAD_DIR: "/app/var/public/branding",
-      GIFT_IMAGE_UPLOAD_DIR: "/app/var/public/gift-images",
+      // Set SECRET_KEY in the Railway dashboard after first deploy — never hardcode it
+      SECRET_KEY: "change-me-set-in-dashboard",
     },
   });
 
   const celeryWorker = service("celery-worker", {
-    source: {
-      repo: ".",
-      rootDirectory: "backend",
-    },
-    build: "pip install -r requirements.txt",
+    source: github("Qualixe/topten-customer-platfrom", { rootDirectory: "backend" }),
     start: "bash worker.sh",
     env: {
-      DATABASE_URL: db.databaseUrl,
-      REDIS_URL: cache.redisUrl,
+      DATABASE_URL: db.env.DATABASE_URL,
+      REDIS_URL: cache.env.REDIS_URL,
       APP_ENV: "production",
-      UPLOAD_DIR: "/app/var/uploads/imports",
-      BRANDING_UPLOAD_DIR: "/app/var/public/branding",
-      GIFT_IMAGE_UPLOAD_DIR: "/app/var/public/gift-images",
     },
   });
 
   const frontend = service("frontend", {
-    source: {
-      repo: ".",
-      rootDirectory: "frontend",
-    },
-    build: "npm ci && npm run build",
+    source: github("Qualixe/topten-customer-platfrom", { rootDirectory: "frontend" }),
     start: "npm start",
     env: {
       NODE_ENV: "production",
-      NEXT_PUBLIC_API_BASE_URL: "https://${{ backend.RAILWAY_PUBLIC_DOMAIN }}/api/v1",
+      // NEXT_PUBLIC_* is baked in at build time — set this manually in the Railway
+      // dashboard to https://<your-backend-domain>.up.railway.app/api/v1
+      // after the backend service gets its public domain assigned.
+      NEXT_PUBLIC_API_BASE_URL: "https://placeholder-update-after-deploy.up.railway.app/api/v1",
     },
   });
 
