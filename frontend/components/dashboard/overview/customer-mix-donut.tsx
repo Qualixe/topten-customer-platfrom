@@ -5,10 +5,13 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatSharePercent } from "@/lib/format-share";
 
+// All three tones derive from the one admin-editable brand color (Settings
+// → General) via color-mix, so this stays on-brand automatically instead
+// of hardcoding a fixed red family.
 const SEGMENT_COLORS = {
-  General: "#fca5a5",
-  VIP: "#ef4444",
-  VVIP: "#7f1d1d",
+  General: "color-mix(in oklch, var(--primary) 38%, var(--card))",
+  VIP: "var(--primary)",
+  VVIP: "color-mix(in oklch, var(--primary) 65%, black)",
 } as const;
 
 function ChartTooltip({
@@ -45,7 +48,7 @@ export function CustomerMixDonut({
   ];
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Customer Mix</CardTitle>
         <CardDescription>By customer type, across every customer</CardDescription>
@@ -71,7 +74,7 @@ export function CustomerMixDonut({
             </PieChart>
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-xl font-semibold">{total.toLocaleString("en-US")}</p>
+            <p className="text-xl font-semibold tabular-nums">{total.toLocaleString("en-US")}</p>
             <p className="text-xs text-muted-foreground">customers</p>
           </div>
         </div>
@@ -86,7 +89,7 @@ export function CustomerMixDonut({
                   aria-hidden="true"
                 />
                 <span className="flex-1 text-muted-foreground">{entry.name}</span>
-                <span className="font-medium">{formatSharePercent(entry.value, total)}</span>
+                <span className="font-medium tabular-nums">{formatSharePercent(entry.value, total)}</span>
               </div>
             );
           })}

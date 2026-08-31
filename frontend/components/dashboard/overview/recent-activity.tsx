@@ -52,16 +52,16 @@ export function RecentActivity({ recentCustomers }: { recentCustomers: RecentCus
               const isLast = index === recentCustomers.length - 1;
 
               return (
-                <li key={customer.id} className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                <li key={customer.id} className="flex gap-3 rounded-lg px-1.5 transition-colors hover:bg-muted/50">
+                  <div className="flex flex-col items-center pt-1">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <UserPlus className="size-4" aria-hidden="true" />
                     </span>
                     {!isLast && (
                       <span className="w-px flex-1 bg-border" aria-hidden="true" />
                     )}
                   </div>
-                  <div className="min-w-0 flex-1 pb-4">
+                  <div className="min-w-0 flex-1 py-1 pb-4">
                     <p className="text-sm font-medium">New customer added</p>
                     <p className="truncate text-sm text-muted-foreground">
                       {customer.name}

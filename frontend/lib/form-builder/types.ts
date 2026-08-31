@@ -2,7 +2,6 @@ export type FieldType =
   | "heading"
   | "paragraph"
   | "name"
-  | "text"
   | "email"
   | "phone"
   | "date_of_birth"
@@ -12,7 +11,7 @@ export type FieldType =
 
 /** A single field on the form. Not every property applies to every type —
  * each field component just reads the ones it cares about (e.g. only
- * "heading" reads `align`/`size`, only "text"/"email"/"phone"/"address"
+ * "heading" reads `align`/`size`, only "email"/"phone"/"address"
  * read `placeholder`). Keeping one flat shape (rather than a type per
  * field) mirrors the campaign landing page builder's `Block` shape and
  * keeps the JSON simple. */

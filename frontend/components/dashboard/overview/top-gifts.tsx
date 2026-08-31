@@ -30,26 +30,29 @@ export function TopGifts({ gifts }: { gifts: GiftItem[] }) {
               const imageUrl = resolveGiftImageUrl(gift.imageUrl);
 
               return (
-                <div key={gift.id} className="flex items-center gap-3">
+                <div
+                  key={gift.id}
+                  className="flex items-center gap-3 rounded-lg px-1.5 py-1 -mx-1.5 transition-colors hover:bg-muted/50"
+                >
                   <div
                     className={cn(
-                      "relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md",
+                      "relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md ring-1 ring-foreground/5",
                       !imageUrl && visual.tileClassName
                     )}
                   >
                     {imageUrl ? (
-                      <Image src={imageUrl} alt="" fill unoptimized className="object-cover" />
+                      <Image src={imageUrl} alt="" fill className="object-cover" />
                     ) : (
                       <Icon className={cn("size-4.5", visual.iconClassName)} aria-hidden="true" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{gift.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground tabular-nums">
                       {formatCurrency(gift.retailValue)}
                     </p>
                   </div>
-                  <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                  <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground tabular-nums">
                     <Repeat2 className="size-3.5" aria-hidden="true" />
                     {gift.timesRedeemed}×
                   </span>

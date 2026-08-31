@@ -13,10 +13,9 @@ import { FIELD_DEFINITIONS } from "@/lib/form-builder/field-config";
 import type { FormField } from "@/lib/form-builder/types";
 
 const TEXT_ONLY_TYPES: FormField["type"][] = ["heading", "paragraph", "submit_button"];
-const PLACEHOLDER_TYPES: FormField["type"][] = ["name", "text", "email", "phone", "address"];
+const PLACEHOLDER_TYPES: FormField["type"][] = ["name", "email", "phone", "address"];
 const REQUIRED_TYPES: FormField["type"][] = [
   "name",
-  "text",
   "email",
   "phone",
   "date_of_birth",

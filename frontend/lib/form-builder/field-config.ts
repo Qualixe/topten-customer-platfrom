@@ -6,7 +6,6 @@ import {
   MousePointerClick,
   Phone as PhoneIcon,
   SeparatorHorizontal,
-  TextCursorInput,
   Type,
   User,
   type LucideIcon,
@@ -40,11 +39,6 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
     // Required by default — a submission on an open, tokenless public form
     // (see /form/[slug]) can't create/find a Customer without a name.
     defaultField: { type: "name", label: "Full Name", placeholder: "", required: true },
-  },
-  text: {
-    label: "Text Input",
-    icon: TextCursorInput,
-    defaultField: { type: "text", label: "Text Field", placeholder: "", required: false },
   },
   email: {
     label: "Email",

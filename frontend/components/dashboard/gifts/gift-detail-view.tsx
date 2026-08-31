@@ -172,7 +172,6 @@ export function GiftDetailView({
                     alt=""
                     width={64}
                     height={64}
-                    unoptimized
                     className="size-full object-cover"
                   />
                 ) : (

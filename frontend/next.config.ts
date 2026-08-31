@@ -1,12 +1,24 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // One less response header, no functional purpose otherwise.
+  poweredByHeader: false,
   // Lets the Cloudflare tunnel (a different origin than localhost) reach
   // the dev server's assets/HMR websocket — Next.js blocks cross-origin
   // dev requests by default. *.trycloudflare.com covers the free quick
   // tunnel's randomly generated subdomain (changes on every restart);
   // *.qualixe.com covers the named "topten" tunnel's stable custom domain.
   allowedDevOrigins: ["*.trycloudflare.com", "*.qualixe.com"],
+  images: {
+    // Backend-served uploads (site logo, gift images) — only PNG/JPEG/WEBP
+    // are ever accepted on upload (see ALLOWED_IMAGE_CONTENT_TYPES /
+    // ALLOWED_CONTENT_TYPES on the backend), so it's always safe to let
+    // Next optimize (resize/re-encode) these rather than serving them raw.
+    remotePatterns: [
+      { protocol: "http", hostname: "localhost", port: "8000" },
+      { protocol: "https", hostname: "*.qualixe.com" },
+    ],
+  },
 };
 
 export default nextConfig;

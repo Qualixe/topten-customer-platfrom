@@ -77,10 +77,10 @@ export function CustomerOverview({ customers }: { customers: Customer[] }) {
                       {customer.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-muted-foreground tabular-nums">
                     {customer.totalOrders}
                   </TableCell>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-medium tabular-nums">
                     {formatCurrency(customer.totalSpent)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">

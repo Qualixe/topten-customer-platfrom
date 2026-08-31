@@ -39,50 +39,74 @@ const ICON_TONES = [
   "bg-amber-500/10 text-amber-600 dark:text-amber-400",
 ];
 
-const COLUMNS_CLASS: Record<3 | 4 | 5, string> = {
+const COLUMNS_CLASS: Record<3 | 4 | 5 | 7, string> = {
   3: "sm:grid-cols-3",
   4: "sm:grid-cols-2 lg:grid-cols-4",
   5: "sm:grid-cols-2 lg:grid-cols-5",
+  7: "grid-cols-2 sm:grid-cols-4 lg:grid-cols-7",
 };
 
 export function StatsGrid({
   stats,
   columns = 4,
+  compact = false,
 }: {
   stats: StatDefinition[];
-  /** Column count at the `lg` breakpoint — defaults to 4, matching every
-   * page except Campaigns (5, for "Failed") and the Dashboard's smaller
-   * grouped rows (3). */
-  columns?: 3 | 4 | 5;
+  /** Column count at the `lg` breakpoint — defaults to 4. Use 7 for a
+   * combined dashboard row where all cards must fit on one line. */
+  columns?: 3 | 4 | 5 | 7;
+  /** When true, renders smaller cards (less padding, smaller text) so more
+   * cards fit in a single viewport row. */
+  compact?: boolean;
 }) {
   return (
-    <div className={cn("grid gap-4", COLUMNS_CLASS[columns])}>
+    <div className={cn("grid gap-3", COLUMNS_CLASS[columns])}>
       {stats.map((stat, index) => {
         const Icon = stat.icon;
         const TrendIcon = stat.trend ? TREND_ICONS[stat.trend] : null;
         const tone = ICON_TONES[index % ICON_TONES.length];
 
         return (
-          <Card key={stat.key}>
+          <Card
+            key={stat.key}
+            size={compact ? "sm" : "default"}
+            className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+          >
             <CardHeader>
-              <CardTitle className="flex items-center justify-between font-normal text-muted-foreground">
-                {stat.label}
+              <CardTitle
+                className={cn(
+                  "flex items-center justify-between font-normal text-muted-foreground",
+                  compact && "text-xs"
+                )}
+              >
+                <span className="truncate pr-1">{stat.label}</span>
                 <span
                   className={cn(
-                    "flex size-8 items-center justify-center rounded-md",
+                    "flex shrink-0 items-center justify-center rounded-md",
+                    compact ? "size-6" : "size-8",
                     tone
                   )}
                 >
-                  <Icon className="size-4" aria-hidden="true" />
+                  <Icon
+                    className={cn(compact ? "size-3" : "size-4")}
+                    aria-hidden="true"
+                  />
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold">{stat.value}</p>
+              <p
+                className={cn(
+                  "font-semibold tracking-tight tabular-nums",
+                  compact ? "text-lg" : "text-2xl"
+                )}
+              >
+                {stat.value}
+              </p>
               {stat.trend && TrendIcon ? (
                 <p
                   className={cn(
-                    "mt-1 flex items-center gap-1 text-xs",
+                    "mt-0.5 flex items-center gap-1 text-xs",
                     TREND_STYLES[stat.trend]
                   )}
                 >
@@ -90,7 +114,7 @@ export function StatsGrid({
                   {stat.caption}
                 </p>
               ) : stat.caption ? (
-                <p className="mt-1 text-xs text-muted-foreground">{stat.caption}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{stat.caption}</p>
               ) : null}
             </CardContent>
           </Card>

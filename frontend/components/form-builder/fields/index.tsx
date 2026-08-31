@@ -7,7 +7,6 @@ import { NameField } from "@/components/form-builder/fields/NameField";
 import { ParagraphField } from "@/components/form-builder/fields/ParagraphField";
 import { PhoneField } from "@/components/form-builder/fields/PhoneField";
 import { SubmitButtonField } from "@/components/form-builder/fields/SubmitButtonField";
-import { TextField } from "@/components/form-builder/fields/TextField";
 import type { FormField } from "@/lib/form-builder/types";
 
 export type GenericFormFieldName = "name" | "phone" | "email" | "dateOfBirth" | "address";
@@ -57,8 +56,6 @@ export function FieldRenderer({
           onChange={onFormFieldChange ? (value) => onFormFieldChange("name", value) : undefined}
         />
       );
-    case "text":
-      return <TextField field={field} preview={preview} />;
     case "email":
       return (
         <EmailField

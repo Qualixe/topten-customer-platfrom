@@ -6,7 +6,11 @@ interface RateCircle {
   label: string;
   display: string;
   size: number;
-  className: string;
+  /** Derived from the one admin-editable brand color via color-mix, so
+   * this stays on-brand automatically instead of hardcoding a fixed red
+   * family. */
+  background: string;
+  textClassName: string;
   position: string;
 }
 
@@ -26,21 +30,24 @@ export function HealthCircles({
       label: "Profile Complete",
       display: formatSharePercent(profileCompleteCustomers, totalCustomers),
       size: 168,
-      className: "bg-red-500/90 text-white",
+      background: "var(--primary)",
+      textClassName: "text-primary-foreground",
       position: "right-0 top-1/2 -translate-y-1/2",
     },
     {
       label: "Verified",
       display: formatSharePercent(verifiedCustomers, totalCustomers),
       size: 128,
-      className: "bg-red-200 text-red-900 dark:bg-red-950 dark:text-red-100",
+      background: "color-mix(in oklch, var(--primary) 22%, var(--card))",
+      textClassName: "text-foreground",
       position: "left-2 top-0",
     },
     {
       label: "VIP",
       display: formatSharePercent(vipCustomers, totalCustomers),
       size: 116,
-      className: "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-50",
+      background: "color-mix(in oklch, var(--primary) 12%, var(--card))",
+      textClassName: "text-foreground",
       position: "left-0 bottom-0",
     },
   ];
@@ -57,13 +64,13 @@ export function HealthCircles({
             <div
               key={circle.label}
               className={cn(
-                "absolute flex flex-col items-center justify-center rounded-full shadow-sm",
+                "absolute flex flex-col items-center justify-center rounded-full shadow-sm ring-1 ring-foreground/5",
                 circle.position,
-                circle.className
+                circle.textClassName
               )}
-              style={{ width: circle.size, height: circle.size }}
+              style={{ width: circle.size, height: circle.size, background: circle.background }}
             >
-              <span className="text-2xl font-semibold">{circle.display}</span>
+              <span className="text-2xl font-semibold tabular-nums">{circle.display}</span>
               <span className="text-xs opacity-90">{circle.label}</span>
             </div>
           ))}

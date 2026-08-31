@@ -17,7 +17,7 @@ export function LogoMark({ logoUrl }: { logoUrl: string | null }) {
             alt="TopTen"
             width={224}
             height={56}
-            unoptimized
+            priority
             className="h-14 w-auto object-contain"
           />
         </span>

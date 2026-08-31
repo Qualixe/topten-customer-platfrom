@@ -467,7 +467,7 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
                 )}
               >
                 {giftImageUrl ? (
-                  <Image src={giftImageUrl} alt="" fill unoptimized className="object-cover" />
+                  <Image src={giftImageUrl} alt="" fill className="object-cover" />
                 ) : GiftVisualIcon ? (
                   <GiftVisualIcon
                     className={cn("size-5", giftVisual?.iconClassName)}

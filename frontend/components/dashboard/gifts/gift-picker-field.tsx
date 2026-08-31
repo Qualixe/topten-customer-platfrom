@@ -40,7 +40,7 @@ function GiftThumb({
       )}
     >
       {imageUrl ? (
-        <Image src={imageUrl} alt="" fill unoptimized className="object-cover" />
+        <Image src={imageUrl} alt="" fill className="object-cover" />
       ) : (
         <Icon className={cn(iconClassName, visual.iconClassName)} aria-hidden="true" />
       )}

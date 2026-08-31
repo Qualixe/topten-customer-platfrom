@@ -29,10 +29,10 @@ export function NavLink({
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
           active
-            ? "bg-primary text-primary-foreground shadow-sm"
-            : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            ? "bg-primary text-primary-foreground shadow-[0_4px_14px_-4px_var(--primary)]"
+            : "text-muted-foreground hover:translate-x-0.5 hover:bg-primary/10 hover:text-primary"
         )}
       >
         <span

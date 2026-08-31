@@ -45,14 +45,16 @@ export function GiftOrdersChart({ data, total }: { data: DayCount[]; total: numb
         </CardAction>
       </CardHeader>
       <CardContent>
-        <p className="mb-4 text-2xl font-semibold">{total.toLocaleString("en-US")}</p>
+        <p className="mb-4 text-2xl font-semibold tracking-tight tabular-nums">
+          {total.toLocaleString("en-US")}
+        </p>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="giftOrdersFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis
@@ -66,8 +68,8 @@ export function GiftOrdersChart({ data, total }: { data: DayCount[]; total: numb
               <Area
                 type="monotone"
                 dataKey="count"
-                stroke="#ef4444"
-                strokeWidth={2}
+                stroke="var(--primary)"
+                strokeWidth={2.5}
                 fill="url(#giftOrdersFill)"
               />
             </AreaChart>

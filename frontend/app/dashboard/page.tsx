@@ -1,3 +1,4 @@
+import nextDynamic from "next/dynamic";
 import {
   Cake,
   CalendarDays,
@@ -12,30 +13,37 @@ import {
   Users,
 } from "lucide-react";
 
-import { CustomerMixDonut } from "@/components/dashboard/overview/customer-mix-donut";
+import { ChartCardSkeleton } from "@/components/dashboard/overview/chart-card-skeleton";
 import { CustomerOverview } from "@/components/dashboard/overview/customer-overview";
-import { GiftOrdersChart } from "@/components/dashboard/overview/gift-orders-chart";
 import { HealthCircles } from "@/components/dashboard/overview/health-circles";
 import { PageHeader } from "@/components/dashboard/overview/page-header";
 import { RecentActivity } from "@/components/dashboard/overview/recent-activity";
-import { SignupsChart } from "@/components/dashboard/overview/signups-chart";
 import { TopGifts } from "@/components/dashboard/overview/top-gifts";
 import { UpcomingBirthdays } from "@/components/dashboard/overview/upcoming-birthdays";
-import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
+import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
+import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getCustomerStats, listRecentCustomers, listUpcomingBirthdays } from "@/lib/api/customers";
 import { getDashboardOverview } from "@/lib/api/dashboard-overview";
+
+// recharts is a heavy dependency (~90KB+ gzipped) used only by these three
+// widgets — code-split so it doesn't block the rest of the (server-
+// rendered, data-ready-immediately) page from painting first.
+const SignupsChart = nextDynamic(
+  () => import("@/components/dashboard/overview/signups-chart").then((m) => m.SignupsChart),
+  { loading: () => <ChartCardSkeleton /> }
+);
+const GiftOrdersChart = nextDynamic(
+  () => import("@/components/dashboard/overview/gift-orders-chart").then((m) => m.GiftOrdersChart),
+  { loading: () => <ChartCardSkeleton /> }
+);
+const CustomerMixDonut = nextDynamic(
+  () => import("@/components/dashboard/overview/customer-mix-donut").then((m) => m.CustomerMixDonut),
+  { loading: () => <ChartCardSkeleton /> }
+);
 
 // Real, live data (customer/gift counts change constantly) — never
 // statically cached.
 export const dynamic = "force-dynamic";
-
-function SectionLabel({ children }: { children: string }) {
-  return (
-    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-      {children}
-    </p>
-  );
-}
 
 export default async function DashboardPage() {
   const [stats, recentCustomers, upcomingBirthdays, overview] = await Promise.all([
@@ -131,23 +139,13 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-6">
       <PageHeader />
 
-      <div className="flex flex-col gap-3">
-        <SectionLabel>Customers</SectionLabel>
-        <StatsGrid stats={customerStats} />
-      </div>
+      {/* Each group is its own Card with stats tiled inside it */}
+      <StatsSectionCard title="Customers" stats={customerStats} />
+      <StatsSectionCard title="Birthdays" stats={birthdayStats} />
+      <StatsSectionCard title="Today's Activity" stats={todayActivityStats} />
 
-      <div className="flex flex-col gap-3">
-        <SectionLabel>Birthdays</SectionLabel>
-        <StatsGrid stats={birthdayStats} columns={3} />
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <SectionLabel>Today&apos;s Activity</SectionLabel>
-        <StatsGrid stats={todayActivityStats} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="grid gap-4 lg:grid-cols-3 items-stretch">
+        <div className="lg:col-span-2 flex flex-col">
           <SignupsChart data={overview.signupsByDay} total={overview.totalSignups} />
         </div>
         <CustomerMixDonut
@@ -168,11 +166,13 @@ export default async function DashboardPage() {
         <GiftOrdersChart data={overview.giftOrdersByDay} total={overview.totalGiftOrders} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <UpcomingBirthdays birthdays={upcomingBirthdays} />
+      <UpcomingBirthdays birthdays={upcomingBirthdays} />
+
+      {/* hidden for now — uncomment to restore */}
+      {/* <div className="grid gap-4 lg:grid-cols-2">
         <RecentActivity recentCustomers={recentCustomers} />
       </div>
-      <CustomerOverview customers={recentCustomers} />
+      <CustomerOverview customers={recentCustomers} /> */}
     </div>
   );
 }

@@ -98,7 +98,6 @@ export function SiteLogoUpload() {
               alt="Site logo"
               width={64}
               height={64}
-              unoptimized
               className="size-full object-contain"
             />
           ) : (

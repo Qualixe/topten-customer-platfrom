@@ -39,7 +39,7 @@ function GiftThumb({ gift }: { gift: GiftItem }) {
       )}
     >
       {imageUrl ? (
-        <Image src={imageUrl} alt="" fill unoptimized className="object-cover" />
+        <Image src={imageUrl} alt="" fill className="object-cover" />
       ) : (
         <Icon className={cn("size-4.5", visual.iconClassName)} aria-hidden="true" />
       )}

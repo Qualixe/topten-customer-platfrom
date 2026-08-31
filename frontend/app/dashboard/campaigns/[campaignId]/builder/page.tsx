@@ -1,12 +1,21 @@
+import nextDynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
-import { Builder } from "@/components/campaign-builder/Builder";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUserSafe } from "@/lib/api/auth";
 import { getCampaignLandingPage } from "@/lib/api/campaign-landing-pages";
 import { getCampaign } from "@/lib/api/campaigns";
 import { getResolvedLogoUrlSafe } from "@/lib/api/site-settings";
 import { ApiError } from "@/lib/api/types";
+
+// The builder (blocks, drag-and-drop, live preview) is a big client-only
+// bundle used on this one route — code-split so every other page never
+// pays for it.
+const Builder = nextDynamic(
+  () => import("@/components/campaign-builder/Builder").then((m) => m.Builder),
+  { loading: () => <Skeleton className="h-[calc(100vh-8rem)] w-full" /> }
+);
 
 export const dynamic = "force-dynamic";
 

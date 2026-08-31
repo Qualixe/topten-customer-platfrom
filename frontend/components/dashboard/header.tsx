@@ -13,15 +13,15 @@ export async function Header({ user }: { user: AuthUser | null }) {
   const logoUrl = await getResolvedLogoUrlSafe();
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
       <MobileNav logoUrl={logoUrl} />
       <PageTitle />
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1.5">
         <ApiConnectionIndicator />
         <Button
           variant="ghost"
           size="icon"
-          className="relative"
+          className="relative text-muted-foreground transition-colors hover:text-foreground"
           aria-label="View notifications"
           nativeButton={false}
           render={<Link href="/dashboard/notifications" />}

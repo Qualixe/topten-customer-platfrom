@@ -34,7 +34,7 @@ function ChartTooltip({
 
 export function SignupsChart({ data, total }: { data: DayCount[]; total: number }) {
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>New Customers</CardTitle>
         <CardDescription>Last {data.length} days</CardDescription>
@@ -44,9 +44,11 @@ export function SignupsChart({ data, total }: { data: DayCount[]; total: number 
           </Link>
         </CardAction>
       </CardHeader>
-      <CardContent>
-        <p className="mb-4 text-2xl font-semibold">{total.toLocaleString("en-US")}</p>
-        <div className="h-48">
+      <CardContent className="flex flex-1 flex-col">
+        <p className="mb-4 text-2xl font-semibold tracking-tight tabular-nums">
+          {total.toLocaleString("en-US")}
+        </p>
+        <div className="min-h-0 flex-1">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} barCategoryGap="30%">
               <XAxis
@@ -57,7 +59,7 @@ export function SignupsChart({ data, total }: { data: DayCount[]; total: number 
                 interval="preserveStartEnd"
               />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--muted)" }} />
-              <Bar dataKey="count" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={22} />
+              <Bar dataKey="count" fill="var(--primary)" radius={[5, 5, 0, 0]} maxBarSize={20} />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -15,7 +15,7 @@ export function Brand({ logoUrl = null }: { logoUrl?: string | null }) {
             alt="TopTen"
             width={192}
             height={48}
-            unoptimized
+            priority
             className="h-12 w-auto object-contain"
           />
         </span>
