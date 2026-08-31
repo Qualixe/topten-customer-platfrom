@@ -1,5 +1,9 @@
 import { defineRailway, project, service, postgres, redis, github } from "railway/iac";
 
+// Your Railway public domains — update these if services are recreated
+const BACKEND_DOMAIN = "backend-production-xxxx.up.railway.app"; // ← replace with real backend domain
+const FRONTEND_DOMAIN = "frontend-production-8808.up.railway.app"; // ← already known from the error
+
 export default defineRailway(() => {
   const db = postgres("database");
   const cache = redis("cache");
@@ -11,8 +15,10 @@ export default defineRailway(() => {
       DATABASE_URL: db.env.DATABASE_URL,
       REDIS_URL: cache.env.REDIS_URL,
       APP_ENV: "production",
-      // Set SECRET_KEY in the Railway dashboard after first deploy — never hardcode it
       SECRET_KEY: "change-me-set-in-dashboard",
+      // Allow requests from the frontend domain
+      CORS_ORIGINS: `https://${FRONTEND_DOMAIN}`,
+      FRONTEND_BASE_URL: `https://${FRONTEND_DOMAIN}`,
     },
   });
 
@@ -30,10 +36,8 @@ export default defineRailway(() => {
     source: github("Qualixe/topten-customer-platfrom", { branch: "master", rootDirectory: "frontend" }),
     env: {
       NODE_ENV: "production",
-      // NEXT_PUBLIC_* is baked in at build time — set this manually in the Railway
-      // dashboard to https://<your-backend-domain>.up.railway.app/api/v1
-      // after the backend service gets its public domain assigned.
-      NEXT_PUBLIC_API_BASE_URL: "https://placeholder-update-after-deploy.up.railway.app/api/v1",
+      // Baked into the Next.js build — must be the real backend URL
+      NEXT_PUBLIC_API_BASE_URL: `https://${BACKEND_DOMAIN}/api/v1`,
     },
   });
 
