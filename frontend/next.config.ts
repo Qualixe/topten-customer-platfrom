@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Required for the minimal Docker production image (copies only what's needed)
+  output: "standalone",
   // One less response header, no functional purpose otherwise.
   poweredByHeader: false,
   // Lets the Cloudflare tunnel (a different origin than localhost) reach
@@ -17,6 +19,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "http", hostname: "localhost", port: "8000" },
       { protocol: "https", hostname: "*.qualixe.com" },
+      // Railway backend service public domain
+      { protocol: "https", hostname: "*.up.railway.app" },
     ],
   },
 };
