@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,6 @@ import { login } from "@/lib/api/auth";
 import { getErrorMessage } from "@/lib/api/types";
 
 export function LoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -24,8 +22,12 @@ export function LoginForm() {
     try {
       await login(email, password);
       const destination = new URLSearchParams(window.location.search).get("from") || "/dashboard";
-      router.push(destination);
-      router.refresh();
+      // Hard navigation ensures the browser fully commits the auth cookie
+      // before the server renders the destination page. router.push() +
+      // router.refresh() has a race on first login where the server-side
+      // cookie read runs before the cookie is visible, causing a redirect
+      // back to login on the first attempt.
+      window.location.href = destination;
     } catch (err) {
       setError(
         getErrorMessage(err, "Unable to reach the API server. Please try again.")
