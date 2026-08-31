@@ -17,8 +17,8 @@ export default defineRailway(() => {
       APP_ENV: "production",
       SECRET_KEY: "change-me-set-in-dashboard",
       // Allow requests from the frontend domain
-      CORS_ORIGINS: `https://${FRONTEND_DOMAIN}`,
-      FRONTEND_BASE_URL: `https://${FRONTEND_DOMAIN}`,
+      CORS_ORIGINS: `https://topten-sms.qualixe.com,https://${FRONTEND_DOMAIN}`,
+      FRONTEND_BASE_URL: "https://topten-sms.qualixe.com",
       // Bootstrap admin — change these in the Railway dashboard after first deploy
       INITIAL_ADMIN_EMAIL: "admin@topten.com.bd",
       INITIAL_ADMIN_PASSWORD: "changeme123",
