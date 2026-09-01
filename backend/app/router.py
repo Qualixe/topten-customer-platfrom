@@ -5,6 +5,7 @@ from app.controllers import (
     auth,
     couriers,
     customers,
+    database_reset,
     forms,
     gifts,
     health,
@@ -63,5 +64,11 @@ api_router.include_router(
     message_templates.router,
     prefix="/message-templates",
     tags=["message-templates"],
+    dependencies=_protected,
+)
+api_router.include_router(
+    database_reset.router,
+    prefix="/settings/database",
+    tags=["database-reset"],
     dependencies=_protected,
 )

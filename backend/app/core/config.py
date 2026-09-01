@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # until a real provider rate is available.
     SMS_RATE_PER_SEGMENT_BDT: Decimal = Decimal("0.45")
 
+    # Where a pre-reset safety pg_dump is written — see app.services.database_reset.
+    BACKUP_DIR: str = "var/backups"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
@@ -84,6 +87,12 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """A psycopg2 URL for Alembic, derived from the async DATABASE_URL."""
         return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+
+    @property
+    def pg_dump_url(self) -> str:
+        """A plain libpq URL for the `pg_dump` CLI, which doesn't understand
+        SQLAlchemy's `+asyncpg` driver suffix."""
+        return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
 
     @model_validator(mode="after")
     def _reject_insecure_production_config(self) -> "Settings":

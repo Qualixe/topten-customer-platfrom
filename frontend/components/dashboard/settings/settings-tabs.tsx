@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  AlertTriangle,
   Bell,
   Cake,
   Crown,
@@ -16,6 +17,7 @@ import {
 import { AccountSettingsForm } from "@/components/dashboard/settings/account-settings-form";
 import { BirthdaySettingsForm } from "@/components/dashboard/settings/birthday-settings-form";
 import { CustomerSettingsForm } from "@/components/dashboard/settings/customer-settings-form";
+import { DatabaseResetCard } from "@/components/dashboard/settings/database-reset-card";
 import { EmailCredentialsForm } from "@/components/dashboard/settings/email-credentials-form";
 import { GeneralSettingsForm } from "@/components/dashboard/settings/general-settings-form";
 import { NotificationSettingsForm } from "@/components/dashboard/settings/notification-settings-form";
@@ -23,6 +25,7 @@ import { PathaoCredentialsForm } from "@/components/dashboard/settings/pathao-cr
 import { SmsGatewayCredentialsForm } from "@/components/dashboard/settings/sms-gateway-credentials-form";
 import { UsersSettings } from "@/components/dashboard/settings/users-settings";
 import { VipSettingsForm } from "@/components/dashboard/settings/vip-settings-form";
+import { usePermissions } from "@/components/providers/permissions-provider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const SECTIONS = [
@@ -39,6 +42,13 @@ const SECTIONS = [
 
 export function SettingsTabs() {
   const [tab, setTab] = useState<string>("general");
+  const { hasPermission } = usePermissions();
+  // Hidden entirely rather than shown-but-403 like the rest of this tab
+  // list — everything else here relies on the backend to reject an
+  // unauthorized action after the fact, but a database wipe is severe
+  // enough that someone without the permission shouldn't even see the
+  // button exists.
+  const canResetDatabase = hasPermission("database.reset");
 
   return (
     <Tabs
@@ -54,6 +64,12 @@ export function SettingsTabs() {
             {section.label}
           </TabsTrigger>
         ))}
+        {canResetDatabase && (
+          <TabsTrigger value="danger-zone" className="text-destructive">
+            <AlertTriangle />
+            Danger Zone
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="general" keepMounted>
@@ -84,6 +100,11 @@ export function SettingsTabs() {
       <TabsContent value="account" keepMounted>
         <AccountSettingsForm />
       </TabsContent>
+      {canResetDatabase && (
+        <TabsContent value="danger-zone" keepMounted>
+          <DatabaseResetCard />
+        </TabsContent>
+      )}
     </Tabs>
   );
 }

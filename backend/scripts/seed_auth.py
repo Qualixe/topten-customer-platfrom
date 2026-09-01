@@ -32,10 +32,15 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     ("forms.manage", "Manage forms", "forms"),
     ("templates.view", "View message templates", "templates"),
     ("templates.manage", "Manage message templates", "templates"),
+    ("database.reset", "Wipe all business data (irreversible)", "danger-zone"),
 ]
 
 ALL_KEYS = [key for key, _, _ in PERMISSIONS]
-MANAGER_KEYS = [key for key in ALL_KEYS if key != "users.manage"]
+# Admin-only — even Manager (who otherwise gets every operational
+# permission) doesn't get to wipe the database. Deliberately excluded
+# alongside users.manage, not folded into settings.manage like the rest of
+# the settings tab.
+MANAGER_KEYS = [key for key in ALL_KEYS if key not in ("users.manage", "database.reset")]
 STAFF_KEYS = [
     "customers.view",
     "campaigns.view",
