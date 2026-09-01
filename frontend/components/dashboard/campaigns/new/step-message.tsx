@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { FormField } from "@/components/dashboard/form-field";
@@ -49,6 +50,11 @@ export function StepMessage({
   const analysis = analyzeSmsMessage(message);
   const [forms, setForms] = useState<FormRecord[]>([]);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  // Tracked separately from message/subject — those get edited freely
+  // afterward, but this just remembers which template was last imported so
+  // the picker can show its name instead of resetting to the placeholder.
+  const [importedTemplateId, setImportedTemplateId] = useState("");
+  const [syncedChannel, setSyncedChannel] = useState(channel);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,12 +84,27 @@ export function StepMessage({
     };
   }, [channel]);
 
+  // A template imported for one channel doesn't apply once the channel
+  // changes (the list above reloads to that channel's own templates).
+  // Adjusted during render rather than in an effect — see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  if (channel !== syncedChannel) {
+    setSyncedChannel(channel);
+    setImportedTemplateId("");
+  }
+
   function applyTemplate(templateId: string | null) {
     const template = templates.find((t) => t.id === templateId);
     if (!template) return;
     onMessageChange(template.body);
     if (channel === "EMAIL" && template.subject) onSubjectChange(template.subject);
+    setImportedTemplateId(templateId ?? "");
   }
+
+  const templateSelectPlaceholder =
+    templates.length === 0
+      ? `No ${channel === "EMAIL" ? "email" : "SMS"} templates saved yet`
+      : "Choose a template to pre-fill this message…";
 
   const usesFormLink = message.includes("{{form_link}}");
   const canContinue = message.trim().length > 0 && (channel === "SMS" || subject.trim().length > 0);
@@ -107,18 +128,17 @@ export function StepMessage({
                * no templates exist for this channel yet. */}
               <FormField htmlFor="campaign-start-from-template" label="Import from template">
                 <Select
-                  value=""
+                  value={importedTemplateId}
                   onValueChange={applyTemplate}
                   disabled={templates.length === 0}
                 >
                   <SelectTrigger id="campaign-start-from-template" aria-label="Import from template">
-                    <SelectValue
-                      placeholder={
-                        templates.length === 0
-                          ? `No ${channel === "EMAIL" ? "email" : "SMS"} templates saved yet`
-                          : "Choose a template to pre-fill this message…"
+                    <SelectValue placeholder={templateSelectPlaceholder}>
+                      {(value: string) =>
+                        templates.find((template) => template.id === value)?.name ??
+                        templateSelectPlaceholder
                       }
-                    />
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {templates.map((template) => (
@@ -131,12 +151,12 @@ export function StepMessage({
                 {templates.length === 0 && (
                   <p className="text-xs text-muted-foreground">
                     Save reusable messages in{" "}
-                    <a
+                    <Link
                       href="/dashboard/templates"
                       className="underline underline-offset-2 hover:text-foreground"
                     >
                       Templates
-                    </a>{" "}
+                    </Link>{" "}
                     to import them here.
                   </p>
                 )}
@@ -184,7 +204,7 @@ export function StepMessage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Landing Page</CardTitle>
+              <CardTitle>Form</CardTitle>
               <CardDescription>
                 Attach a saved form so {"{{form_link}}"} becomes a real, working link once this
                 campaign sends. Optional — skip this if the message doesn&apos;t need a link.
@@ -195,11 +215,17 @@ export function StepMessage({
                 value={formId || "none"}
                 onValueChange={(value) => onFormIdChange(value === "none" || !value ? "" : value)}
               >
-                <SelectTrigger aria-label="Choose a form for the landing page">
-                  <SelectValue placeholder="No landing page" />
+                <SelectTrigger aria-label="Choose a form">
+                  <SelectValue placeholder="No form">
+                    {(value: string) =>
+                      value === "none" || !value
+                        ? "No form"
+                        : (forms.find((form) => form.id === value)?.name ?? "No form")
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No landing page</SelectItem>
+                  <SelectItem value="none">No form</SelectItem>
                   {forms.map((form) => (
                     <SelectItem key={form.id} value={form.id}>
                       {form.name}
