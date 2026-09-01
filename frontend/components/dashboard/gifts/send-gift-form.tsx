@@ -33,7 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@/lib/api/customers";
-import { COURIER_PROVIDERS, type CourierProvider } from "@/lib/api/deliveries";
+import type { CourierProvider } from "@/lib/api/deliveries";
 import {
   createGiftOrdersBulk,
   formatCurrency,
@@ -155,7 +155,7 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
             ...(recipient.shipViaCourier
               ? {
                   courier: recipient.courier,
-                  city: recipient.city,
+                  city: isLiveDispatch ? (recipient.pathaoLocation.cityName ?? "") : recipient.city,
                   ...(isLiveDispatch
                     ? {
                         pathaoCityId: recipient.pathaoLocation.cityId ?? undefined,
@@ -283,62 +283,51 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
 
                     {recipient.shipViaCourier && (
                       <div className="flex flex-col gap-2">
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          <Select
-                            value={recipient.courier}
-                            onValueChange={(value) =>
-                              updateDetails(customer.id, {
-                                courier: (value as CourierProvider) ?? "Pathao",
-                              })
-                            }
+                        <div
+                          className={cn(
+                            "grid grid-cols-1 gap-2",
+                            recipient.dispatchMode !== "pathao" && "sm:grid-cols-2"
+                          )}
+                        >
+                          <div
+                            className="flex h-8 items-center rounded-md border bg-muted/40 px-2.5 text-sm"
+                            aria-label={`Courier for ${customer.name}`}
                           >
-                            <SelectTrigger
+                            {recipient.courier}
+                          </div>
+                          {recipient.dispatchMode !== "pathao" && (
+                            <Input
+                              value={recipient.city}
+                              onChange={(event) =>
+                                updateDetails(customer.id, { city: event.target.value })
+                              }
+                              placeholder="City"
                               className="h-8 text-sm"
-                              aria-label={`Courier for ${customer.name}`}
-                            >
-                              <SelectValue>{(value: CourierProvider) => value}</SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {COURIER_PROVIDERS.map((option) => (
-                                <SelectItem key={option} value={option}>
-                                  {option}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            value={recipient.city}
-                            onChange={(event) =>
-                              updateDetails(customer.id, { city: event.target.value })
-                            }
-                            placeholder="City"
-                            className="h-8 text-sm"
-                            aria-label={`City for ${customer.name}`}
-                            required={recipient.shipViaCourier}
-                          />
+                              aria-label={`City for ${customer.name}`}
+                              required={recipient.shipViaCourier}
+                            />
+                          )}
                         </div>
 
-                        {recipient.courier === "Pathao" && (
-                          <Tabs
-                            value={recipient.dispatchMode}
-                            onValueChange={(value) =>
-                              updateDetails(customer.id, {
-                                dispatchMode: value as "manual" | "pathao",
-                              })
-                            }
-                          >
-                            <TabsList className="h-7">
-                              <TabsTrigger value="pathao" className="text-xs">
-                                Dispatch via Pathao
-                              </TabsTrigger>
-                              <TabsTrigger value="manual" className="text-xs">
-                                Enter tracking number
-                              </TabsTrigger>
-                            </TabsList>
-                          </Tabs>
-                        )}
+                        <Tabs
+                          value={recipient.dispatchMode}
+                          onValueChange={(value) =>
+                            updateDetails(customer.id, {
+                              dispatchMode: value as "manual" | "pathao",
+                            })
+                          }
+                        >
+                          <TabsList className="h-7">
+                            <TabsTrigger value="pathao" className="text-xs">
+                              Dispatch via Pathao
+                            </TabsTrigger>
+                            <TabsTrigger value="manual" className="text-xs">
+                              Enter tracking number
+                            </TabsTrigger>
+                          </TabsList>
+                        </Tabs>
 
-                        {recipient.courier === "Pathao" && recipient.dispatchMode === "pathao" ? (
+                        {recipient.dispatchMode === "pathao" ? (
                           <div className="flex flex-col gap-2">
                             <PathaoLocationPicker
                               value={recipient.pathaoLocation}

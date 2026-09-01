@@ -177,7 +177,6 @@ export function CustomerMultiPickerField({
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{customer.name}</span>
-                      {customer.tier === "VIP" && <CustomerTierBadge tier={customer.tier} />}
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {customer.phone}
                       </span>
@@ -186,6 +185,11 @@ export function CustomerMultiPickerField({
                       {customer.address || "No address on file"}
                     </span>
                   </span>
+                  {customer.tier === "VIP" && (
+                    <span className="shrink-0">
+                      <CustomerTierBadge tier={customer.tier} />
+                    </span>
+                  )}
                   <span
                     className={cn(
                       "flex size-5 shrink-0 items-center justify-center rounded-full border",

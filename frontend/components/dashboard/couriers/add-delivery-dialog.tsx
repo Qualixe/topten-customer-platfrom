@@ -23,23 +23,16 @@ import {
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  COURIER_PROVIDERS,
   createDelivery,
   listEligibleGiftOrdersForDelivery,
   type CourierProvider,
   type EligibleGiftOrder,
 } from "@/lib/api/deliveries";
 import { getErrorMessage } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -81,7 +74,8 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
   const [selectedOrder, setSelectedOrder] = useState<EligibleGiftOrder | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [courier, setCourier] = useState<CourierProvider>("Pathao");
+  // Pathao is the only courier this app dispatches through today.
+  const courier: CourierProvider = "Pathao";
   const [dispatchMode, setDispatchMode] = useState<"manual" | "pathao">("pathao");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [address, setAddress] = useState("");
@@ -95,7 +89,11 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isLiveDispatch = courier === "Pathao" && dispatchMode === "pathao";
+  const isLiveDispatch = dispatchMode === "pathao";
+  // Pathao's own City select already captures this for live dispatch —
+  // the manual City field only applies when there's no Pathao location
+  // picker to source it from.
+  const effectiveCity = isLiveDispatch ? (pathaoLocation.cityName ?? "") : city;
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -136,7 +134,7 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
         giftOrderId: selectedOrder.id,
         courier,
         address,
-        city,
+        city: effectiveCity,
         estimatedDelivery: estimatedDelivery || undefined,
         ...(isLiveDispatch
           ? {
@@ -214,31 +212,20 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
       </FormField>
 
       <FormField htmlFor="delivery-courier" label="Courier">
-        <Select
-          value={courier}
-          onValueChange={(value) => setCourier((value as CourierProvider) ?? "Pathao")}
+        <div
+          id="delivery-courier"
+          className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm"
         >
-          <SelectTrigger id="delivery-courier">
-            <SelectValue>{(value: CourierProvider) => value}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {COURIER_PROVIDERS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {courier}
+        </div>
       </FormField>
 
-      {courier === "Pathao" && (
-        <Tabs value={dispatchMode} onValueChange={(value) => setDispatchMode(value as "manual" | "pathao")}>
-          <TabsList>
-            <TabsTrigger value="pathao">Dispatch via Pathao</TabsTrigger>
-            <TabsTrigger value="manual">Enter tracking number</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
+      <Tabs value={dispatchMode} onValueChange={(value) => setDispatchMode(value as "manual" | "pathao")}>
+        <TabsList>
+          <TabsTrigger value="pathao">Dispatch via Pathao</TabsTrigger>
+          <TabsTrigger value="manual">Enter tracking number</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {isLiveDispatch ? (
         <>
@@ -277,7 +264,7 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
         </FormField>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className={cn("grid grid-cols-1 gap-4", !isLiveDispatch && "sm:grid-cols-2")}>
         <FormField htmlFor="delivery-address" label="Address">
           <Textarea
             id="delivery-address"
@@ -294,15 +281,17 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
           )}
         </FormField>
 
-        <FormField htmlFor="delivery-city" label="City">
-          <Input
-            id="delivery-city"
-            value={city}
-            onChange={(event) => setCity(event.target.value)}
-            placeholder="e.g. Dhaka"
-            required
-          />
-        </FormField>
+        {!isLiveDispatch && (
+          <FormField htmlFor="delivery-city" label="City">
+            <Input
+              id="delivery-city"
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              placeholder="e.g. Dhaka"
+              required
+            />
+          </FormField>
+        )}
       </div>
 
       <FormField htmlFor="delivery-estimated" label="Estimated Delivery (optional)">
@@ -322,7 +311,7 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
             submitting ||
             !selectedOrder ||
             !address ||
-            !city ||
+            !effectiveCity ||
             (isLiveDispatch
               ? !pathaoLocation.cityId ||
                 !pathaoLocation.zoneId ||

@@ -20,12 +20,14 @@ import { getErrorMessage } from "@/lib/api/types";
 
 export interface PathaoLocationValue {
   cityId: number | null;
+  cityName: string | null;
   zoneId: number | null;
   areaId: number | null;
 }
 
 export const EMPTY_PATHAO_LOCATION: PathaoLocationValue = {
   cityId: null,
+  cityName: null,
   zoneId: null,
   areaId: null,
 };
@@ -131,7 +133,12 @@ export function PathaoLocationPicker({
           <Select
             value={value.cityId ? String(value.cityId) : ""}
             onValueChange={(v) =>
-              onChange({ cityId: Number(v), zoneId: null, areaId: null })
+              onChange({
+                cityId: Number(v),
+                cityName: cities.find((city) => city.id === Number(v))?.name ?? null,
+                zoneId: null,
+                areaId: null,
+              })
             }
             disabled={disabled || loadingCities}
           >
