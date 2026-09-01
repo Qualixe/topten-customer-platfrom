@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import {
   AlertTriangle,
@@ -7,6 +8,8 @@ import {
   Cake,
   Crown,
   KeyRound,
+  Mail,
+  MessageSquare,
   SlidersHorizontal,
   Truck,
   User,
@@ -27,6 +30,12 @@ import { UsersSettings } from "@/components/dashboard/settings/users-settings";
 import { VipSettingsForm } from "@/components/dashboard/settings/vip-settings-form";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+
+const CREDENTIAL_TABS = [
+  { value: "sms", label: "SMS Gateway", icon: MessageSquare },
+  { value: "email", label: "Email", icon: Mail },
+] as const;
 
 const SECTIONS = [
   { value: "general", label: "General", icon: SlidersHorizontal },
@@ -40,8 +49,12 @@ const SECTIONS = [
   { value: "account", label: "Account", icon: User },
 ] as const;
 
+const TAB_VALUES = new Set<string>([...SECTIONS.map((section) => section.value), "danger-zone"]);
+
 export function SettingsTabs() {
-  const [tab, setTab] = useState<string>("general");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
   // Hidden entirely rather than shown-but-403 like the rest of this tab
   // list — everything else here relies on the backend to reject an
@@ -49,6 +62,22 @@ export function SettingsTabs() {
   // enough that someone without the permission shouldn't even see the
   // button exists.
   const canResetDatabase = hasPermission("database.reset");
+
+  const requestedTab = searchParams.get("tab");
+  const tab =
+    requestedTab && TAB_VALUES.has(requestedTab) && (requestedTab !== "danger-zone" || canResetDatabase)
+      ? requestedTab
+      : "general";
+
+  const [credentialTab, setCredentialTab] = useState<"sms" | "email">("sms");
+
+  function setTab(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "general") params.delete("tab");
+    else params.set("tab", value);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }
 
   return (
     <Tabs
@@ -91,8 +120,26 @@ export function SettingsTabs() {
         <PathaoCredentialsForm />
       </TabsContent>
       <TabsContent value="integrations" keepMounted className="flex flex-col gap-6">
-        <SmsGatewayCredentialsForm />
-        <EmailCredentialsForm />
+        <div className="inline-flex w-fit items-center gap-1 rounded-lg bg-muted p-[3px]">
+          {CREDENTIAL_TABS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => setCredentialTab(item.value)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium whitespace-nowrap transition-all",
+                "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+                credentialTab === item.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-foreground/60 hover:text-foreground"
+              )}
+            >
+              <item.icon />
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {credentialTab === "sms" ? <SmsGatewayCredentialsForm /> : <EmailCredentialsForm />}
       </TabsContent>
       <TabsContent value="users" keepMounted>
         <UsersSettings />
