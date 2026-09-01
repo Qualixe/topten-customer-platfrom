@@ -1,9 +1,18 @@
 import nextDynamic from "next/dynamic";
 import {
+  Cake,
+  CalendarDays,
+  Crown,
   FileCheck2,
+  Gift,
   Inbox,
   PackageCheck,
+  PartyPopper,
   Send,
+  ShieldCheck,
+  UserCheck,
+  UserPlus,
+  Users,
 } from "lucide-react";
 
 import { ChartCardSkeleton } from "@/components/dashboard/overview/chart-card-skeleton";
@@ -13,6 +22,7 @@ import { UpcomingBirthdays } from "@/components/dashboard/overview/upcoming-birt
 import { ReportsPageHeader } from "@/components/dashboard/reports/page-header";
 import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
 import type { StatDefinition } from "@/components/dashboard/stats-grid";
+import { getBirthdaysOverview } from "@/lib/api/birthdays";
 import { listUpcomingBirthdays } from "@/lib/api/customers";
 import { getDashboardOverview } from "@/lib/api/dashboard-overview";
 
@@ -24,10 +34,13 @@ const GiftOrdersChart = nextDynamic(
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-  const [upcomingBirthdays, overview] = await Promise.all([
+  const [upcomingBirthdays, overview, birthdaysOverview] = await Promise.all([
     listUpcomingBirthdays(30),
     getDashboardOverview(),
+    getBirthdaysOverview(),
   ]);
+  const birthdayStats = birthdaysOverview.stats;
+  const currentMonthName = new Date().toLocaleDateString("en-US", { month: "long" });
 
   const todayActivityStats: StatDefinition[] = [
     {
@@ -60,11 +73,85 @@ export default async function ReportsPage() {
     },
   ];
 
+  const customerOverviewStats: StatDefinition[] = [
+    {
+      key: "total-customers",
+      label: "Total Customers",
+      value: overview.totalCustomers.toLocaleString(),
+      icon: Users,
+    },
+    {
+      key: "vip-customers",
+      label: "VIP Customers",
+      value: overview.vipCustomers.toLocaleString(),
+      icon: Crown,
+    },
+    {
+      key: "verified-customers",
+      label: "Verified Customers",
+      value: overview.verifiedCustomers.toLocaleString(),
+      icon: ShieldCheck,
+    },
+    {
+      key: "profile-complete",
+      label: "Profile Complete",
+      value: overview.profileCompleteCustomers.toLocaleString(),
+      icon: UserCheck,
+    },
+    {
+      key: "new-signups",
+      label: "New Signups",
+      caption: "Last 14 days",
+      value: overview.totalSignups.toLocaleString(),
+      icon: UserPlus,
+    },
+    {
+      key: "total-gift-orders",
+      label: "Gift Orders",
+      caption: "Last 14 days",
+      value: overview.totalGiftOrders.toLocaleString(),
+      icon: Gift,
+    },
+  ];
+
+  const birthdayOverviewStats: StatDefinition[] = [
+    {
+      key: "birthdays-today",
+      label: "Today's Birthdays",
+      caption: "Celebrating today",
+      value: birthdayStats.todayCount.toLocaleString(),
+      icon: PartyPopper,
+    },
+    {
+      key: "birthdays-this-month",
+      label: "This Month",
+      caption: `Birthdays in ${currentMonthName}`,
+      value: birthdayStats.thisMonthCount.toLocaleString(),
+      icon: Cake,
+    },
+    {
+      key: "birthdays-this-week",
+      label: "This Week",
+      caption: "Excluding today",
+      value: birthdayStats.upcomingCount.toLocaleString(),
+      icon: CalendarDays,
+    },
+    {
+      key: "birthdays-vip",
+      label: "VIP Birthdays",
+      caption: "VIP customers this month",
+      value: birthdayStats.vipThisMonthCount.toLocaleString(),
+      icon: Crown,
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <ReportsPageHeader />
 
       <StatsSectionCard title="Today's Activity" stats={todayActivityStats} />
+      <StatsSectionCard title="Customer Overview" stats={customerOverviewStats} />
+      <StatsSectionCard title="Birthday Overview" stats={birthdayOverviewStats} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <HealthCircles
@@ -77,6 +164,7 @@ export default async function ReportsPage() {
         <GiftOrdersChart data={overview.giftOrdersByDay} total={overview.totalGiftOrders} />
       </div>
 
+     
       <UpcomingBirthdays birthdays={upcomingBirthdays} />
     </div>
   );
