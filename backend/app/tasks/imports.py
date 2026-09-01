@@ -13,6 +13,7 @@ row that was already applied is a no-op, never a double-count.
 
 import asyncio
 import csv
+import io
 from datetime import UTC, datetime
 
 from sqlalchemy import delete
@@ -27,12 +28,11 @@ from app.services import imports as service
 from app.services import imports_validation as validation
 
 
-def _count_data_rows(file_path: str) -> int:
-    """Cheap streaming line count — doesn't hold the file in memory."""
-    with open(file_path, newline="", encoding="utf-8-sig") as handle:
-        reader = csv.reader(handle)
-        next(reader, None)  # header
-        return sum(1 for _ in reader)
+def _count_data_rows(content: str) -> int:
+    """Cheap streaming line count over the already-in-memory CSV content."""
+    reader = csv.reader(io.StringIO(content))
+    next(reader, None)  # header
+    return sum(1 for _ in reader)
 
 
 async def _process_one_chunk(
@@ -70,11 +70,22 @@ async def _process_one_chunk(
 
 
 async def _process_import_batch_async(
-    import_batch_id: int, session_factory: async_sessionmaker[AsyncSession] = SessionLocal
+    import_batch_id: int,
+    file_content: str | None = None,
+    session_factory: async_sessionmaker[AsyncSession] = SessionLocal,
 ) -> None:
     """`session_factory` defaults to the production session maker; tests pass
     a test-database session maker instead, exercising the exact same
-    chunk-by-chunk pipeline the Celery task runs in production."""
+    chunk-by-chunk pipeline the Celery task runs in production.
+
+    `file_content` is the CSV content passed straight through from the
+    upload request (see app.controllers.imports) — the worker runs in a
+    separate container/filesystem from the API on some deployments (e.g.
+    Railway, where services don't share a disk), so re-reading
+    `batch.file_path` here isn't reliable. Falls back to reading from disk
+    when not given, for deployments where backend and celery-worker do
+    share a volume (see docker-compose.prod.yml) and for direct callers
+    that only have a batch id."""
     async with session_factory() as session:
         batch = await session.get(ImportBatch, import_batch_id)
         if batch is None:
@@ -82,6 +93,10 @@ async def _process_import_batch_async(
         if batch.status == ImportBatchStatus.COMPLETED.value:
             # Already finished successfully; a stray retry is a no-op.
             return
+
+        if file_content is None:
+            with open(batch.file_path, encoding="utf-8-sig") as handle:
+                file_content = handle.read()
 
         batch.status = ImportBatchStatus.PROCESSING.value
         batch.processed_rows = 0
@@ -94,20 +109,19 @@ async def _process_import_batch_async(
         await session.execute(
             delete(ImportRowError).where(ImportRowError.import_batch_id == batch.id)
         )
-        batch.total_rows = _count_data_rows(batch.file_path)
+        batch.total_rows = _count_data_rows(file_content)
         await session.commit()
 
         try:
             chunk: list[dict[str, str]] = []
-            with open(batch.file_path, newline="", encoding="utf-8-sig") as handle:
-                reader = csv.DictReader(handle)
-                for row_number, raw_row in enumerate(reader, start=1):
-                    chunk.append({"__row_number__": row_number, **raw_row})
-                    if len(chunk) >= settings.IMPORT_CHUNK_SIZE:
-                        await _process_one_chunk(session, batch, chunk)
-                        chunk = []
-                if chunk:
+            reader = csv.DictReader(io.StringIO(file_content))
+            for row_number, raw_row in enumerate(reader, start=1):
+                chunk.append({"__row_number__": row_number, **raw_row})
+                if len(chunk) >= settings.IMPORT_CHUNK_SIZE:
                     await _process_one_chunk(session, batch, chunk)
+                    chunk = []
+            if chunk:
+                await _process_one_chunk(session, batch, chunk)
 
             batch.status = (
                 ImportBatchStatus.COMPLETED_WITH_ERRORS.value
@@ -124,7 +138,7 @@ async def _process_import_batch_async(
             raise
 
 
-async def _run_and_dispose(import_batch_id: int) -> None:
+async def _run_and_dispose(import_batch_id: int, file_content: str | None) -> None:
     # Each Celery task invocation runs its own `asyncio.run()`, which spins
     # up a brand new event loop — but the async engine's connection pool
     # (module-level, created once at import time) would otherwise stay
@@ -133,7 +147,7 @@ async def _run_and_dispose(import_batch_id: int) -> None:
     # of every task forces the next task to lazily open fresh connections
     # bound to *its* loop.
     try:
-        await _process_import_batch_async(import_batch_id)
+        await _process_import_batch_async(import_batch_id, file_content)
     finally:
         await engine.dispose()
 
@@ -145,5 +159,5 @@ async def _run_and_dispose(import_batch_id: int) -> None:
     max_retries=3,
     default_retry_delay=30,
 )
-def process_import_batch(self, import_batch_id: int) -> None:
-    asyncio.run(_run_and_dispose(import_batch_id))
+def process_import_batch(self, import_batch_id: int, file_content: str | None = None) -> None:
+    asyncio.run(_run_and_dispose(import_batch_id, file_content))

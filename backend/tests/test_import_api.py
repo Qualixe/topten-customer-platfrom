@@ -22,7 +22,7 @@ from app.models.import_batch import ImportBatch, ImportBatchStatus
 def _patch_celery_delay(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.controllers.imports.process_import_batch.delay",
-        lambda import_batch_id: None,
+        lambda import_batch_id, file_content=None: None,
     )
 
 

@@ -63,6 +63,7 @@ async def upload_customer_import(
     destination = upload_dir / f"{uuid.uuid4()}{Path(file.filename).suffix}"
 
     total_bytes = 0
+    raw_chunks: list[bytes] = []
     try:
         with destination.open("wb") as out_file:
             while chunk := await file.read(UPLOAD_READ_CHUNK_SIZE):
@@ -70,9 +71,18 @@ async def upload_customer_import(
                 if total_bytes > MAX_IMPORT_SIZE_BYTES:
                     raise ValidationAppError("Import file must be smaller than 50 MB")
                 out_file.write(chunk)
+                raw_chunks.append(chunk)
     except ValidationAppError:
         destination.unlink(missing_ok=True)
         raise
+
+    # Passed straight to the Celery task rather than relied on being re-read
+    # from `destination` — the worker may run in a separate
+    # container/filesystem from this API process (e.g. on Railway, where
+    # services don't share a disk), so a path written here can be invisible
+    # to it. Still written to disk above too, for deployments where backend
+    # and celery-worker do share a volume (see docker-compose.prod.yml).
+    file_content = b"".join(raw_chunks).decode("utf-8-sig", errors="replace")
 
     batch = ImportBatch(
         file_name=file.filename,
@@ -86,7 +96,7 @@ async def upload_customer_import(
     await db.commit()
     await db.refresh(batch)
 
-    process_import_batch.delay(batch.id)
+    process_import_batch.delay(batch.id, file_content)
 
     return ImportBatchCreateResponse(
         data=ImportBatchCreateData(
