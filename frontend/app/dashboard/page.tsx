@@ -1,6 +1,7 @@
 import nextDynamic from "next/dynamic";
 import {
   Cake,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
   Crown,
@@ -31,12 +32,15 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const [stats, upcomingBirthdays, overview] = await Promise.all([
     getCustomerStats(),
-    listUpcomingBirthdays(30),
+    // 90 days covers "Today"/"This Week"/"Next 3 Months" below from one
+    // fetch — no need for separate calls per stat.
+    listUpcomingBirthdays(90),
     getDashboardOverview(),
   ]);
 
   const todayBirthdays = upcomingBirthdays.filter((b) => b.daysAway === 0).length;
   const thisWeekBirthdays = upcomingBirthdays.filter((b) => b.daysAway <= 6).length;
+  const next3MonthsBirthdays = upcomingBirthdays.filter((b) => b.daysAway <= 90).length;
 
   const customerStats: StatDefinition[] = [
     {
@@ -48,13 +52,16 @@ export default async function DashboardPage() {
     {
       key: "vip-customers",
       label: "VIP Customers",
-      value: overview.customerMix.vip.toLocaleString(),
+      // Real is_vip flag — not customer_type, which nothing in the app
+      // actually sets (every row is stuck at GENERAL), so counting by it
+      // would show 0 VIPs even when real ones exist.
+      value: stats.vipCustomers.toLocaleString(),
       icon: Crown,
     },
     {
       key: "regular-customers",
       label: "Regular Customers",
-      value: overview.customerMix.general.toLocaleString(),
+      value: (stats.totalCustomers - stats.vipCustomers).toLocaleString(),
       icon: UserRound,
     },
     {
@@ -83,6 +90,12 @@ export default async function DashboardPage() {
       label: "This Month",
       value: stats.birthdaysThisMonth.toLocaleString(),
       icon: CalendarRange,
+    },
+    {
+      key: "next-3-months-birthday",
+      label: "Next 3 Months",
+      value: next3MonthsBirthdays.toLocaleString(),
+      icon: CalendarClock,
     },
   ];
 

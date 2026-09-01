@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 import { getResolvedBrandColorSafe } from "@/lib/api/site-settings";
@@ -27,14 +28,29 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
+      // The theme-init script below adds the "dark" class before hydration
+      // based on localStorage/OS preference, which the server can't know —
+      // an intentional, expected className mismatch on this one element,
+      // not a real bug. Suppressing it here (not app-wide) is the standard
+      // fix for this exact no-flash-of-wrong-theme pattern.
+      suppressHydrationWarning
     >
       <head>
         {/* Applies the saved theme before first paint — without this, the
          * page would flash light and then swap to dark once React
          * hydrates. Reads a plain localStorage flag (no next-themes here,
          * this is the only place the app needs it) and falls back to the
-         * OS preference if the user hasn't chosen one yet. */}
-        <script
+         * OS preference if the user hasn't chosen one yet.
+         *
+         * A raw <script> tag here is never executed on the client (React
+         * treats it as inert markup, logging "Encountered a script tag
+         * while rendering..." instead) — next/script's beforeInteractive
+         * strategy is what actually gets this injected into the initial
+         * HTML and run before hydration; see node_modules/next/dist/docs/
+         * 01-app/03-api-reference/02-components/script.md. */}
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html:
               "(function(){try{var t=localStorage.getItem('theme');" +

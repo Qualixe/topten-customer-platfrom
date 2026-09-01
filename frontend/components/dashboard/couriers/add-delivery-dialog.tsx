@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -305,11 +306,10 @@ function AddDeliveryForm({ onClose }: { onClose: () => void }) {
       </div>
 
       <FormField htmlFor="delivery-estimated" label="Estimated Delivery (optional)">
-        <Input
+        <DatePicker
           id="delivery-estimated"
-          type="date"
           value={estimatedDelivery}
-          onChange={(event) => setEstimatedDelivery(event.target.value)}
+          onChange={setEstimatedDelivery}
         />
       </FormField>
 

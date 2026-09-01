@@ -4,7 +4,6 @@ import {
   Upload,
   Megaphone,
   Cake,
-  Crown,
   Gift,
   FileText,
   ListFilter,
@@ -51,6 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { title: "POS Customers", href: "/dashboard/customers/pos" },
       { title: "Verified Customers", href: "/dashboard/customers/verified" },
+      { title: "VIP Customers", href: "/dashboard/vip-customers" },
     ],
   },
   {
@@ -60,16 +60,8 @@ export const NAV_ITEMS: NavItem[] = [
     section: "Audience",
     permission: "customers.view",
   },
-  {
-    title: "VIP Customers",
-    href: "/dashboard/vip-customers",
-    icon: Crown,
-    section: "Audience",
-    permission: "customers.view",
-  },
   { title: "Birthdays", href: "/dashboard/birthdays", icon: Cake, section: "Audience", permission: "customers.view" },
   { title: "Forms", href: "/dashboard/forms", icon: FileText, section: "Audience", permission: "forms.view" },
-  { title: "Imports", href: "/dashboard/imports", icon: Upload, section: "Audience", permission: "imports.manage" },
 
   { title: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone, section: "Messaging", permission: "campaigns.view" },
   { title: "Templates", href: "/dashboard/templates", icon: MessageSquareText, section: "Messaging", permission: "templates.view" },
@@ -85,8 +77,8 @@ export const NAV_ITEMS: NavItem[] = [
       { title: "Add Gift", href: "/dashboard/gifts/new", permission: "gifts.manage" },
     ],
   },
-  { title: "Couriers", href: "/dashboard/couriers", icon: Truck, section: "Messaging" },
-  { title: "Notifications", href: "/dashboard/notifications", icon: Bell, section: "Messaging" },
-
+  { title: "Imports", href: "/dashboard/imports", icon: Upload, section: "Workspace", permission: "imports.manage" },
+  { title: "Couriers", href: "/dashboard/couriers", icon: Truck, section: "Workspace" },
+  { title: "Notifications", href: "/dashboard/notifications", icon: Bell, section: "Workspace" },
   { title: "Settings", href: "/dashboard/settings", icon: Settings, section: "Workspace" },
 ];

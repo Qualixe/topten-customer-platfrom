@@ -2,6 +2,7 @@ import nextDynamic from "next/dynamic";
 import {
   Cake,
   CalendarDays,
+  CalendarRange,
   Crown,
   FileCheck2,
   Gift,
@@ -41,6 +42,11 @@ export default async function ReportsPage() {
   ]);
   const birthdayStats = birthdaysOverview.stats;
   const currentMonthName = new Date().toLocaleDateString("en-US", { month: "long" });
+  // birthdaysOverview.all already covers a full year out (within_days=365),
+  // sorted by proximity — no extra fetch needed for a coarser 3-month cut.
+  const next3MonthsBirthdaysCount = birthdaysOverview.all.filter(
+    (birthday) => birthday.daysAway <= 90
+  ).length;
 
   const todayActivityStats: StatDefinition[] = [
     {
@@ -143,6 +149,13 @@ export default async function ReportsPage() {
       value: birthdayStats.vipThisMonthCount.toLocaleString(),
       icon: Crown,
     },
+    {
+      key: "birthdays-next-3-months",
+      label: "Next 3 Months",
+      caption: "Upcoming birthdays",
+      value: next3MonthsBirthdaysCount.toLocaleString(),
+      icon: CalendarRange,
+    },
   ];
 
   return (
@@ -164,7 +177,6 @@ export default async function ReportsPage() {
         <GiftOrdersChart data={overview.giftOrdersByDay} total={overview.totalGiftOrders} />
       </div>
 
-     
       <UpcomingBirthdays birthdays={upcomingBirthdays} />
     </div>
   );

@@ -1,4 +1,4 @@
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import type { FormField } from "@/lib/form-builder/types";
 
@@ -19,11 +19,10 @@ export function DateOfBirthField({
         {field.label}
         {field.required && <span className="text-destructive"> *</span>}
       </Label>
-      <Input
-        type="date"
+      <DatePicker
+        value={onChange ? value : undefined}
+        onChange={onChange ?? (() => {})}
         disabled={!preview && !onChange}
-        value={onChange ? (value ?? "") : undefined}
-        onChange={onChange ? (event) => onChange(event.target.value) : undefined}
       />
     </div>
   );

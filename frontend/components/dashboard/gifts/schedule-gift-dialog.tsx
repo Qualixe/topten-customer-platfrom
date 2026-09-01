@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 
 import { FormField } from "@/components/dashboard/form-field";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -13,11 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { updateGiftOrderStatus, type GiftOrder } from "@/lib/api/gifts";
 import { getErrorMessage } from "@/lib/api/types";
 
 const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY_START_OF_DAY = (() => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+})();
 
 export function ScheduleGiftDialog({
   order,
@@ -71,12 +76,11 @@ function ScheduleGiftForm({ order, onClose }: { order: GiftOrder; onClose: () =>
       </DialogHeader>
 
       <FormField htmlFor="schedule-gift-date" label="Scheduled date">
-        <Input
+        <DatePicker
           id="schedule-gift-date"
-          type="date"
-          min={TODAY}
           value={scheduledFor}
-          onChange={(event) => setScheduledFor(event.target.value)}
+          onChange={setScheduledFor}
+          minDate={TODAY_START_OF_DAY}
           required
         />
       </FormField>

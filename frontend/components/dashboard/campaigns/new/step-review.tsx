@@ -20,7 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { analyzeSmsMessage, estimateSmsCost } from "@/lib/sms";
@@ -308,11 +308,10 @@ export function StepReview({
               {sendMode === "schedule" && (
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="scheduled-at">Scheduled date &amp; time</Label>
-                  <Input
+                  <DateTimePicker
                     id="scheduled-at"
-                    type="datetime-local"
                     value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
+                    onChange={setScheduledAt}
                     required
                   />
                 </div>

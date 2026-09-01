@@ -22,7 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -408,11 +408,10 @@ export function StepAudience({
                 {isSelected && option.ruleType === "NEW_SINCE_DATE" && (
                   <div className="flex flex-col gap-1.5 pl-12">
                     <Label htmlFor="since-date">Since date</Label>
-                    <Input
+                    <DatePicker
                       id="since-date"
-                      type="date"
                       value={sinceDate}
-                      onChange={(e) => setSinceDate(e.target.value)}
+                      onChange={setSinceDate}
                       className="max-w-xs"
                     />
                   </div>
@@ -455,11 +454,10 @@ export function StepAudience({
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="before-date">Before date</Label>
-                      <Input
+                      <DatePicker
                         id="before-date"
-                        type="date"
                         value={beforeDate}
-                        onChange={(e) => setBeforeDate(e.target.value)}
+                        onChange={setBeforeDate}
                       />
                     </div>
                   </div>

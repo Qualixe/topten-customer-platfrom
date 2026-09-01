@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -146,12 +147,7 @@ function EditCustomerForm({
       </FormField>
 
       <FormField htmlFor="edit-customer-dob" label="Date of birth (optional)">
-        <Input
-          id="edit-customer-dob"
-          type="date"
-          value={dateOfBirth}
-          onChange={(event) => setDateOfBirth(event.target.value)}
-        />
+        <DatePicker id="edit-customer-dob" value={dateOfBirth} onChange={setDateOfBirth} />
       </FormField>
 
       <FormField htmlFor="edit-customer-status" label="Status">

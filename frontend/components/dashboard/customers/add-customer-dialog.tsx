@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -138,12 +139,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
       </FormField>
 
       <FormField htmlFor="add-customer-dob" label="Date of birth (optional)">
-        <Input
-          id="add-customer-dob"
-          type="date"
-          value={dateOfBirth}
-          onChange={(event) => setDateOfBirth(event.target.value)}
-        />
+        <DatePicker id="add-customer-dob" value={dateOfBirth} onChange={setDateOfBirth} />
       </FormField>
 
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">

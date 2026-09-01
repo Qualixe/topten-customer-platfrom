@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -151,11 +152,10 @@ function NewCampaignForm({ onClose }: { onClose: () => void }) {
       {schedule === "schedule" && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="campaign-datetime">Scheduled date &amp; time</Label>
-          <Input
+          <DateTimePicker
             id="campaign-datetime"
-            type="datetime-local"
             value={scheduledAt}
-            onChange={(e) => setScheduledAt(e.target.value)}
+            onChange={setScheduledAt}
             required={schedule === "schedule"}
           />
         </div>

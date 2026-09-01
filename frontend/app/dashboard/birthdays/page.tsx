@@ -1,4 +1,4 @@
-import { Cake, CalendarDays, Crown, PartyPopper } from "lucide-react";
+import { Cake, CalendarDays, CalendarRange, Crown, PartyPopper } from "lucide-react";
 
 import { BirthdaysExplorer } from "@/components/dashboard/birthdays/birthdays-explorer";
 import { BirthdaysPageHeader } from "@/components/dashboard/birthdays/page-header";
@@ -34,6 +34,10 @@ export default async function BirthdaysPage() {
   // just checked above, so an authorized user's fetch cannot have failed.
   const { all: birthdays, today, upcoming, stats: birthdayStats } = overviewResult!;
   const currentMonthName = new Date().toLocaleDateString("en-US", { month: "long" });
+  // `birthdays` (the "all" list) already covers a full year out
+  // (within_days=365 server-side), sorted by proximity — no extra fetch
+  // needed for a coarser 3-month cut.
+  const next3MonthsBirthdaysCount = birthdays.filter((customer) => customer.daysAway <= 90).length;
 
   const stats: StatDefinition[] = [
     {
@@ -64,12 +68,19 @@ export default async function BirthdaysPage() {
       caption: "VIP customers this month",
       icon: Crown,
     },
+    {
+      key: "next-3-months",
+      label: "Next 3 Months",
+      value: next3MonthsBirthdaysCount,
+      caption: "Upcoming birthdays",
+      icon: CalendarRange,
+    },
   ];
 
   return (
     <div className="flex flex-col gap-6">
       <BirthdaysPageHeader />
-      <StatsGrid stats={stats} />
+      <StatsGrid stats={stats} columns={5} />
       <div className="grid gap-4 lg:grid-cols-2">
         <TodayBirthdays customers={today} />
         <UpcomingBirthdaysList customers={upcoming} />
