@@ -6,15 +6,21 @@ import { TodayBirthdays } from "@/components/dashboard/birthdays/today-birthdays
 import { UpcomingBirthdaysList } from "@/components/dashboard/birthdays/upcoming-birthdays-list";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getBirthdaysOverview } from "@/lib/api/birthdays";
+import { settleOk } from "@/lib/api/settle";
 
 // Real, per-request data (today's date, live customer birthdays) — must
 // not be statically cached.
 export const dynamic = "force-dynamic";
 
 export default async function BirthdaysPage() {
-  const user = await getCurrentUserSafe();
+  // Fired alongside the permission check instead of after it — halves the
+  // number of sequential round trips this page needs before it can render.
+  const [user, overviewResult] = await Promise.all([
+    getCurrentUserSafeCached(),
+    settleOk(getBirthdaysOverview()),
+  ]);
   if (!user?.permissions.includes("customers.view")) {
     return (
       <div className="flex flex-col gap-6">
@@ -24,7 +30,9 @@ export default async function BirthdaysPage() {
     );
   }
 
-  const { all: birthdays, today, upcoming, stats: birthdayStats } = await getBirthdaysOverview();
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetch cannot have failed.
+  const { all: birthdays, today, upcoming, stats: birthdayStats } = overviewResult!;
   const currentMonthName = new Date().toLocaleDateString("en-US", { month: "long" });
 
   const stats: StatDefinition[] = [

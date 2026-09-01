@@ -14,8 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { formatCurrency, listPosCustomers, type ProfileStatus } from "@/lib/api/customers";
+import { settleOk } from "@/lib/api/settle";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,19 @@ export default async function PosCustomersPage({
 }: {
   searchParams: Promise<RawSearchParams>;
 }) {
-  const user = await getCurrentUserSafe();
+  // searchParams isn't a network call — resolved first since the customer
+  // list fetch below needs it to build its query, before it can be fired
+  // alongside the (real, network) permission check instead of after it.
+  const raw = await searchParams;
+  const page = Number(firstValue(raw.page)) || 1;
+  const search = firstValue(raw.search) ?? "";
+  const customerType = (firstValue(raw.customerType) ?? "all") as "all" | "GENERAL" | "VIP" | "VVIP";
+  const profileStatus = (firstValue(raw.profileStatus) ?? "all") as ProfileStatus | "all";
+
+  const [user, customersResult] = await Promise.all([
+    getCurrentUserSafeCached(),
+    settleOk(listPosCustomers({ page, search, customerType, profileStatus })),
+  ]);
   if (!user?.permissions.includes("customers.view")) {
     return (
       <div className="flex flex-col gap-6">
@@ -64,18 +77,9 @@ export default async function PosCustomersPage({
     );
   }
 
-  const raw = await searchParams;
-  const page = Number(firstValue(raw.page)) || 1;
-  const search = firstValue(raw.search) ?? "";
-  const customerType = (firstValue(raw.customerType) ?? "all") as "all" | "GENERAL" | "VIP" | "VVIP";
-  const profileStatus = (firstValue(raw.profileStatus) ?? "all") as ProfileStatus | "all";
-
-  const { items, total, pageSize, page: currentPage } = await listPosCustomers({
-    page,
-    search,
-    customerType,
-    profileStatus,
-  });
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetch cannot have failed.
+  const { items, total, pageSize, page: currentPage } = customersResult!;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (

@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getCampaignLandingPage } from "@/lib/api/campaign-landing-pages";
 import { getCampaign } from "@/lib/api/campaigns";
+import { settleOk } from "@/lib/api/settle";
 import { getResolvedLogoUrlSafe } from "@/lib/api/site-settings";
 import { ApiError } from "@/lib/api/types";
 
@@ -26,7 +27,20 @@ export default async function CampaignBuilderPage({
 }) {
   const { campaignId } = await params;
 
-  const user = await getCurrentUserSafe();
+  // Fired alongside the permission check instead of after it — collapses
+  // what were up to four sequential round trips into one parallel batch.
+  // The 404 case is carried through as a sentinel rather than left to
+  // reject, so Promise.all doesn't also discard the other results.
+  const NOT_FOUND = "__not_found__" as const;
+  const [user, campaignResult, landingPageResult, logoUrl] = await Promise.all([
+    getCurrentUserSafeCached(),
+    getCampaign(campaignId).catch((err) => {
+      if (err instanceof ApiError && err.status === 404) return NOT_FOUND;
+      throw err;
+    }),
+    settleOk(getCampaignLandingPage(campaignId)),
+    getResolvedLogoUrlSafe(),
+  ]);
   if (!user?.permissions.includes("campaigns.view")) {
     return (
       <div className="flex flex-col gap-6">
@@ -35,16 +49,11 @@ export default async function CampaignBuilderPage({
     );
   }
 
-  let campaign;
-  try {
-    campaign = await getCampaign(campaignId);
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) notFound();
-    throw err;
-  }
-
-  const landingPage = await getCampaignLandingPage(campaignId);
-  const logoUrl = await getResolvedLogoUrlSafe();
+  if (campaignResult === NOT_FOUND) notFound();
+  const campaign = campaignResult;
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetch cannot have failed.
+  const landingPage = landingPageResult!;
 
   return (
     <Builder

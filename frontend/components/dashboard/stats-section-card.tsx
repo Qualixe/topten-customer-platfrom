@@ -53,7 +53,7 @@ export function StatsSectionCard({
             <div
               key={stat.key}
               className="flex items-center gap-5 px-5 py-4"
-              style={{ borderRight: "1px solid #ccc" }}
+              style={{ borderRight: "1px solid var(--border)" }}
             >
               {/* Icon */}
               <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", bg)}>

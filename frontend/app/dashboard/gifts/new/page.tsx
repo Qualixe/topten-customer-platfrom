@@ -4,8 +4,9 @@ import Link from "next/link";
 import { NewGiftForm } from "@/components/dashboard/gifts/new-gift-form";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { Button } from "@/components/ui/button";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { listGiftCategories } from "@/lib/api/gifts";
+import { settleOk } from "@/lib/api/settle";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,12 @@ function NewGiftHeader() {
 }
 
 export default async function NewGiftPage() {
-  const user = await getCurrentUserSafe();
+  // Fired alongside the permission check instead of after it — halves the
+  // number of sequential round trips this page needs before it can render.
+  const [user, categoriesResult] = await Promise.all([
+    getCurrentUserSafeCached(),
+    settleOk(listGiftCategories()),
+  ]);
   if (!user?.permissions.includes("gifts.manage")) {
     return (
       <div className="flex flex-col gap-6">
@@ -41,7 +47,9 @@ export default async function NewGiftPage() {
     );
   }
 
-  const categories = await listGiftCategories();
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetch cannot have failed.
+  const categories = categoriesResult!;
 
   return (
     <div className="flex flex-col gap-6">

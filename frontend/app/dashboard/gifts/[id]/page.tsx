@@ -5,8 +5,9 @@ import { notFound } from "next/navigation";
 import { GiftDetailView } from "@/components/dashboard/gifts/gift-detail-view";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { Button } from "@/components/ui/button";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getGiftCatalogItem, listGiftCategories, listGiftOrders } from "@/lib/api/gifts";
+import { settleOk } from "@/lib/api/settle";
 import { ApiError } from "@/lib/api/types";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,20 @@ export default async function GiftDetailPage({
 }) {
   const { id } = await params;
 
-  const user = await getCurrentUserSafe();
+  // Fired alongside the permission check instead of after it — halves the
+  // number of sequential round trips this page needs before it can render.
+  // The 404 case is carried through as a sentinel rather than left to
+  // reject, so Promise.all doesn't also discard the other results.
+  const NOT_FOUND = "__not_found__" as const;
+  const [user, giftResult, ordersResult, categoriesResult] = await Promise.all([
+    getCurrentUserSafeCached(),
+    getGiftCatalogItem(id).catch((err) => {
+      if (err instanceof ApiError && err.status === 404) return NOT_FOUND;
+      throw err;
+    }),
+    settleOk(listGiftOrders({ catalogItemId: id, pageSize: 50 })),
+    settleOk(listGiftCategories()),
+  ]);
   if (!user?.permissions.includes("gifts.view")) {
     return (
       <div className="flex flex-col gap-6">
@@ -47,18 +61,12 @@ export default async function GiftDetailPage({
     );
   }
 
-  let gift;
-  try {
-    gift = await getGiftCatalogItem(id);
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) notFound();
-    throw err;
-  }
-
-  const [{ items: orders }, categories] = await Promise.all([
-    listGiftOrders({ catalogItemId: id, pageSize: 50 }),
-    listGiftCategories(),
-  ]);
+  if (giftResult === NOT_FOUND) notFound();
+  const gift = giftResult;
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetches cannot have failed.
+  const { items: orders } = ordersResult!;
+  const categories = categoriesResult!;
   const canManage = user.permissions.includes("gifts.manage");
 
   return (

@@ -1,14 +1,20 @@
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { SegmentsPageHeader } from "@/components/dashboard/segments/page-header";
 import { SegmentCard } from "@/components/dashboard/segments/segment-card";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getCustomerSegments } from "@/lib/api/segments";
+import { settleOk } from "@/lib/api/settle";
 
 // Live customer counts — must not be statically cached.
 export const dynamic = "force-dynamic";
 
 export default async function SegmentsPage() {
-  const user = await getCurrentUserSafe();
+  // Fired alongside the permission check instead of after it — halves the
+  // number of sequential round trips this page needs before it can render.
+  const [user, segmentsResult] = await Promise.all([
+    getCurrentUserSafeCached(),
+    settleOk(getCustomerSegments()),
+  ]);
   if (!user?.permissions.includes("customers.view")) {
     return (
       <div className="flex flex-col gap-6">
@@ -18,7 +24,9 @@ export default async function SegmentsPage() {
     );
   }
 
-  const segments = await getCustomerSegments();
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetch cannot have failed.
+  const segments = segmentsResult!;
 
   return (
     <div className="flex flex-col gap-6">

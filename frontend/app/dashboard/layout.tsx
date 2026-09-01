@@ -1,7 +1,7 @@
 import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { PermissionsProvider } from "@/components/providers/permissions-provider";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 
 // Every dashboard page reads the caller's auth cookie (directly or via a
 // nested fetch) to talk to the backend — there's no valid session at build
@@ -9,7 +9,7 @@ import { getCurrentUserSafe } from "@/lib/api/auth";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout(props: LayoutProps<"/dashboard">) {
-  const user = await getCurrentUserSafe();
+  const user = await getCurrentUserSafeCached();
 
   return (
     <PermissionsProvider user={user}>

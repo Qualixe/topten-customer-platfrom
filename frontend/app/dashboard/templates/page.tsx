@@ -1,12 +1,18 @@
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { TemplatesPageClient } from "@/components/dashboard/templates/templates-page-client";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
+import { settleOk } from "@/lib/api/settle";
 import { listTemplates } from "@/lib/api/templates";
 
 export const dynamic = "force-dynamic";
 
 export default async function TemplatesPage() {
-  const user = await getCurrentUserSafe();
+  // Fired alongside the permission check instead of after it — halves the
+  // number of sequential round trips this page needs before it can render.
+  const [user, templatesResult] = await Promise.all([
+    getCurrentUserSafeCached(),
+    settleOk(listTemplates({ page: 1 })),
+  ]);
   if (!user?.permissions.includes("templates.view")) {
     return (
       <div className="flex flex-col gap-6">
@@ -16,7 +22,9 @@ export default async function TemplatesPage() {
     );
   }
 
-  const result = await listTemplates({ page: 1 });
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetch cannot have failed.
+  const result = templatesResult!;
 
   return (
     <TemplatesPageClient

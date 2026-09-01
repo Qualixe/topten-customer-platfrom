@@ -1,27 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+function subscribe(callback: () => void) {
+  const id = setInterval(callback, 1000);
+  return () => clearInterval(id);
+}
+
+function getSnapshot() {
+  return Date.now();
+}
+
+// The server has no way to know the visitor's actual clock/timezone at
+// render time, so it renders nothing here — the real value takes over
+// right after hydration (see the null check below), not just once the
+// first interval tick fires.
+function getServerSnapshot() {
+  return null;
+}
 
 export function LiveClock() {
-  const [now, setNow] = useState<Date | null>(null);
+  const now = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  useEffect(() => {
-    // Set immediately on mount to avoid hydration mismatch
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  if (now === null) return null;
 
-  if (!now) return null;
-
-  const date = now.toLocaleDateString(undefined, {
+  const date = new Date(now).toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 
-  const time = now.toLocaleTimeString(undefined, {
+  const time = new Date(now).toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",

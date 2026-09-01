@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { AUTH_COOKIE_NAME, apiGet, apiPost } from "@/lib/api/client";
 import type { ApiEnvelope } from "@/lib/api/types";
 
@@ -47,6 +49,29 @@ export async function getCurrentUser(): Promise<AuthUser> {
 export async function getCurrentUserSafe(): Promise<AuthUser | null> {
   try {
     return await getCurrentUser();
+  } catch {
+    return null;
+  }
+}
+
+/** Server Components only. The dashboard layout and whichever page is
+ * currently rendering underneath it each call getCurrentUserSafe once —
+ * without this, that's two separate /auth/me round trips on every single
+ * navigation. React's cache() deduplicates same-argument calls within one
+ * server request, so wrapping it here means only the first caller in a
+ * request actually hits the network; everyone else in that same request
+ * gets the already-settled result.
+ *
+ * Never call this from a Client Component: cache() only dedupes for the
+ * lifetime of one server request — in the browser there is no such
+ * boundary, so it would keep returning today's stale result forever (e.g.
+ * after a profile update). Client components should keep using
+ * `getCurrentUser`/`getCurrentUserSafe` directly. */
+export const getCurrentUserCached = cache(getCurrentUser);
+
+export async function getCurrentUserSafeCached(): Promise<AuthUser | null> {
+  try {
+    return await getCurrentUserCached();
   } catch {
     return null;
   }

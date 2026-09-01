@@ -6,14 +6,25 @@ import { GiftsPageHeader } from "@/components/dashboard/gifts/page-header";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
 import { getBirthdaysOverview, type BirthdayCustomer } from "@/lib/api/birthdays";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getGiftStats, listGiftOrders } from "@/lib/api/gifts";
+import { settleOk } from "@/lib/api/settle";
 
 // Real, frequently-changing backend data — must not be statically cached.
 export const dynamic = "force-dynamic";
 
 export default async function GiftsPage() {
-  const user = await getCurrentUserSafe();
+  // Fired alongside the permission check instead of after it — halves the
+  // number of sequential round trips this page needs before it can render.
+  // The birthdays fetch is unconditional here (unlike before) since
+  // whether it's actually needed depends on a permission only known once
+  // `user` resolves — cheap enough to just always fetch and discard.
+  const [user, ordersResult, statsResult, birthdaysResult] = await Promise.all([
+    getCurrentUserSafeCached(),
+    settleOk(listGiftOrders({ pageSize: 100 })),
+    settleOk(getGiftStats()),
+    settleOk(getBirthdaysOverview().then((overview) => overview.upcoming)),
+  ]);
   if (!user?.permissions.includes("gifts.view")) {
     return (
       <div className="flex flex-col gap-6">
@@ -24,14 +35,13 @@ export default async function GiftsPage() {
   }
 
   const canViewBirthdays = user.permissions.includes("customers.view");
-
-  const [{ items: orders }, stats, upcomingBirthdays] = await Promise.all([
-    listGiftOrders({ pageSize: 100 }),
-    getGiftStats(),
-    canViewBirthdays
-      ? getBirthdaysOverview().then((overview) => overview.upcoming)
-      : Promise.resolve<BirthdayCustomer[]>([]),
-  ]);
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetches cannot have failed.
+  const { items: orders } = ordersResult!;
+  const stats = statsResult!;
+  const upcomingBirthdays = canViewBirthdays
+    ? (birthdaysResult ?? ([] as BirthdayCustomer[]))
+    : ([] as BirthdayCustomer[]);
 
   const statDefinitions: StatDefinition[] = [
     {

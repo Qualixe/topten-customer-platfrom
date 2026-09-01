@@ -7,8 +7,9 @@ import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getCampaign, getCampaignRecipientStats } from "@/lib/api/campaigns";
+import { settleOk } from "@/lib/api/settle";
 import { ApiError } from "@/lib/api/types";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,19 @@ export default async function CampaignDetailPage({
 }) {
   const { campaignId } = await params;
 
-  const user = await getCurrentUserSafe();
+  // Fired alongside the permission check instead of after it — halves the
+  // number of sequential round trips this page needs before it can render.
+  // The 404 case is carried through as a sentinel rather than left to
+  // reject, so Promise.all doesn't also discard the other two results.
+  const NOT_FOUND = "__not_found__" as const;
+  const [user, campaignResult, statsResult] = await Promise.all([
+    getCurrentUserSafeCached(),
+    getCampaign(campaignId).catch((err) => {
+      if (err instanceof ApiError && err.status === 404) return NOT_FOUND;
+      throw err;
+    }),
+    settleOk(getCampaignRecipientStats(campaignId)),
+  ]);
   if (!user?.permissions.includes("campaigns.view")) {
     return (
       <div className="flex flex-col gap-6">
@@ -29,15 +42,11 @@ export default async function CampaignDetailPage({
     );
   }
 
-  let campaign;
-  try {
-    campaign = await getCampaign(campaignId);
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) notFound();
-    throw err;
-  }
-
-  const stats = await getCampaignRecipientStats(campaignId);
+  if (campaignResult === NOT_FOUND) notFound();
+  const campaign = campaignResult;
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetch cannot have failed.
+  const stats = statsResult!;
   const canManage = user.permissions.includes("campaigns.manage");
 
   const statDefinitions: StatDefinition[] = [

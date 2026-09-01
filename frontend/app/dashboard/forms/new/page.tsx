@@ -4,7 +4,7 @@ import Link from "next/link";
 import { NewFormForm } from "@/components/dashboard/forms/new-form-form";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { Button } from "@/components/ui/button";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 
 function NewFormHeader() {
   return (
@@ -26,7 +26,7 @@ function NewFormHeader() {
 }
 
 export default async function NewFormPage() {
-  const user = await getCurrentUserSafe();
+  const user = await getCurrentUserSafeCached();
   if (!user?.permissions.includes("forms.manage")) {
     return (
       <div className="flex flex-col gap-6">

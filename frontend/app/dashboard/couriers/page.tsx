@@ -4,14 +4,21 @@ import { DeliveriesDirectory } from "@/components/dashboard/couriers/deliveries-
 import { CouriersPageHeader } from "@/components/dashboard/couriers/page-header";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
-import { getCurrentUserSafe } from "@/lib/api/auth";
+import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getDeliveryStats, listDeliveries } from "@/lib/api/deliveries";
+import { settleOk } from "@/lib/api/settle";
 
 // Real, frequently-changing backend data — must not be statically cached.
 export const dynamic = "force-dynamic";
 
 export default async function CouriersPage() {
-  const user = await getCurrentUserSafe();
+  // Fired alongside the permission check instead of after it — halves the
+  // number of sequential round trips this page needs before it can render.
+  const [user, deliveriesResult, statsResult] = await Promise.all([
+    getCurrentUserSafeCached(),
+    settleOk(listDeliveries()),
+    settleOk(getDeliveryStats()),
+  ]);
   if (!user?.permissions.includes("couriers.view")) {
     return (
       <div className="flex flex-col gap-6">
@@ -21,11 +28,10 @@ export default async function CouriersPage() {
   }
 
   const canManage = user.permissions.includes("couriers.manage");
-
-  const [{ items: deliveries }, stats] = await Promise.all([
-    listDeliveries(),
-    getDeliveryStats(),
-  ]);
+  // Guaranteed defined here — the backend enforces the same permission
+  // just checked above, so an authorized user's fetches cannot have failed.
+  const { items: deliveries } = deliveriesResult!;
+  const stats = statsResult!;
 
   const statDefinitions: StatDefinition[] = [
     {

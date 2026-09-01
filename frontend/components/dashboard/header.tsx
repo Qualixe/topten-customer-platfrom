@@ -4,6 +4,7 @@ import { Bell } from "lucide-react";
 import { ApiConnectionIndicator } from "@/components/dashboard/api-connection-indicator";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { PageTitle } from "@/components/dashboard/page-title";
+import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { UserMenu } from "@/components/dashboard/user-menu";
 import { Button } from "@/components/ui/button";
 import type { AuthUser } from "@/lib/api/auth";
@@ -18,6 +19,7 @@ export async function Header({ user }: { user: AuthUser | null }) {
       <PageTitle />
       <div className="ml-auto flex items-center gap-1.5">
         <ApiConnectionIndicator />
+        <ThemeToggle />
         <Button
           variant="ghost"
           size="icon"
