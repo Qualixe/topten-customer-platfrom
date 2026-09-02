@@ -28,6 +28,8 @@ export interface ListCustomersParams {
   sortDir?: SortDirection;
   /** Only customers verified through at least one campaign. */
   verified?: boolean;
+  /** Only customers who've opted into marketing email. */
+  marketingOptIn?: boolean;
 }
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -41,6 +43,7 @@ interface CustomerDto {
   address: string | null;
   dateOfBirth: string | null;
   isVip: boolean;
+  marketingOptIn: boolean;
   customerType: string;
   totalSpent: string | number;
   status: string;
@@ -124,6 +127,7 @@ function mapDtoToCustomer(dto: CustomerDto): Customer {
     notes: "",
     dateOfBirth: dto.dateOfBirth,
     customerType: toCustomerType(dto.customerType),
+    marketingOptIn: dto.marketingOptIn,
   };
 }
 
@@ -149,6 +153,7 @@ function buildCustomersFilterQuery(
     sort_by: params.sortBy ? SORT_BY_TO_BACKEND[params.sortBy] : undefined,
     sort_dir: params.sortDir,
     verified: params.verified,
+    marketing_opt_in: params.marketingOptIn,
   };
 }
 
@@ -466,6 +471,7 @@ export interface CreateCustomerInput {
   /** "YYYY-MM-DD", e.g. straight from an `<input type="date">`. */
   dateOfBirth?: string;
   isVip?: boolean;
+  marketingOptIn?: boolean;
 }
 
 /** Creates a real customer row via `POST /api/v1/customers`. Throws `ApiError`
@@ -478,6 +484,7 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Custom
     address: input.address,
     date_of_birth: input.dateOfBirth,
     is_vip: input.isVip ?? false,
+    marketing_opt_in: input.marketingOptIn ?? false,
   });
 
   return mapDtoToCustomer(envelope.data);
@@ -491,6 +498,7 @@ export interface UpdateCustomerInput {
   address?: string | null;
   dateOfBirth?: string | null;
   isVip?: boolean;
+  marketingOptIn?: boolean;
   status?: CustomerStatus;
 }
 
@@ -506,6 +514,7 @@ export async function updateCustomer(id: string, input: UpdateCustomerInput): Pr
   if (input.address !== undefined) body.address = input.address;
   if (input.dateOfBirth !== undefined) body.date_of_birth = input.dateOfBirth;
   if (input.isVip !== undefined) body.is_vip = input.isVip;
+  if (input.marketingOptIn !== undefined) body.marketing_opt_in = input.marketingOptIn;
   if (input.status !== undefined) body.status = input.status.toLowerCase();
 
   const envelope = await apiPatch<ApiEnvelope<CustomerDto>>(`/customers/${id}`, body);

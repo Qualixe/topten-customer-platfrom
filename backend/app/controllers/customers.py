@@ -104,6 +104,8 @@ async def create_customer(
         address=payload.address,
         date_of_birth=payload.date_of_birth,
         is_vip=payload.is_vip,
+        marketing_opt_in=payload.marketing_opt_in,
+        marketing_opt_in_at=datetime.now(UTC) if payload.marketing_opt_in else None,
     )
     db.add(customer)
     await db.commit()
@@ -120,6 +122,7 @@ def _build_customer_filters(
     customer_type: str | None,
     profile_status: str | None,
     verified: bool | None,
+    marketing_opt_in: bool | None,
     created_from: date | None,
     created_to: date | None,
 ) -> list[ColumnElement]:
@@ -179,6 +182,9 @@ def _build_customer_filters(
             .exists()
         )
 
+    if marketing_opt_in is not None:
+        filters.append(Customer.marketing_opt_in == marketing_opt_in)
+
     if created_from is not None:
         filters.append(Customer.created_at >= created_from)
     if created_to is not None:
@@ -201,6 +207,9 @@ async def list_customers(
     verified: bool | None = Query(
         None, description="True to only return customers verified through at least one campaign"
     ),
+    marketing_opt_in: bool | None = Query(
+        None, description="True to only return customers who've opted into marketing email"
+    ),
     created_from: date | None = Query(None),
     created_to: date | None = Query(None),
     sort_by: str | None = Query(None),
@@ -213,6 +222,7 @@ async def list_customers(
         customer_type=customer_type,
         profile_status=profile_status,
         verified=verified,
+        marketing_opt_in=marketing_opt_in,
         created_from=created_from,
         created_to=created_to,
     )
@@ -322,6 +332,9 @@ async def export_customers_csv(
     verified: bool | None = Query(
         None, description="True to only return customers verified through at least one campaign"
     ),
+    marketing_opt_in: bool | None = Query(
+        None, description="True to only return customers who've opted into marketing email"
+    ),
     created_from: date | None = Query(None),
     created_to: date | None = Query(None),
     sort_by: str | None = Query(None),
@@ -336,6 +349,7 @@ async def export_customers_csv(
         customer_type=customer_type,
         profile_status=profile_status,
         verified=verified,
+        marketing_opt_in=marketing_opt_in,
         created_from=created_from,
         created_to=created_to,
     )
@@ -767,6 +781,11 @@ async def update_customer(
             raise ValidationAppError(
                 f"Invalid status {updates['status']!r}; expected one of {sorted(valid_statuses)}"
             )
+
+    if updates.get("marketing_opt_in") and not customer.marketing_opt_in:
+        customer.marketing_opt_in_at = datetime.now(UTC)
+    elif updates.get("marketing_opt_in") is False:
+        customer.marketing_opt_in_at = None
 
     for field, value in updates.items():
         setattr(customer, field, value)

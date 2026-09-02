@@ -5,7 +5,8 @@ import { BirthdaysPageHeader } from "@/components/dashboard/birthdays/page-heade
 import { TodayBirthdays } from "@/components/dashboard/birthdays/today-birthdays";
 import { UpcomingBirthdaysList } from "@/components/dashboard/birthdays/upcoming-birthdays-list";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
-import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
+import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
+import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getBirthdaysOverview } from "@/lib/api/birthdays";
 import { settleOk } from "@/lib/api/settle";
@@ -80,7 +81,7 @@ export default async function BirthdaysPage() {
   return (
     <div className="flex flex-col gap-6">
       <BirthdaysPageHeader />
-      <StatsGrid stats={stats} columns={5} />
+      <StatsSectionCard title="Birthdays" stats={stats} />
       <div className="grid gap-4 lg:grid-cols-2">
         <TodayBirthdays customers={today} />
         <UpcomingBirthdaysList customers={upcoming} />

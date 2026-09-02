@@ -17,6 +17,7 @@ class CustomerCreate(BaseModel):
     address: str | None = None
     date_of_birth: date | None = None
     is_vip: bool = False
+    marketing_opt_in: bool = False
 
     @field_validator("name")
     @classmethod
@@ -48,6 +49,9 @@ class CustomerRead(BaseModel):
     address: str | None
     date_of_birth: date | None
     is_vip: bool
+    marketing_opt_in: bool
+    marketing_opt_in_at: datetime | None
+    marketing_synced_at: datetime | None
     customer_type: CustomerType
     total_spent: Decimal
     status: str
@@ -67,6 +71,7 @@ class CustomerUpdate(BaseModel):
     address: str | None = None
     date_of_birth: date | None = None
     is_vip: bool | None = None
+    marketing_opt_in: bool | None = None
     status: str | None = None
 
     @field_validator("name")

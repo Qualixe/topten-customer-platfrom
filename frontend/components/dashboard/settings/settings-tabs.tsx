@@ -8,8 +8,8 @@ import {
   Cake,
   Crown,
   KeyRound,
-  Mail,
   MessageSquare,
+  ShoppingBag,
   SlidersHorizontal,
   Truck,
   User,
@@ -21,10 +21,10 @@ import { AccountSettingsForm } from "@/components/dashboard/settings/account-set
 import { BirthdaySettingsForm } from "@/components/dashboard/settings/birthday-settings-form";
 import { CustomerSettingsForm } from "@/components/dashboard/settings/customer-settings-form";
 import { DatabaseResetCard } from "@/components/dashboard/settings/database-reset-card";
-import { EmailCredentialsForm } from "@/components/dashboard/settings/email-credentials-form";
 import { GeneralSettingsForm } from "@/components/dashboard/settings/general-settings-form";
 import { NotificationSettingsForm } from "@/components/dashboard/settings/notification-settings-form";
 import { PathaoCredentialsForm } from "@/components/dashboard/settings/pathao-credentials-form";
+import { SendGridMarketingCredentialsForm } from "@/components/dashboard/settings/sendgrid-marketing-credentials-form";
 import { SmsGatewayCredentialsForm } from "@/components/dashboard/settings/sms-gateway-credentials-form";
 import { UsersSettings } from "@/components/dashboard/settings/users-settings";
 import { VipSettingsForm } from "@/components/dashboard/settings/vip-settings-form";
@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 
 const CREDENTIAL_TABS = [
   { value: "sms", label: "SMS Gateway", icon: MessageSquare },
-  { value: "email", label: "Email", icon: Mail },
+  { value: "marketing", label: "Marketing", icon: ShoppingBag },
 ] as const;
 
 const SECTIONS = [
@@ -69,7 +69,7 @@ export function SettingsTabs() {
       ? requestedTab
       : "general";
 
-  const [credentialTab, setCredentialTab] = useState<"sms" | "email">("sms");
+  const [credentialTab, setCredentialTab] = useState<"sms" | "marketing">("sms");
 
   function setTab(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -139,7 +139,7 @@ export function SettingsTabs() {
             </button>
           ))}
         </div>
-        {credentialTab === "sms" ? <SmsGatewayCredentialsForm /> : <EmailCredentialsForm />}
+        {credentialTab === "sms" ? <SmsGatewayCredentialsForm /> : <SendGridMarketingCredentialsForm />}
       </TabsContent>
       <TabsContent value="users" keepMounted>
         <UsersSettings />

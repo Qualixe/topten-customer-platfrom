@@ -3,7 +3,8 @@ import { AlertTriangle, CheckCircle2, Clock, Megaphone, Send } from "lucide-reac
 import { CampaignsDirectory } from "@/components/dashboard/campaigns/campaigns-directory";
 import { CampaignsPageHeader } from "@/components/dashboard/campaigns/page-header";
 import { SmsBalanceCard } from "@/components/dashboard/campaigns/sms-balance-card";
-import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
+import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
+import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getCampaignStats, listCampaigns } from "@/lib/api/campaigns";
 import { getSmsAccount } from "@/lib/api/sms-account";
 
@@ -64,7 +65,7 @@ export default async function CampaignsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <SmsBalanceCard account={smsAccount} />
       </div>
-      <StatsGrid stats={statDefinitions} columns={5} />
+      <StatsSectionCard title="Campaigns" stats={statDefinitions} />
       <CampaignsDirectory campaigns={campaigns} />
     </div>
   );

@@ -27,6 +27,11 @@ export interface Customer {
    * `city` above is a display-friendly "—"-on-null fallback derived from
    * this same backend field, not a separate value. */
   address?: string | null;
+  /** Explicit marketing-email consent — gates whether this customer is
+   * eligible to sync into the SendGrid Marketing List (see
+   * lib/api/sendgrid.ts). Absent on mock-generated customers, same
+   * availability caveat as dateOfBirth. */
+  marketingOptIn?: boolean;
 }
 
 const FIRST_NAMES = [

@@ -32,6 +32,8 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     ("forms.manage", "Manage forms", "forms"),
     ("templates.view", "View message templates", "templates"),
     ("templates.manage", "Manage message templates", "templates"),
+    ("marketing.view", "View Mailchimp marketing sync & campaigns", "marketing"),
+    ("marketing.manage", "Manage Mailchimp marketing sync & campaigns", "marketing"),
     ("database.reset", "Wipe all business data (irreversible)", "danger-zone"),
 ]
 
@@ -48,6 +50,7 @@ STAFF_KEYS = [
     "forms.view",
     "couriers.view",
     "templates.view",
+    "marketing.view",
 ]
 
 # (name, description, permission keys)

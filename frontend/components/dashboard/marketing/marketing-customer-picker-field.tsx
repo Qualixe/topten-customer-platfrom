@@ -1,0 +1,216 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { Check, Search, ShoppingBag } from "lucide-react";
+
+import { CustomerTierBadge } from "@/components/dashboard/customers/tier-badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { listCustomers, type Customer } from "@/lib/api/customers";
+import { cn } from "@/lib/utils";
+
+const SEARCH_DEBOUNCE_MS = 300;
+const PAGE_SIZE = 20;
+
+/** Multi-select customer picker for the SendGrid Marketing flow — only
+ * offers customers with `marketingOptIn: true` (see
+ * edit-customer-dialog.tsx for where that's set), since nothing in this
+ * app is allowed to sync a customer to SendGrid without their consent.
+ * Structurally mirrors CustomerMultiPickerField (gifts), which filters by
+ * `verified` instead — a different, unrelated eligibility concept. */
+export function MarketingCustomerPickerField({
+  selected,
+  onChange,
+}: {
+  selected: Customer[];
+  onChange: (customers: Customer[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [results, setResults] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const selectedIds = new Set(selected.map((customer) => customer.id));
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    Promise.resolve()
+      .then(async () => {
+        setLoading(true);
+        try {
+          const result = await listCustomers({
+            search: debouncedSearch.trim() || undefined,
+            pageSize: PAGE_SIZE,
+            marketingOptIn: true,
+          });
+          if (!cancelled) setResults(result.items);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, debouncedSearch]);
+
+  function toggle(customer: Customer) {
+    if (selectedIds.has(customer.id)) {
+      onChange(selected.filter((item) => item.id !== customer.id));
+    } else {
+      onChange([...selected, customer]);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
+      }}
+    >
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              "flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors hover:bg-muted/50",
+              selected.length === 0 && "justify-center border-dashed py-6 text-muted-foreground"
+            )}
+          />
+        }
+      >
+        {selected.length > 0 ? (
+          <>
+            <div className="flex -space-x-2">
+              {selected.slice(0, 4).map((customer) => (
+                <Avatar key={customer.id} size="sm" className="ring-2 ring-background">
+                  <AvatarFallback>{customer.initials}</AvatarFallback>
+                </Avatar>
+              ))}
+            </div>
+            <span className="min-w-0 flex-1 text-sm font-medium">
+              {selected.length} customer{selected.length === 1 ? "" : "s"} selected
+            </span>
+            <span className="shrink-0 text-xs font-medium text-primary">Change</span>
+          </>
+        ) : (
+          <span className="flex flex-col items-center gap-1.5">
+            <ShoppingBag className="size-6" aria-hidden="true" />
+            <span className="text-sm font-medium">Select customers</span>
+          </span>
+        )}
+      </DialogTrigger>
+
+      <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Select customers</DialogTitle>
+          <DialogDescription>
+            Only customers who&apos;ve opted into marketing email are shown — set this on a
+            customer&apos;s Edit form. You can add or remove customers any time before syncing.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="relative shrink-0">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by name, email, or phone…"
+            className="pl-8"
+            autoFocus
+          />
+        </div>
+
+        <div className="flex flex-col divide-y overflow-y-auto rounded-lg border">
+          {loading && <p className="p-4 text-center text-sm text-muted-foreground">Searching…</p>}
+          {!loading && results.length === 0 && (
+            <p className="p-4 text-center text-sm text-muted-foreground">
+              No opted-in customers found.
+            </p>
+          )}
+          {!loading &&
+            results.map((customer) => {
+              const isSelected = selectedIds.has(customer.id);
+              return (
+                <button
+                  key={customer.id}
+                  type="button"
+                  onClick={() => toggle(customer)}
+                  className={cn(
+                    "flex w-full items-center gap-3 p-2.5 text-left transition-colors hover:bg-muted/50",
+                    isSelected && "bg-primary/5"
+                  )}
+                >
+                  <Avatar size="sm">
+                    <AvatarFallback>{customer.initials}</AvatarFallback>
+                  </Avatar>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">{customer.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {customer.email}
+                      </span>
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {customer.phone}
+                    </span>
+                  </span>
+                  {customer.tier === "VIP" && (
+                    <span className="shrink-0">
+                      <CustomerTierBadge tier={customer.tier} />
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "flex size-5 shrink-0 items-center justify-center rounded-full border",
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-muted-foreground/30"
+                    )}
+                  >
+                    {isSelected && <Check className="size-3" aria-hidden="true" />}
+                  </span>
+                </button>
+              );
+            })}
+        </div>
+
+        <DialogFooter className="shrink-0">
+          <Button type="button" onClick={() => setOpen(false)}>
+            Done{selected.length > 0 ? ` (${selected.length})` : ""}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

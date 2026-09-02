@@ -19,12 +19,12 @@ export function StatsGridSkeleton({ count = 4 }: { count?: number }) {
         <Card key={i}>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="size-8 rounded-md" />
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="size-4 rounded-sm" />
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-9 w-16" />
             <Skeleton className="h-3 w-24" />
           </CardContent>
         </Card>

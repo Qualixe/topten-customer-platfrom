@@ -74,6 +74,7 @@ function EditCustomerForm({
   const [dateOfBirth, setDateOfBirth] = useState((customer.dateOfBirth ?? "").slice(0, 10));
   const [statusValue, setStatusValue] = useState<CustomerStatus>(customer.status);
   const [isVip, setIsVip] = useState(customer.tier === "VIP");
+  const [marketingOptIn, setMarketingOptIn] = useState(customer.marketingOptIn ?? false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,6 +91,7 @@ function EditCustomerForm({
         address: address.trim() || null,
         dateOfBirth: dateOfBirth || null,
         isVip,
+        marketingOptIn,
         status: statusValue,
       });
       router.refresh();
@@ -173,6 +175,20 @@ function EditCustomerForm({
           <Label htmlFor="edit-customer-vip">VIP customer</Label>
         </div>
         <Switch id="edit-customer-vip" checked={isVip} onCheckedChange={setIsVip} />
+      </div>
+
+      <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+        <div className="min-w-0">
+          <Label htmlFor="edit-customer-marketing-opt-in">Marketing email opt-in</Label>
+          <p className="text-xs text-muted-foreground">
+            Required before this customer can be synced to SendGrid Marketing.
+          </p>
+        </div>
+        <Switch
+          id="edit-customer-marketing-opt-in"
+          checked={marketingOptIn}
+          onCheckedChange={setMarketingOptIn}
+        />
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

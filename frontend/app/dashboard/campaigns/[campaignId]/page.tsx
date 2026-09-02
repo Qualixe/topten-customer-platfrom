@@ -1,10 +1,22 @@
-import { ArrowLeft, Clock, LayoutTemplate, Send, ShieldCheck, TrendingUp, Users, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Clock,
+  Eye,
+  LayoutTemplate,
+  MousePointerClick,
+  Send,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CampaignStatusBadge } from "@/components/dashboard/campaigns/campaign-status-badge";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
-import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
+import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
+import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
@@ -49,11 +61,17 @@ export default async function CampaignDetailPage({
   const stats = statsResult!;
   const canManage = user.permissions.includes("campaigns.manage");
 
-  const statDefinitions: StatDefinition[] = [
+  const deliveryStats: StatDefinition[] = [
     { key: "recipients", label: "Recipients", value: stats.total, icon: Users },
     { key: "sent", label: "Sent", value: stats.sent, icon: Send },
     { key: "delivered", label: "Delivered", value: stats.delivered, icon: ShieldCheck },
+    { key: "bounced", label: "Bounced", value: stats.bounced, icon: XCircle },
+    { key: "opened", label: "Opened", value: stats.opened, icon: Eye },
+    { key: "clicked", label: "Clicked", value: stats.clicked, icon: MousePointerClick },
     { key: "failed", label: "Failed", value: stats.failed, icon: XCircle },
+  ];
+
+  const verificationStats: StatDefinition[] = [
     { key: "verified", label: "Verified", value: stats.verified, icon: ShieldCheck },
     {
       key: "pending-verification",
@@ -105,7 +123,8 @@ export default async function CampaignDetailPage({
         )}
       </div>
 
-      <StatsGrid stats={statDefinitions} />
+      <StatsSectionCard title="Delivery" stats={deliveryStats} />
+      <StatsSectionCard title="Verification" stats={verificationStats} />
 
       <Card>
         <CardHeader>

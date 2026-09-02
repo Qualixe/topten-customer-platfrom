@@ -35,6 +35,7 @@ class NotificationType(str, enum.Enum):
 class NotificationStatus(str, enum.Enum):
     DELIVERED = "Delivered"
     SENT = "Sent"
+    BOUNCED = "Bounced"
     FAILED = "Failed"
     PENDING = "Pending"
 

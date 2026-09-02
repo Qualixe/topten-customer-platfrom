@@ -32,7 +32,6 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.common.credentials import get_or_create_credential_row
-from app.common.email_client import send_email as mailchimp_send_email
 from app.common.sms_gateway_client import RequestStyle
 from app.common.sms_gateway_client import send_sms as gateway_send_sms
 from app.core.celery_app import celery_app
@@ -43,7 +42,6 @@ from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientStatus
 from app.models.customer import Customer
 from app.services.sms_campaigns import (
-    EMAIL_PROVIDER,
     SMS_GATEWAY_PROVIDER,
     get_or_create_campaign_profile_token,
     get_sms_rate_per_segment,
@@ -150,8 +148,8 @@ async def resolve_campaign_audience_async(
 async def _send_one_sms(
     credential_row, *, campaign: Campaign, recipient: CampaignRecipient, personalized_message: str
 ) -> tuple[bool, str]:
-    """Returns (success, failure_reason) — failure_reason is only meaningful
-    when success is False."""
+    """Returns (success, failure_reason) — failure_reason is only
+    meaningful when success is False."""
     api_url = credential_row.data.get("api_url")
     api_key = credential_row.data.get("api_key")
     try:
@@ -179,48 +177,26 @@ async def _send_one_sms(
     return False, f"HTTP {result.http_status}: {result.message}"[:500]
 
 
-async def _send_one_email(
-    credential_row,
-    *,
-    campaign: Campaign,
-    recipient: CampaignRecipient,
-    personalized_subject: str,
-    personalized_body: str,
-) -> tuple[bool, str]:
-    if not recipient.email:
-        # Shouldn't happen — audience resolution excludes no-email
-        # customers for an EMAIL campaign — but guarded defensively rather
-        # than attempting a send with no destination.
-        return False, "No email address on file"
-
-    result = await mailchimp_send_email(
-        api_key=credential_row.data.get("api_key"),
-        from_address=credential_row.data.get("from_address"),
-        from_name=credential_row.data.get("from_name"),
-        to_address=recipient.email,
-        subject=personalized_subject,
-        body=personalized_body,
-    )
-    return result.success, result.message[:500]
-
-
 async def send_campaign_messages_async(
     campaign_id: int, session_factory: async_sessionmaker[AsyncSession] = SessionLocal
 ) -> None:
-    """Sends a resolved campaign's still-PENDING recipients through its
-    configured channel's provider (SMS Gateway or Mailchimp Transactional),
-    one at a time (neither has a bulk-send API this client uses). Idempotent
-    per recipient: only
-    PENDING rows are picked up and each is moved to SENT/FAILED as soon as
-    its own attempt resolves, so a retried/redelivered task never re-sends
-    a recipient that's already SENT — it just continues wherever it left
-    off.
+    """Sends a resolved SMS campaign's still-PENDING recipients through the
+    configured SMS Gateway, one at a time (no bulk-send API this client
+    uses). Idempotent per recipient: only PENDING rows are picked up and
+    each is moved to SENT/FAILED as soon as its own attempt resolves, so a
+    retried/redelivered task never re-sends a recipient that's already
+    SENT — it just continues wherever it left off.
 
-    A recipient-level failure (bad number/address, provider rejects the
-    message, ...) never stops the batch — every other PENDING recipient
-    still gets tried. Only a missing/incomplete provider configuration is
-    treated as fatal for the whole campaign, since no amount of retrying
-    would help."""
+    A recipient-level failure (bad number, provider rejects the message,
+    ...) never stops the batch — every other PENDING recipient still gets
+    tried. Only a missing/incomplete provider configuration is treated as
+    fatal for the whole campaign, since no amount of retrying would help.
+
+    EMAIL is no longer a live channel here — bulk marketing email goes
+    through the SendGrid Marketing integration instead (see
+    app.controllers.sendgrid_marketing). A pre-existing EMAIL campaign row
+    (from before that change) can't be sent through this task any more; it
+    fails immediately rather than attempting an unsupported send."""
     async with session_factory() as session:
         campaign = await session.get(Campaign, campaign_id)
         if campaign is None or campaign.recipients_resolved_at is None:
@@ -229,11 +205,13 @@ async def send_campaign_messages_async(
             # Already COMPLETED/FAILED/CANCELLED — a stray retry is a no-op.
             return
 
-        is_email = campaign.channel == CampaignChannel.EMAIL.value
-        provider = EMAIL_PROVIDER if is_email else SMS_GATEWAY_PROVIDER
-        credential_row = await get_or_create_credential_row(session, provider)
-        required_fields = ("api_key", "from_address") if is_email else ("api_url", "api_key")
-        if any(not credential_row.data.get(field) for field in required_fields):
+        if campaign.channel == CampaignChannel.EMAIL.value:
+            campaign.status = CampaignStatus.FAILED.value
+            await session.commit()
+            return
+
+        credential_row = await get_or_create_credential_row(session, SMS_GATEWAY_PROVIDER)
+        if any(not credential_row.data.get(field) for field in ("api_url", "api_key")):
             campaign.status = CampaignStatus.FAILED.value
             await session.commit()
             return
@@ -292,29 +270,12 @@ async def send_campaign_messages_async(
                 date_of_birth=recipient.date_of_birth,
             )
 
-            if is_email:
-                personalized_subject = render_message(
-                    campaign.subject or "",
-                    customer_name=recipient.name,
-                    form_link=form_link,
-                    phone=recipient.phone,
-                    email=recipient.email,
-                    date_of_birth=recipient.date_of_birth,
-                )
-                success, failure_reason = await _send_one_email(
-                    credential_row,
-                    campaign=campaign,
-                    recipient=recipient,
-                    personalized_subject=personalized_subject,
-                    personalized_body=personalized_message,
-                )
-            else:
-                success, failure_reason = await _send_one_sms(
-                    credential_row,
-                    campaign=campaign,
-                    recipient=recipient,
-                    personalized_message=personalized_message,
-                )
+            success, failure_reason = await _send_one_sms(
+                credential_row,
+                campaign=campaign,
+                recipient=recipient,
+                personalized_message=personalized_message,
+            )
 
             if success:
                 recipient.status = CampaignRecipientStatus.SENT.value

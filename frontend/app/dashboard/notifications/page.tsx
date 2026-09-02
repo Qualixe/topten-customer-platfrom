@@ -3,7 +3,8 @@ import { AlertTriangle, CheckCircle2, Percent, Send } from "lucide-react";
 import { FailedNotifications } from "@/components/dashboard/notifications/failed-notifications";
 import { NotificationsPageHeader } from "@/components/dashboard/notifications/page-header";
 import { NotificationsWorkspace } from "@/components/dashboard/notifications/notifications-workspace";
-import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
+import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
+import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import {
   getNotificationStats,
   listNotifications,
@@ -53,7 +54,7 @@ export default async function NotificationsPage() {
   return (
     <div className="flex flex-col gap-6">
       <NotificationsPageHeader />
-      <StatsGrid stats={statDefinitions} />
+      <StatsSectionCard title="Notifications" stats={statDefinitions} />
       <FailedNotifications notifications={failedNotifications} />
       <NotificationsWorkspace notifications={notifications} />
     </div>

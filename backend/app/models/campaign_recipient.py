@@ -13,6 +13,7 @@ class CampaignRecipientStatus(str, enum.Enum):
     PENDING = "PENDING"
     SENT = "SENT"
     DELIVERED = "DELIVERED"
+    BOUNCED = "BOUNCED"
     FAILED = "FAILED"
 
 
@@ -89,9 +90,20 @@ class CampaignRecipient(Base):
         server_default=CampaignRecipientStatus.PENDING.value,
         index=True,
     )
-    provider_message_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Mandrill's message id for this send, captured from the API response
+    # at send time — this is the correlation key the delivery webhook (see
+    # app.controllers.email_webhooks) uses to match an incoming event back
+    # to this row. Unique because only a successful send ever sets it, and
+    # a recipient leaves the PENDING pool once sent, so it can never
+    # legitimately collide.
+    provider_message_id: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, unique=True, index=True
+    )
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    bounced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    clicked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 

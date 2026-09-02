@@ -42,7 +42,7 @@ export function DatabaseResetCard() {
           <CardDescription>
             Permanently wipes all customers, campaigns, imports, forms, gifts, deliveries, and
             message templates. User accounts, roles &amp; permissions, site settings, and API
-            credentials (SMS gateway, Mailchimp, Pathao) are kept — you&apos;ll stay logged in and
+            credentials (SMS gateway, SendGrid, Pathao) are kept — you&apos;ll stay logged in and
             configured afterward. A safety backup is taken automatically right before wiping.
           </CardDescription>
         </CardHeader>

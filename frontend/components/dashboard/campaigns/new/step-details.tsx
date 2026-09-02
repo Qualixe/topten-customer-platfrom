@@ -19,9 +19,14 @@ import { CAMPAIGN_TYPE_LABELS, type CampaignChannel, type CampaignType } from "@
 
 const CAMPAIGN_TYPE_OPTIONS = Object.entries(CAMPAIGN_TYPE_LABELS) as [CampaignType, string][];
 
-const CHANNEL_LABELS: Record<CampaignChannel, string> = {
+// SMS is the only channel this wizard can create going forward — bulk
+// marketing email now goes through the SendGrid Marketing integration
+// (Settings → API Credentials → Marketing) instead. `CampaignChannel`
+// itself still includes "EMAIL" for reading pre-existing campaigns
+// elsewhere in the app, so this map is deliberately partial rather than
+// narrowing that shared type.
+const CHANNEL_LABELS: Partial<Record<CampaignChannel, string>> = {
   SMS: "SMS",
-  EMAIL: "Email",
 };
 
 interface StepDetailsProps {
@@ -48,9 +53,7 @@ export function StepDetails({
   onNext,
 }: StepDetailsProps) {
   const canContinue =
-    name.trim().length > 0 &&
-    campaignType.length > 0 &&
-    (channel === "EMAIL" || senderId.trim().length > 0);
+    name.trim().length > 0 && campaignType.length > 0 && senderId.trim().length > 0;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,11 +85,10 @@ export function StepDetails({
           <FormField htmlFor="campaign-channel" label="Channel">
             <Select value={channel} onValueChange={(value) => onChannelChange(value as CampaignChannel)}>
               <SelectTrigger id="campaign-channel">
-                <SelectValue>{(value: CampaignChannel) => CHANNEL_LABELS[value]}</SelectValue>
+                <SelectValue>{(value: CampaignChannel) => CHANNEL_LABELS[value] ?? value}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="SMS">SMS</SelectItem>
-                <SelectItem value="EMAIL">Email</SelectItem>
               </SelectContent>
             </Select>
           </FormField>

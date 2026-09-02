@@ -39,6 +39,7 @@ from app.models.integration_credential import IntegrationCredential
 from app.models.message_template import MessageTemplate
 from app.models.permission import Permission
 from app.models.role import Role, role_permissions
+from app.models.sendgrid_campaign import SendGridCampaign
 from app.models.site_settings import SiteSettings
 from app.models.user import User
 from app.models.user_permission_override import UserPermissionOverride
@@ -76,6 +77,7 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
             Customer,
             IntegrationCredential,
             MessageTemplate,
+            SendGridCampaign,
             SiteSettings,
             UserPermissionOverride,
             User,

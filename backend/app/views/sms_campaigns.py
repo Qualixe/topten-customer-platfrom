@@ -68,10 +68,20 @@ class CampaignCreate(BaseModel):
 
     @model_validator(mode="after")
     def _channel_fields_present(self) -> "CampaignCreate":
+        # EMAIL campaigns are no longer created through this wizard — bulk
+        # marketing email now goes through the SendGrid Marketing
+        # integration (see app.controllers.sendgrid_marketing), which
+        # syncs to a real List and sends via SendGrid's own Single Send
+        # engine instead of one Mandrill Transactional call per recipient.
+        # Existing EMAIL rows created before this change are left alone —
+        # only new creation is blocked.
+        if self.channel == CampaignChannel.EMAIL:
+            raise ValueError(
+                "Email campaigns are no longer created here — sync customers to "
+                "SendGrid Marketing and send a campaign instead."
+            )
         if self.channel == CampaignChannel.SMS and not self.sender_id:
             raise ValueError("sender_id is required for an SMS campaign")
-        if self.channel == CampaignChannel.EMAIL and not self.subject:
-            raise ValueError("subject is required for an EMAIL campaign")
         return self
 
 
@@ -211,6 +221,9 @@ class CampaignRecipientRead(BaseModel):
     provider_message_id: str | None
     sent_at: datetime | None
     delivered_at: datetime | None
+    bounced_at: datetime | None
+    opened_at: datetime | None
+    clicked_at: datetime | None
     failed_at: datetime | None
     failure_reason: str | None
     created_at: datetime
@@ -235,6 +248,9 @@ class CampaignStats(BaseModel):
     pending: int
     sent: int
     delivered: int
+    bounced: int
+    opened: int
+    clicked: int
     failed: int
     verified: int
     pending_verification: int

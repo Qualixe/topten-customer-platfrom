@@ -3,7 +3,8 @@ import { AlertTriangle, CheckCircle2, Package, Truck } from "lucide-react";
 import { DeliveriesDirectory } from "@/components/dashboard/couriers/deliveries-directory";
 import { CouriersPageHeader } from "@/components/dashboard/couriers/page-header";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
-import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
+import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
+import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getDeliveryStats, listDeliveries } from "@/lib/api/deliveries";
 import { settleOk } from "@/lib/api/settle";
@@ -67,7 +68,7 @@ export default async function CouriersPage() {
   return (
     <div className="flex flex-col gap-6">
       <CouriersPageHeader canManage={canManage} />
-      <StatsGrid stats={statDefinitions} />
+      <StatsSectionCard title="Deliveries" stats={statDefinitions} />
       <DeliveriesDirectory deliveries={deliveries} canManage={canManage} />
     </div>
   );

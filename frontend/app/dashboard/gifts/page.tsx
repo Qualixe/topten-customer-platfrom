@@ -4,7 +4,8 @@ import { UpcomingBirthdaysList } from "@/components/dashboard/birthdays/upcoming
 import { GiftOrdersCard } from "@/components/dashboard/gifts/gift-orders-card";
 import { GiftsPageHeader } from "@/components/dashboard/gifts/page-header";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
-import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
+import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
+import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getBirthdaysOverview, type BirthdayCustomer } from "@/lib/api/birthdays";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getGiftStats, listGiftOrders } from "@/lib/api/gifts";
@@ -77,7 +78,7 @@ export default async function GiftsPage() {
   return (
     <div className="flex flex-col gap-6">
       <GiftsPageHeader />
-      <StatsGrid stats={statDefinitions} />
+      <StatsSectionCard title="Gift Orders" stats={statDefinitions} />
       {canViewBirthdays && <UpcomingBirthdaysList customers={upcomingBirthdays} />}
       <GiftOrdersCard orders={orders} />
     </div>

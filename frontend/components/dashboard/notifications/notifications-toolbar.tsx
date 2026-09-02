@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   all: "All Statuses",
   Delivered: "Delivered",
   Sent: "Sent",
+  Bounced: "Bounced",
   Failed: "Failed",
   Pending: "Pending",
 };

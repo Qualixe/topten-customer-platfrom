@@ -7,10 +7,13 @@ by fanning in the two real places this app actually sends an SMS from:
   triggered an SMS, so they're not a notification event yet). Covers Gift
   Notification.
 
-There's no delivery-receipt webhook anywhere in this codebase, so
-`CampaignRecipientStatus.DELIVERED` is never actually set — `Delivered`
-stays a real, reachable status in the API contract, it's just that nothing
-currently produces it. That's the honest state of the feature, not a bug.
+There's no delivery-receipt webhook for the SMS gateway (the only channel
+this log currently renders), so `CampaignRecipientStatus.DELIVERED`/
+`BOUNCED` are never actually set going forward — they stay reachable
+values in the API contract (and can appear on historical rows from before
+bulk email moved to the Mailchimp Marketing integration) but nothing
+currently produces them for SMS. That's the honest state of the feature,
+not a bug.
 
 Each source is fetched with its own bounded, recency-ordered query (capped
 at `_SOURCE_FETCH_LIMIT` rows) rather than pushed through a single SQL
@@ -46,6 +49,7 @@ _RECIPIENT_STATUS_MAP: dict[str, NotificationStatus] = {
     CampaignRecipientStatus.PENDING.value: NotificationStatus.PENDING,
     CampaignRecipientStatus.SENT.value: NotificationStatus.SENT,
     CampaignRecipientStatus.DELIVERED.value: NotificationStatus.DELIVERED,
+    CampaignRecipientStatus.BOUNCED.value: NotificationStatus.BOUNCED,
     CampaignRecipientStatus.FAILED.value: NotificationStatus.FAILED,
 }
 
@@ -221,7 +225,14 @@ async def get_notification_stats(db: AsyncSession) -> NotificationStats:
     records = await _fetch_all_notifications(db, search="")
     total = len(records)
     delivered = sum(1 for record in records if record.status == NotificationStatus.DELIVERED)
-    failed = sum(1 for record in records if record.status == NotificationStatus.FAILED)
+    # A bounce reads as "didn't get delivered" for this aggregate, even
+    # though NotificationStatusBadge still shows it as its own distinct
+    # status per-record.
+    failed = sum(
+        1
+        for record in records
+        if record.status in (NotificationStatus.FAILED, NotificationStatus.BOUNCED)
+    )
     delivery_rate = round((delivered / total) * 100) if total else 0
     return NotificationStats(
         total=total, delivered=delivered, failed=failed, delivery_rate=delivery_rate

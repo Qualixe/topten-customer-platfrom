@@ -30,7 +30,6 @@ from app.services.sms_campaigns_sms_utils import analyze_sms_message
 from app.views.sms_campaigns import CampaignRecipientRead, CampaignStats
 
 SMS_GATEWAY_PROVIDER = "sms_gateway"
-EMAIL_PROVIDER = "email"
 
 # The six audience rules with no parameters — what GET /audience-counts
 # reports all at once so the campaign composer can show every option's size
@@ -141,6 +140,9 @@ async def list_campaign_recipients(
             provider_message_id=recipient.provider_message_id,
             sent_at=recipient.sent_at,
             delivered_at=recipient.delivered_at,
+            bounced_at=recipient.bounced_at,
+            opened_at=recipient.opened_at,
+            clicked_at=recipient.clicked_at,
             failed_at=recipient.failed_at,
             failure_reason=recipient.failure_reason,
             created_at=recipient.created_at,
@@ -176,6 +178,30 @@ async def get_campaign_stats(db: AsyncSession, campaign_id: int) -> CampaignStat
     ).all()
     verification_counts = {status: count for status, count in verification_rows}
 
+    # opened_at/clicked_at aren't status values (a recipient can be
+    # DELIVERED *and* opened) — counted separately rather than folded into
+    # the status breakdown above.
+    opened = (
+        await db.execute(
+            select(func.count())
+            .select_from(CampaignRecipient)
+            .where(
+                CampaignRecipient.campaign_id == campaign_id,
+                CampaignRecipient.opened_at.is_not(None),
+            )
+        )
+    ).scalar_one()
+    clicked = (
+        await db.execute(
+            select(func.count())
+            .select_from(CampaignRecipient)
+            .where(
+                CampaignRecipient.campaign_id == campaign_id,
+                CampaignRecipient.clicked_at.is_not(None),
+            )
+        )
+    ).scalar_one()
+
     total = sum(status_counts.values())
     verified = verification_counts.get(VerificationStatus.VERIFIED.value, 0)
     pending_verification = verification_counts.get(VerificationStatus.PENDING.value, 0)
@@ -186,6 +212,9 @@ async def get_campaign_stats(db: AsyncSession, campaign_id: int) -> CampaignStat
         pending=status_counts.get(CampaignRecipientStatus.PENDING.value, 0),
         sent=status_counts.get(CampaignRecipientStatus.SENT.value, 0),
         delivered=status_counts.get(CampaignRecipientStatus.DELIVERED.value, 0),
+        bounced=status_counts.get(CampaignRecipientStatus.BOUNCED.value, 0),
+        opened=opened,
+        clicked=clicked,
         failed=status_counts.get(CampaignRecipientStatus.FAILED.value, 0),
         verified=verified,
         pending_verification=pending_verification,

@@ -2,7 +2,7 @@ import { apiGet, buildQueryString } from "@/lib/api/client";
 import type { ApiEnvelope, ApiListEnvelope, PaginatedResponse } from "@/lib/api/types";
 
 export type NotificationChannel = "SMS" | "Email" | "WhatsApp";
-export type NotificationStatus = "Delivered" | "Sent" | "Failed" | "Pending";
+export type NotificationStatus = "Delivered" | "Sent" | "Bounced" | "Failed" | "Pending";
 export type NotificationType =
   | "Birthday Wish"
   | "Gift Notification"

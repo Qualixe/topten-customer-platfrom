@@ -1,7 +1,8 @@
 import { AlertTriangle, Coins, Crown, Wallet } from "lucide-react";
 
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
-import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-grid";
+import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
+import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { VipCustomersPageHeader } from "@/components/dashboard/vip-customers/page-header";
 import { VipDirectory } from "@/components/dashboard/vip-customers/vip-directory";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
@@ -68,7 +69,7 @@ export default async function VipCustomersPage() {
   return (
     <div className="flex flex-col gap-6">
       <VipCustomersPageHeader />
-      <StatsGrid stats={statDefinitions} />
+      <StatsSectionCard title="VIP Customers" stats={statDefinitions} />
       <VipDirectory customers={customers} />
     </div>
   );

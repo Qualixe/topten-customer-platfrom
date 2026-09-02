@@ -15,6 +15,7 @@ from app.controllers import (
     notifications,
     public_profile,
     roles,
+    sendgrid_marketing,
     site_settings,
     sms_campaigns,
     users,
@@ -29,6 +30,9 @@ api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(public_profile.router, prefix="/public", tags=["public"])
 api_router.include_router(site_settings.public_router, prefix="/public", tags=["public"])
 
+api_router.include_router(
+    sendgrid_marketing.router, prefix="/sendgrid", tags=["sendgrid"], dependencies=_protected
+)
 api_router.include_router(
     customers.router, prefix="/customers", tags=["customers"], dependencies=_protected
 )

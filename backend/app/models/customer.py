@@ -54,6 +54,19 @@ class Customer(Base):
     is_vip: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    # Marketing consent — off by default, never set implicitly. Only a
+    # customer with this True is eligible to be synced into the configured
+    # marketing provider's audience (see app.services.sendgrid_sync);
+    # nothing in this app infers consent from being an existing customer.
+    marketing_opt_in: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    marketing_opt_in_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    marketing_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     customer_type: Mapped[str] = mapped_column(
         String(20),
         nullable=False,

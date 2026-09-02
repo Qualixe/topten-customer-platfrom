@@ -356,7 +356,7 @@ export async function getAudiencePreviewRecipients(
   };
 }
 
-export type CampaignRecipientStatus = "PENDING" | "SENT" | "DELIVERED" | "FAILED";
+export type CampaignRecipientStatus = "PENDING" | "SENT" | "DELIVERED" | "BOUNCED" | "FAILED";
 
 export interface CampaignRecipient {
   id: string;
@@ -367,6 +367,9 @@ export interface CampaignRecipient {
   providerMessageId: string | null;
   sentAt: string | null;
   deliveredAt: string | null;
+  bouncedAt: string | null;
+  openedAt: string | null;
+  clickedAt: string | null;
   failedAt: string | null;
   failureReason: string | null;
   createdAt: string;
@@ -404,6 +407,9 @@ export interface CampaignRecipientStats {
   pending: number;
   sent: number;
   delivered: number;
+  bounced: number;
+  opened: number;
+  clicked: number;
   failed: number;
   verified: number;
   pendingVerification: number;

@@ -4,6 +4,7 @@ import type { NotificationStatus } from "@/lib/api/notifications";
 const STATUS_TONE: Record<NotificationStatus, StatusTone> = {
   Delivered: "success",
   Sent: "info",
+  Bounced: "danger",
   Failed: "danger",
   Pending: "neutral",
 };
