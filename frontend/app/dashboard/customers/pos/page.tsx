@@ -1,9 +1,11 @@
-import { Users } from "lucide-react";
+import Link from "next/link";
+import { Upload, Users } from "lucide-react";
 
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { PosCustomersPagination } from "@/components/dashboard/customers-pos/pos-customers-pagination";
 import { PosCustomersToolbar } from "@/components/dashboard/customers-pos/pos-customers-toolbar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -84,11 +86,21 @@ export default async function PosCustomersPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">POS Customers</h2>
-        <p className="text-sm text-muted-foreground">
-          Every customer in the master table — originating from POS imports or added by hand.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">POS Customers</h2>
+          <p className="text-sm text-muted-foreground">
+            Every customer in the master table — originating from POS imports or added by hand.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          nativeButton={false}
+          render={<Link href="/dashboard/imports" />}
+        >
+          <Upload />
+          Import
+        </Button>
       </div>
 
       <Card>

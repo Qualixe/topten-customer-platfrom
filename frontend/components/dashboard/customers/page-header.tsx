@@ -1,8 +1,4 @@
-import Link from "next/link";
-import { Upload } from "lucide-react";
-
 import { AddCustomerDialog } from "@/components/dashboard/customers/add-customer-dialog";
-import { Button } from "@/components/ui/button";
 
 export function CustomersPageHeader() {
   return (
@@ -14,14 +10,6 @@ export function CustomersPageHeader() {
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          nativeButton={false}
-          render={<Link href="/dashboard/imports" />}
-        >
-          <Upload />
-          Import
-        </Button>
         <AddCustomerDialog />
       </div>
     </div>

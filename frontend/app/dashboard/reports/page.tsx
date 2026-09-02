@@ -55,6 +55,7 @@ export default async function ReportsPage() {
       caption: "Today",
       value: overview.today.campaignSends.toLocaleString(),
       icon: Send,
+      
     },
     {
       key: "today-received",
@@ -162,9 +163,9 @@ export default async function ReportsPage() {
     <div className="flex flex-col gap-6">
       <ReportsPageHeader />
 
-      <StatsSectionCard title="Today's Activity" stats={todayActivityStats} />
-      <StatsSectionCard title="Customer Overview" stats={customerOverviewStats} />
-      <StatsSectionCard title="Birthday Overview" stats={birthdayOverviewStats} />
+      <StatsSectionCard title="Today's Activity" stats={todayActivityStats} show_title={false}/>
+      <StatsSectionCard title="Customer Overview" stats={customerOverviewStats} show_title={false}/>
+      <StatsSectionCard title="Birthday Overview" stats={birthdayOverviewStats} show_title={false} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <HealthCircles

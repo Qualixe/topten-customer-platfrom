@@ -76,8 +76,8 @@ export function StatsGrid({
             <CardContent>
               <p
                 className={cn(
-                  "font-extrabold tracking-tight tabular-nums",
-                  compact ? "text-2xl" : "text-4xl"
+                  "font-bold tracking-tight tabular-nums",
+                  compact ? "text-xl" : "text-3xl"
                 )}
               >
                 {stat.value}

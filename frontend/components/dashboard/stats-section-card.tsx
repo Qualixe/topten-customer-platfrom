@@ -10,6 +10,7 @@ export function StatsSectionCard({
 }: {
   title: string;
   stats: StatDefinition[];
+  
 }) {
   const columns = stats.length as 3 | 4 | 5 | 6 | 7;
 
