@@ -7,6 +7,7 @@ import {
   CampaignsToolbar,
   type StatusFilter,
 } from "@/components/dashboard/campaigns/campaigns-toolbar";
+import { ExportCampaignsButton } from "@/components/dashboard/campaigns/export-campaigns-button";
 import {
   Card,
   CardContent,
@@ -42,12 +43,17 @@ export function CampaignsDirectory({ campaigns }: { campaigns: SmsCampaign[] }) 
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <CampaignsToolbar
-          search={search}
-          onSearchChange={setSearch}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex-1">
+            <CampaignsToolbar
+              search={search}
+              onSearchChange={setSearch}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+            />
+          </div>
+          <ExportCampaignsButton campaigns={filteredCampaigns} />
+        </div>
 
         <CampaignsTable campaigns={filteredCampaigns} />
       </CardContent>

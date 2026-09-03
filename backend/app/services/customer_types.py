@@ -82,6 +82,17 @@ async def update_customer_type(
     return customer_type
 
 
+async def get_vip_tier_type_ids(db: AsyncSession) -> list[int]:
+    """The VIP and VVIP built-in type ids — what the "VIP Customers" page
+    (GET /customers/vip, /customers/vip/stats) filters on. Deliberately
+    just these two, not every type: that page is specifically about the
+    VIP/VVIP concept, not a generic "anyone who isn't General" view."""
+    return [
+        await get_seed_customer_type_id(db, "VIP"),
+        await get_seed_customer_type_id(db, "VVIP"),
+    ]
+
+
 async def get_seed_customer_type_id(db: AsyncSession, name: str) -> int:
     """Resolves one of the three built-in type names ("General"/"VIP"/
     "VVIP") to its row id — used only by SMS campaign audience targeting

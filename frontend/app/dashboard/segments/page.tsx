@@ -33,9 +33,9 @@ export default async function SegmentsPage() {
       <SegmentsPageHeader />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SegmentCard title="By Status" buckets={segments.byStatus} />
+        <SegmentCard title="By Customer Type" buckets={segments.byCustomerType} />
         <SegmentCard title="By City" buckets={null} />
         <SegmentCard title="By Group" buckets={null} />
-        <SegmentCard title="By Tier" buckets={segments.byTier} />
         <SegmentCard title="By Gender" buckets={null} />
         <SegmentCard title="By Tag" buckets={null} />
       </div>

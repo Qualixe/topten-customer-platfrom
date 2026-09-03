@@ -1,6 +1,13 @@
+"use client";
+
 import { Megaphone } from "lucide-react";
 
 import { CampaignStatusBadge } from "@/components/dashboard/campaigns/campaign-status-badge";
+import {
+  campaignDateCell,
+  describeAudience,
+  useCustomerTypeNames,
+} from "@/components/dashboard/campaigns/campaign-export";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -11,64 +18,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  CAMPAIGN_TYPE_LABELS,
-  type AudienceRuleType,
-  type CampaignType,
-  type SmsCampaign,
-} from "@/lib/api/campaigns";
+import { CAMPAIGN_TYPE_LABELS, type SmsCampaign } from "@/lib/api/campaigns";
 import { formatCurrency } from "@/lib/api/sms-account";
 
-const AUDIENCE_LABELS: Record<AudienceRuleType, string> = {
-  GENERAL: "General",
-  VIP: "VIP",
-  VVIP: "VVIP",
-  MISSING_DOB: "Missing DOB",
-  MISSING_ADDRESS: "Missing Address",
-  MISSING_DOB_AND_ADDRESS: "Missing DOB & Address",
-  NEW_SINCE_DATE: "New since",
-  NEVER_RECEIVED_TYPE: "Never received",
-  RECEIVED_TYPE_BEFORE_DATE: "Received before",
-  SPECIFIC_CUSTOMERS: "Specific customers",
-  NEVER_VERIFIED: "Never verified",
-  TARGETED_NOT_VERIFIED: "Targeted, not verified",
-};
-
-function describeAudience(campaign: SmsCampaign): string {
-  const base = AUDIENCE_LABELS[campaign.audienceRuleType];
-  const params = campaign.audienceRuleParams;
-
-  if (campaign.audienceRuleType === "NEW_SINCE_DATE" && params.sinceDate) {
-    return `${base} ${params.sinceDate}`;
-  }
-  if (campaign.audienceRuleType === "NEVER_RECEIVED_TYPE" && params.campaignType) {
-    return `${base} ${CAMPAIGN_TYPE_LABELS[params.campaignType as CampaignType] ?? params.campaignType}`;
-  }
-  if (campaign.audienceRuleType === "RECEIVED_TYPE_BEFORE_DATE" && params.campaignType) {
-    const typeLabel = CAMPAIGN_TYPE_LABELS[params.campaignType as CampaignType] ?? params.campaignType;
-    return `${base} ${typeLabel} (${params.beforeDate})`;
-  }
-  return base;
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Dhaka",
-  });
-}
-
-function dateCell(campaign: SmsCampaign) {
-  if (campaign.scheduledAt) {
-    return { label: "Scheduled", value: formatDateTime(campaign.scheduledAt) };
-  }
-  return { label: "Created", value: formatDateTime(campaign.createdAt) };
-}
-
 export function CampaignsTable({ campaigns }: { campaigns: SmsCampaign[] }) {
+  const typeNames = useCustomerTypeNames();
   return (
     <div className="rounded-lg border">
       <div className="max-h-[560px] overflow-y-auto">
@@ -99,7 +53,7 @@ export function CampaignsTable({ campaigns }: { campaigns: SmsCampaign[] }) {
               </TableRow>
             )}
             {campaigns.map((campaign) => {
-              const date = dateCell(campaign);
+              const date = campaignDateCell(campaign);
 
               return (
                 <TableRow key={campaign.id}>
@@ -122,7 +76,7 @@ export function CampaignsTable({ campaigns }: { campaigns: SmsCampaign[] }) {
                     {CAMPAIGN_TYPE_LABELS[campaign.campaignType]}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {describeAudience(campaign)}
+                    {describeAudience(campaign, typeNames)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {campaign.recipientsResolvedAt

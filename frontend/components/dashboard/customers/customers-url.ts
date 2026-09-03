@@ -1,18 +1,11 @@
-import type {
-  CustomerStatus,
-  CustomerTier,
-  CustomersSortBy,
-  SortDirection,
-} from "@/lib/api/customers";
+import type { CustomerStatus, CustomersSortBy, SortDirection } from "@/lib/api/customers";
 
-export type TierFilter = CustomerTier | "all";
 export type StatusFilter = CustomerStatus | "all";
 /** An opaque customer type id (from `listCustomerTypes()`), or "all". */
 export type CustomerTypeFilter = string;
 
 export interface CustomersUrlParams {
   search: string;
-  tier: TierFilter;
   status: StatusFilter;
   customerTypeId: CustomerTypeFilter;
   sortBy?: CustomersSortBy;
@@ -40,7 +33,6 @@ export function buildCustomersHref(
 
   const params = new URLSearchParams();
   if (next.search.trim().length > 0) params.set("search", next.search.trim());
-  if (next.tier !== "all") params.set("tier", next.tier);
   if (next.status !== "all") params.set("status", next.status);
   if (next.customerTypeId !== "all") params.set("customerTypeId", next.customerTypeId);
   if (next.sortBy) {

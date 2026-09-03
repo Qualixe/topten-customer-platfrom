@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.campaign import AudienceRuleType, Campaign, CampaignType
 from app.models.campaign_recipient import CampaignRecipient, VerificationStatus
 from app.models.customer import Customer
-from app.services.customer_types import get_seed_customer_type_id
+from app.services.customer_types import get_customer_type_or_404, get_seed_customer_type_id
 
 
 class AudienceRule(BaseModel):
@@ -36,10 +36,14 @@ class AudienceRule(BaseModel):
     campaign_type: CampaignType | None = None
     before_date: date | None = None
     customer_ids: list[UUID] | None = None
+    customer_type_id: UUID | None = None
 
     @model_validator(mode="after")
     def _validate_params_for_rule_type(self) -> "AudienceRule":
-        if self.rule_type == AudienceRuleType.NEW_SINCE_DATE:
+        if self.rule_type == AudienceRuleType.CUSTOMER_TYPE:
+            if self.customer_type_id is None:
+                raise ValueError("CUSTOMER_TYPE requires customer_type_id")
+        elif self.rule_type == AudienceRuleType.NEW_SINCE_DATE:
             has_date = self.since_date is not None
             has_campaign = self.since_campaign_id is not None
             if has_date == has_campaign:
@@ -63,6 +67,9 @@ class AudienceRule(BaseModel):
         """Only the params relevant to `rule_type`, JSON-serializable, for
         persisting on `Campaign.audience_rule_params`. Never includes
         `since_campaign_id` — that's resolved away before this is called."""
+        if self.rule_type == AudienceRuleType.CUSTOMER_TYPE:
+            assert self.customer_type_id is not None
+            return {"customer_type_id": str(self.customer_type_id)}
         if self.rule_type == AudienceRuleType.NEW_SINCE_DATE:
             return {"since_date": self.since_date.isoformat()}
         if self.rule_type == AudienceRuleType.NEVER_RECEIVED_TYPE:
@@ -117,6 +124,10 @@ async def build_condition(db: AsyncSession, rule: AudienceRule) -> ColumnElement
     if rule.rule_type == AudienceRuleType.VVIP:
         type_id = await get_seed_customer_type_id(db, "VVIP")
         return Customer.customer_type_id == type_id
+    if rule.rule_type == AudienceRuleType.CUSTOMER_TYPE:
+        assert rule.customer_type_id is not None
+        customer_type = await get_customer_type_or_404(db, rule.customer_type_id)
+        return Customer.customer_type_id == customer_type.id
     if rule.rule_type == AudienceRuleType.MISSING_DOB:
         return Customer.date_of_birth.is_(None)
     if rule.rule_type == AudienceRuleType.MISSING_ADDRESS:

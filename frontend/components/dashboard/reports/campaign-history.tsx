@@ -3,6 +3,12 @@
 import { Download, Megaphone } from "lucide-react";
 
 import { CampaignStatusBadge } from "@/components/dashboard/campaigns/campaign-status-badge";
+import {
+  campaignDateCell,
+  describeAudience,
+  exportCampaignsCsv,
+  useCustomerTypeNames,
+} from "@/components/dashboard/campaigns/campaign-export";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,111 +20,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { buildCsv, downloadCsvFile } from "@/lib/csv";
-import {
-  CAMPAIGN_TYPE_LABELS,
-  type AudienceRuleType,
-  type CampaignChannel,
-  type CampaignType,
-  type SmsCampaign,
-} from "@/lib/api/campaigns";
+import { CAMPAIGN_TYPE_LABELS, type SmsCampaign } from "@/lib/api/campaigns";
 import { formatCurrency } from "@/lib/api/sms-account";
-
-const AUDIENCE_LABELS: Record<AudienceRuleType, string> = {
-  GENERAL: "General",
-  VIP: "VIP",
-  VVIP: "VVIP",
-  MISSING_DOB: "Missing DOB",
-  MISSING_ADDRESS: "Missing Address",
-  MISSING_DOB_AND_ADDRESS: "Missing DOB & Address",
-  NEW_SINCE_DATE: "New since",
-  NEVER_RECEIVED_TYPE: "Never received",
-  RECEIVED_TYPE_BEFORE_DATE: "Received before",
-  SPECIFIC_CUSTOMERS: "Specific customers",
-  NEVER_VERIFIED: "Never verified",
-  TARGETED_NOT_VERIFIED: "Targeted, not verified",
-};
-
-function describeAudience(campaign: SmsCampaign): string {
-  const base = AUDIENCE_LABELS[campaign.audienceRuleType];
-  const params = campaign.audienceRuleParams;
-
-  if (campaign.audienceRuleType === "NEW_SINCE_DATE" && params.sinceDate) {
-    return `${base} ${params.sinceDate}`;
-  }
-  if (campaign.audienceRuleType === "NEVER_RECEIVED_TYPE" && params.campaignType) {
-    return `${base} ${CAMPAIGN_TYPE_LABELS[params.campaignType as CampaignType] ?? params.campaignType}`;
-  }
-  if (campaign.audienceRuleType === "RECEIVED_TYPE_BEFORE_DATE" && params.campaignType) {
-    const typeLabel = CAMPAIGN_TYPE_LABELS[params.campaignType as CampaignType] ?? params.campaignType;
-    return `${base} ${typeLabel} (${params.beforeDate})`;
-  }
-  return base;
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Dhaka",
-  });
-}
-
-function dateCell(campaign: SmsCampaign) {
-  if (campaign.scheduledAt) {
-    return { label: "Scheduled", value: formatDateTime(campaign.scheduledAt) };
-  }
-  return { label: "Created", value: formatDateTime(campaign.createdAt) };
-}
-
-const CSV_HEADERS = [
-  "Campaign",
-  "Channel",
-  "Type",
-  "Audience",
-  "Recipients",
-  "SMS Segments",
-  "Status",
-  "Sender ID",
-  "Subject",
-  "Date",
-  "Cost",
-];
-
-function campaignToCsvRow(campaign: SmsCampaign): (string | number)[] {
-  const date = dateCell(campaign);
-  return [
-    campaign.name,
-    campaign.channel === "EMAIL" ? "Email" : "SMS",
-    CAMPAIGN_TYPE_LABELS[campaign.campaignType],
-    describeAudience(campaign),
-    campaign.recipientsResolvedAt ? campaign.totalRecipients : "Resolving",
-    campaign.channel === "EMAIL" ? "" : campaign.smsSegments,
-    campaign.status,
-    campaign.senderId ?? "",
-    campaign.subject ?? "",
-    `${date.label}: ${date.value}`,
-    campaign.estimatedCost,
-  ];
-}
-
-function exportCampaigns(campaigns: SmsCampaign[], channel: CampaignChannel | "all") {
-  const filtered = channel === "all" ? campaigns : campaigns.filter((c) => c.channel === channel);
-  const csv = buildCsv(CSV_HEADERS, filtered.map(campaignToCsvRow));
-  const suffix = channel === "all" ? "all" : channel.toLowerCase();
-  const today = new Date().toISOString().slice(0, 10);
-  downloadCsvFile(`campaign-history-${suffix}-${today}.csv`, csv);
-}
 
 /** Recent campaign activity for the Reports page, with a channel-aware CSV
  * export — the export button lets an admin pull the whole history, or just
  * the SMS or Email rows, without leaving this page. Built from the same
- * campaign list the Campaigns page itself uses (see lib/api/campaigns.ts),
- * exported client-side since the data driving this table is already loaded. */
+ * campaign list the Campaigns page itself uses (see lib/api/campaigns.ts). */
 export function CampaignHistory({ campaigns }: { campaigns: SmsCampaign[] }) {
   const hasEmail = campaigns.some((c) => c.channel === "EMAIL");
+  const typeNames = useCustomerTypeNames();
 
   return (
     <Card>
@@ -132,13 +43,16 @@ export function CampaignHistory({ campaigns }: { campaigns: SmsCampaign[] }) {
               Export
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportCampaigns(campaigns, "all")}>
+              <DropdownMenuItem onClick={() => exportCampaignsCsv(campaigns, "all", typeNames)}>
                 All channels
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportCampaigns(campaigns, "SMS")}>
+              <DropdownMenuItem onClick={() => exportCampaignsCsv(campaigns, "SMS", typeNames)}>
                 SMS only
               </DropdownMenuItem>
-              <DropdownMenuItem disabled={!hasEmail} onClick={() => exportCampaigns(campaigns, "EMAIL")}>
+              <DropdownMenuItem
+                disabled={!hasEmail}
+                onClick={() => exportCampaignsCsv(campaigns, "EMAIL", typeNames)}
+              >
                 Email only
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -170,7 +84,7 @@ export function CampaignHistory({ campaigns }: { campaigns: SmsCampaign[] }) {
                 </TableHeader>
                 <TableBody>
                   {campaigns.map((campaign) => {
-                    const date = dateCell(campaign);
+                    const date = campaignDateCell(campaign);
                     return (
                       <TableRow key={campaign.id}>
                         <TableCell>
@@ -185,7 +99,7 @@ export function CampaignHistory({ campaigns }: { campaigns: SmsCampaign[] }) {
                           {CAMPAIGN_TYPE_LABELS[campaign.campaignType]}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {describeAudience(campaign)}
+                          {describeAudience(campaign, typeNames)}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {campaign.recipientsResolvedAt

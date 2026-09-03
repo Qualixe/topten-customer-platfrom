@@ -12,15 +12,8 @@ import {
 import type {
   CustomerTypeFilter,
   StatusFilter,
-  TierFilter,
 } from "@/components/dashboard/customers/customers-url";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
-
-const TIER_LABELS: Record<TierFilter, string> = {
-  all: "All Tiers",
-  VIP: "VIP",
-  Regular: "Regular",
-};
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   all: "All Statuses",
@@ -32,8 +25,6 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 export function CustomersToolbar({
   search,
   onSearchChange,
-  tierFilter,
-  onTierFilterChange,
   statusFilter,
   onStatusFilterChange,
   customerTypeFilter,
@@ -41,8 +32,6 @@ export function CustomersToolbar({
 }: {
   search: string;
   onSearchChange: (value: string) => void;
-  tierFilter: TierFilter;
-  onTierFilterChange: (value: TierFilter) => void;
   statusFilter: StatusFilter;
   onStatusFilterChange: (value: StatusFilter) => void;
   customerTypeFilter: CustomerTypeFilter;
@@ -74,22 +63,6 @@ export function CustomersToolbar({
       </div>
 
       <div className="flex items-center gap-2">
-        <Select
-          value={tierFilter}
-          onValueChange={(value) => onTierFilterChange(value as TierFilter)}
-        >
-          <SelectTrigger className="w-full sm:w-36" aria-label="Filter by tier">
-            <SelectValue>
-              {(value: TierFilter) => TIER_LABELS[value]}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tiers</SelectItem>
-            <SelectItem value="VIP">VIP</SelectItem>
-            <SelectItem value="Regular">Regular</SelectItem>
-          </SelectContent>
-        </Select>
-
         <Select
           value={statusFilter}
           onValueChange={(value) => onStatusFilterChange(value as StatusFilter)}

@@ -82,6 +82,11 @@ interface QuickSendSendSectionProps {
   smsAccount: SmsAccount;
   canSend: boolean;
   onSubmit: (mode: SendMode, scheduledAt?: string) => Promise<void>;
+  /** Present only when this section is reused as a later step of a
+   * multi-step flow (see SimpleSendComposer) — renders a "Back" button
+   * alongside Send. Quick Send itself never passes this, since every
+   * section is already visible on its single page. */
+  onBack?: () => void;
 }
 
 /** Send section of the single-page Quick Send composer — the cost/balance
@@ -95,6 +100,7 @@ export function QuickSendSendSection({
   smsAccount,
   canSend,
   onSubmit,
+  onBack,
 }: QuickSendSendSectionProps) {
   const [sendMode, setSendMode] = useState<SendMode>("now");
   const [scheduledAt, setScheduledAt] = useState("");
@@ -212,7 +218,12 @@ export function QuickSendSendSection({
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
+      <div className={cn("flex", onBack ? "justify-between" : "justify-end")}>
+        {onBack && (
+          <Button variant="outline" onClick={onBack} disabled={submitting}>
+            Back
+          </Button>
+        )}
         <Button
           onClick={handleSubmit}
           disabled={!canSubmit}

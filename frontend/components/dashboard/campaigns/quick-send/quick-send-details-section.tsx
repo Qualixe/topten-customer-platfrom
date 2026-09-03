@@ -45,7 +45,7 @@ export function QuickSendDetailsSection({
           Give your campaign a descriptive name and choose what kind it is.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <FormField htmlFor="quick-send-name" label="Campaign name">
           <Input
             id="quick-send-name"
@@ -60,7 +60,6 @@ export function QuickSendDetailsSection({
         <FormField
           htmlFor="quick-send-type"
           label="Campaign type"
-          description="Used later to target customers based on which campaign types they have or haven't received."
         >
           <Select
             value={campaignType}

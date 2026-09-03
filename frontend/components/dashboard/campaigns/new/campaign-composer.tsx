@@ -37,9 +37,14 @@ interface ConfirmationState {
 }
 
 const AUDIENCE_LABEL: Record<AudienceRule["ruleType"], string> = {
+  // CUSTOMER_TYPE is never produced by this wizard (its own StepAudience
+  // only builds GENERAL/VIP/VVIP/etc — see quick-send's audience section
+  // for the composer that does use it); present only so this map satisfies
+  // the shared AudienceRuleType.
   GENERAL: "General customers",
   VIP: "VIP customers",
   VVIP: "VVIP customers",
+  CUSTOMER_TYPE: "Customer type",
   MISSING_DOB: "Missing date of birth",
   MISSING_ADDRESS: "Missing address",
   MISSING_DOB_AND_ADDRESS: "Missing DOB & address",

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Cake, Check, Gift as GiftIcon, MapPin, Sparkles, Truck, X } from "lucide-react";
 
-import { CustomerTierBadge } from "@/components/dashboard/customers/tier-badge";
+import { CustomerTypeBadge } from "@/components/dashboard/customers/customer-type-badge";
 import {
   EMPTY_PATHAO_LOCATION,
   MIN_PATHAO_ADDRESS_LENGTH,
@@ -208,8 +208,8 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <p className="truncate text-sm font-medium">{customer.name}</p>
-                            {customer.tier === "VIP" && (
-                              <CustomerTierBadge tier={customer.tier} />
+                            {customer.customerType && (
+                              <CustomerTypeBadge customerType={customer.customerType} />
                             )}
                             <span className="shrink-0 text-xs text-muted-foreground">
                               {customer.phone}

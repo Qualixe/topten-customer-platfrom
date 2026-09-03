@@ -52,7 +52,7 @@ type StaticRuleType =
   | "NEVER_VERIFIED"
   | "TARGETED_NOT_VERIFIED";
 
-const STATIC_OPTIONS: {
+const CUSTOMER_TYPE_OPTIONS: {
   ruleType: StaticRuleType;
   label: string;
   description: string;
@@ -80,6 +80,15 @@ const STATIC_OPTIONS: {
     countKey: "vvip",
     icon: UserCheck,
   },
+];
+
+const STATIC_OPTIONS: {
+  ruleType: StaticRuleType;
+  label: string;
+  description: string;
+  countKey: keyof AudienceCounts;
+  icon: React.ElementType;
+}[] = [
   {
     ruleType: "MISSING_DOB",
     label: "Missing date of birth",
@@ -288,10 +297,51 @@ export function StepAudience({
     };
   }, [isAdvanced, selectedType, sinceDate, historyCampaignType, beforeDate, customerIds]);
 
-  const staticSelected = STATIC_OPTIONS.find((o) => o.ruleType === selectedType);
+  const staticSelected =
+    [...CUSTOMER_TYPE_OPTIONS, ...STATIC_OPTIONS].find((o) => o.ruleType === selectedType);
   const advancedSelected = ADVANCED_OPTIONS.find((o) => o.ruleType === selectedType);
   const selectedCount = staticSelected ? counts[staticSelected.countKey] : previewCount;
   const canContinue = selectedType.length > 0 && (staticSelected !== undefined || previewCount !== null);
+
+  function renderOptionButton(option: typeof STATIC_OPTIONS[number]) {
+    const isSelected = option.ruleType === selectedType;
+    const count = counts[option.countKey];
+    return (
+      <button
+        key={option.ruleType}
+        type="button"
+        onClick={() => setSelectedType(option.ruleType)}
+        aria-pressed={isSelected}
+        className={cn(
+          "group flex w-full items-center gap-4 rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          isSelected
+            ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+            : "border-border hover:border-primary/40 hover:bg-muted/50"
+        )}
+      >
+        <span
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-md border",
+            isSelected
+              ? "border-primary/30 bg-primary/10 text-primary"
+              : "border-border bg-muted text-muted-foreground"
+          )}
+        >
+          <option.icon className="size-4" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium">{option.label}</span>
+          <span className="block text-xs text-muted-foreground">{option.description}</span>
+        </span>
+        <span className="shrink-0 text-right">
+          <span className="block text-sm font-semibold tabular-nums">
+            {count.toLocaleString("en-US")}
+          </span>
+          <span className="block text-xs text-muted-foreground">recipients</span>
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -304,49 +354,21 @@ export function StepAudience({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          {STATIC_OPTIONS.map((option) => {
-            const isSelected = option.ruleType === selectedType;
-            const count = counts[option.countKey];
-            return (
-              <button
-                key={option.ruleType}
-                type="button"
-                onClick={() => setSelectedType(option.ruleType)}
-                aria-pressed={isSelected}
-                className={cn(
-                  "group flex w-full items-center gap-4 rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                  isSelected
-                    ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                    : "border-border hover:border-primary/40 hover:bg-muted/50"
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex size-9 shrink-0 items-center justify-center rounded-md border",
-                    isSelected
-                      ? "border-primary/30 bg-primary/10 text-primary"
-                      : "border-border bg-muted text-muted-foreground"
-                  )}
-                >
-                  <option.icon className="size-4" aria-hidden="true" />
-                </span>
+          {CUSTOMER_TYPE_OPTIONS.map(renderOptionButton)}
+        </CardContent>
+      </Card>
 
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">{option.label}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {option.description}
-                  </span>
-                </span>
-
-                <span className="shrink-0 text-right">
-                  <span className="block text-sm font-semibold tabular-nums">
-                    {count.toLocaleString("en-US")}
-                  </span>
-                  <span className="block text-xs text-muted-foreground">recipients</span>
-                </span>
-              </button>
-            );
-          })}
+      <div className="grid grid-cols-2 items-start gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Other audiences</CardTitle>
+          <CardDescription>
+            Target customers based on missing data or profile verification
+            status.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {STATIC_OPTIONS.map(renderOptionButton)}
         </CardContent>
       </Card>
 
@@ -504,6 +526,7 @@ export function StepAudience({
           })}
         </CardContent>
       </Card>
+      </div>
 
       <CustomerPickerDialog
         open={pickerOpen}

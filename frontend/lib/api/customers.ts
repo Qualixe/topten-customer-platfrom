@@ -23,7 +23,6 @@ export interface ListCustomersParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  tier?: CustomerTier | "all";
   status?: CustomerStatus | "all";
   /** Opaque customer type id (from `listCustomerTypes()`), or "all". */
   customerTypeId?: string | "all";
@@ -139,7 +138,6 @@ function buildCustomersFilterQuery(
   return {
     search: params.search?.trim() || undefined,
     status: params.status && params.status !== "all" ? params.status.toLowerCase() : undefined,
-    is_vip: params.tier && params.tier !== "all" ? params.tier === "VIP" : undefined,
     customer_type_id:
       params.customerTypeId && params.customerTypeId !== "all"
         ? params.customerTypeId

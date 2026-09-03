@@ -60,8 +60,6 @@ export function CustomersFilterBar({
       <CustomersToolbar
         search={searchValue}
         onSearchChange={handleSearchChange}
-        tierFilter={current.tier}
-        onTierFilterChange={(value) => navigate({ tier: value })}
         statusFilter={current.status}
         onStatusFilterChange={(value) => navigate({ status: value })}
         customerTypeFilter={current.customerTypeId}

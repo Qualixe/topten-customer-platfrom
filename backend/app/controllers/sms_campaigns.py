@@ -51,6 +51,7 @@ def _audience_rule_query(
     since_campaign_id: UUID | None = Query(None),
     campaign_type: CampaignType | None = Query(None),
     before_date: date | None = Query(None),
+    customer_type_id: UUID | None = Query(None),
 ) -> AudienceRule:
     try:
         return AudienceRule(
@@ -59,6 +60,7 @@ def _audience_rule_query(
             since_campaign_id=since_campaign_id,
             campaign_type=campaign_type,
             before_date=before_date,
+            customer_type_id=customer_type_id,
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

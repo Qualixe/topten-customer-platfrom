@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Search, Users } from "lucide-react";
 
-import { CustomerTierBadge } from "@/components/dashboard/customers/tier-badge";
+import { CustomerTypeBadge } from "@/components/dashboard/customers/customer-type-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 import { listCustomers, type Customer } from "@/lib/api/customers";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +47,8 @@ export function CustomerMultiPickerField({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [customerTypeId, setCustomerTypeId] = useState("all");
+  const [types, setTypes] = useState<CustomerTypeOption[]>([]);
   const [results, setResults] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,6 +65,15 @@ export function CustomerMultiPickerField({
 
   useEffect(() => {
     if (!open) return;
+    listCustomerTypes()
+      .then(setTypes)
+      .catch(() => {
+        // Non-fatal — the filter just shows "All Types" only.
+      });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     let cancelled = false;
 
     Promise.resolve()
@@ -63,6 +82,7 @@ export function CustomerMultiPickerField({
         try {
           const result = await listCustomers({
             search: debouncedSearch.trim() || undefined,
+            customerTypeId,
             pageSize: PAGE_SIZE,
             verified: true,
           });
@@ -78,7 +98,7 @@ export function CustomerMultiPickerField({
     return () => {
       cancelled = true;
     };
-  }, [open, debouncedSearch]);
+  }, [open, debouncedSearch, customerTypeId]);
 
   function toggle(customer: Customer) {
     if (selectedIds.has(customer.id)) {
@@ -139,18 +159,37 @@ export function CustomerMultiPickerField({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="relative shrink-0">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name, email, or phone…"
-            className="pl-8"
-            autoFocus
-          />
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="relative flex-1">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search by name, email, or phone…"
+              className="pl-8"
+              autoFocus
+            />
+          </div>
+          <Select value={customerTypeId} onValueChange={(value) => setCustomerTypeId(value ?? "all")}>
+            <SelectTrigger className="w-36" aria-label="Filter by customer type">
+              <SelectValue>
+                {(value: string) =>
+                  value === "all" ? "All Types" : (types.find((t) => t.id === value)?.name ?? "…")
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {types.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex flex-col divide-y overflow-y-auto rounded-lg border">
@@ -185,9 +224,9 @@ export function CustomerMultiPickerField({
                       {customer.address || "No address on file"}
                     </span>
                   </span>
-                  {customer.tier === "VIP" && (
+                  {customer.customerType && (
                     <span className="shrink-0">
-                      <CustomerTierBadge tier={customer.tier} />
+                      <CustomerTypeBadge customerType={customer.customerType} />
                     </span>
                   )}
                   <span

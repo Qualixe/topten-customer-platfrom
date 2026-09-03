@@ -10,17 +10,22 @@ interface QuickSendConfirmationProps {
   scheduledAt?: string;
   recipientCount: number;
   skippedFieldLabels: string[];
+  /** Where "New campaign" sends the admin back to. Defaults to Quick Send
+   * itself; SimpleSendComposer passes its own route instead. */
+  newCampaignHref?: string;
 }
 
-/** Success screen for the single-page Quick Send composer — identical
- * content to the wizard's StepConfirmation, just pointing "New campaign"
- * back at /dashboard/campaigns/quick-send instead of the wizard's /new. */
+/** Success screen shared by the single-page Quick Send composer and the
+ * 2-step SimpleSendComposer — identical content to the wizard's
+ * StepConfirmation, just pointing "New campaign" at whichever of those two
+ * routes triggered it instead of the wizard's /new. */
 export function QuickSendConfirmation({
   campaignName,
   mode,
   scheduledAt,
   recipientCount,
   skippedFieldLabels,
+  newCampaignHref = "/dashboard/campaigns/quick-send",
 }: QuickSendConfirmationProps) {
   const isScheduled = mode === "schedule";
   const Icon = isScheduled ? CalendarClock : CheckCircle2;
@@ -86,7 +91,7 @@ export function QuickSendConfirmation({
         <div className="flex flex-col gap-2 w-full sm:flex-row sm:justify-center">
           <Button
             nativeButton={false}
-            render={<Link href="/dashboard/campaigns/quick-send" />}
+            render={<Link href={newCampaignHref} />}
             variant="outline"
           >
             <Send className="size-4" />

@@ -1,16 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  CalendarClock,
-  History,
-  ShieldQuestion,
-  UserCheck,
-  UserPlus,
-  Users,
-  UserX,
-  X,
-} from "lucide-react";
+import { CalendarClock, History, ShieldQuestion, Tag, UserPlus, UserX, X } from "lucide-react";
 
 import { CustomerPickerDialog } from "@/components/dashboard/campaigns/new/customer-picker-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 import type { Customer } from "@/lib/api/customers";
 import {
   CAMPAIGN_TYPE_LABELS,
@@ -43,9 +35,6 @@ import {
 } from "@/lib/api/campaigns";
 
 type StaticRuleType =
-  | "GENERAL"
-  | "VIP"
-  | "VVIP"
   | "MISSING_DOB"
   | "MISSING_ADDRESS"
   | "MISSING_DOB_AND_ADDRESS"
@@ -59,27 +48,6 @@ const STATIC_OPTIONS: {
   countKey: keyof AudienceCounts;
   icon: React.ElementType;
 }[] = [
-  {
-    ruleType: "GENERAL",
-    label: "General customers",
-    description: "All customers not marked VIP or VVIP",
-    countKey: "general",
-    icon: Users,
-  },
-  {
-    ruleType: "VIP",
-    label: "VIP customers",
-    description: "Customers marked as VIP",
-    countKey: "vip",
-    icon: UserCheck,
-  },
-  {
-    ruleType: "VVIP",
-    label: "VVIP customers",
-    description: "Customers marked as VVIP",
-    countKey: "vvip",
-    icon: UserCheck,
-  },
   {
     ruleType: "MISSING_DOB",
     label: "Missing date of birth",
@@ -159,11 +127,13 @@ const CAMPAIGN_TYPE_OPTIONS = Object.entries(CAMPAIGN_TYPE_LABELS) as [CampaignT
 
 function isRuleComplete(
   ruleType: AudienceRuleType,
+  customerTypeId: string,
   sinceDate: string,
   campaignType: string,
   beforeDate: string,
   customerIds: string[]
 ): boolean {
+  if (ruleType === "CUSTOMER_TYPE") return customerTypeId.length > 0;
   if (ruleType === "NEW_SINCE_DATE") return sinceDate.length > 0;
   if (ruleType === "NEVER_RECEIVED_TYPE") return campaignType.length > 0;
   if (ruleType === "RECEIVED_TYPE_BEFORE_DATE") return campaignType.length > 0 && beforeDate.length > 0;
@@ -173,19 +143,24 @@ function isRuleComplete(
 
 function buildRule(
   ruleType: AudienceRuleType,
+  customerTypeId: string,
+  customerTypeName: string,
   sinceDate: string,
   campaignType: string,
   beforeDate: string,
   customerIds: string[]
 ): AudienceRule | null {
-  if (!isRuleComplete(ruleType, sinceDate, campaignType, beforeDate, customerIds)) return null;
+  if (!isRuleComplete(ruleType, customerTypeId, sinceDate, campaignType, beforeDate, customerIds)) {
+    return null;
+  }
+  if (ruleType === "CUSTOMER_TYPE") return { ruleType, customerTypeId, customerTypeName };
   if (ruleType === "NEW_SINCE_DATE") return { ruleType, sinceDate };
   if (ruleType === "NEVER_RECEIVED_TYPE") return { ruleType, campaignType: campaignType as CampaignType };
   if (ruleType === "RECEIVED_TYPE_BEFORE_DATE") {
     return { ruleType, campaignType: campaignType as CampaignType, beforeDate };
   }
   if (ruleType === "SPECIFIC_CUSTOMERS") return { ruleType, customerIds };
-  return { ruleType: ruleType as StaticRuleType };
+  return { ruleType: ruleType as Exclude<AudienceRuleType, AdvancedRuleType | "CUSTOMER_TYPE"> };
 }
 
 interface QuickSendAudienceSectionProps {
@@ -200,9 +175,11 @@ interface QuickSendAudienceSectionProps {
 }
 
 /** Audience section of the single-page Quick Send composer — identical
- * targeting logic to the wizard's StepAudience (all 12 rule types kept, per
- * the "fewer steps, not fewer options" simplification), just without the
- * Back/Continue navigation since every section is visible at once here. */
+ * targeting logic to the wizard's StepAudience, minus the Back/Continue
+ * navigation, plus one change: General/VIP/VVIP's three fixed cards are
+ * replaced with one dynamic "by customer type" section covering every
+ * admin-manageable type (built-in or custom) — see CUSTOMER_TYPE in
+ * lib/api/campaigns.ts. */
 export function QuickSendAudienceSection({
   counts,
   rule,
@@ -212,6 +189,9 @@ export function QuickSendAudienceSection({
   onRecipientCountChange,
 }: QuickSendAudienceSectionProps) {
   const [selectedType, setSelectedType] = useState<AudienceRuleType | "">(rule?.ruleType ?? "");
+  const [selectedCustomerTypeId, setSelectedCustomerTypeId] = useState(
+    rule?.ruleType === "CUSTOMER_TYPE" ? rule.customerTypeId : ""
+  );
   const [sinceDate, setSinceDate] = useState(rule?.ruleType === "NEW_SINCE_DATE" ? rule.sinceDate : "");
   const [historyCampaignType, setHistoryCampaignType] = useState(
     rule?.ruleType === "NEVER_RECEIVED_TYPE" || rule?.ruleType === "RECEIVED_TYPE_BEFORE_DATE"
@@ -225,8 +205,39 @@ export function QuickSendAudienceSection({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  const [customerTypes, setCustomerTypes] = useState<CustomerTypeOption[]>([]);
+  const [typeCounts, setTypeCounts] = useState<Record<string, number>>({});
+  const [typeCountsLoading, setTypeCountsLoading] = useState(true);
+
   const isAdvanced = ADVANCED_OPTIONS.some((o) => o.ruleType === selectedType);
   const customerIds = pickedCustomers.map((c) => c.id);
+
+  useEffect(() => {
+    let cancelled = false;
+    listCustomerTypes()
+      .then(async (types) => {
+        if (cancelled) return;
+        const activeTypes = types.filter((t) => t.isActive);
+        setCustomerTypes(activeTypes);
+        const counts = await Promise.all(
+          activeTypes.map((type) =>
+            getAudiencePreviewCount({ ruleType: "CUSTOMER_TYPE", customerTypeId: type.id })
+          )
+        );
+        if (!cancelled) {
+          setTypeCounts(Object.fromEntries(activeTypes.map((type, i) => [type.id, counts[i]])));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCustomerTypes([]);
+      })
+      .finally(() => {
+        if (!cancelled) setTypeCountsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Push a complete rule up to the composer whenever the selection changes.
   useEffect(() => {
@@ -234,16 +245,26 @@ export function QuickSendAudienceSection({
       onRuleChange(null);
       return;
     }
-    const built = buildRule(selectedType, sinceDate, historyCampaignType, beforeDate, customerIds);
+    const selectedTypeName = customerTypes.find((t) => t.id === selectedCustomerTypeId)?.name ?? "";
+    const built = buildRule(
+      selectedType,
+      selectedCustomerTypeId,
+      selectedTypeName,
+      sinceDate,
+      historyCampaignType,
+      beforeDate,
+      customerIds
+    );
     onRuleChange(built);
     // onRuleChange identity isn't stable across renders in the composer;
     // only the rule's own inputs should re-trigger this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedType, sinceDate, historyCampaignType, beforeDate, pickedCustomers]);
+  }, [selectedType, selectedCustomerTypeId, sinceDate, historyCampaignType, beforeDate, pickedCustomers, customerTypes]);
 
-  // Live count for advanced rules — the static eight already have counts
-  // fetched up front (see `counts`), so only fetch here once an advanced
-  // rule's required inputs are filled in. SPECIFIC_CUSTOMERS is the one
+  // Live count for advanced rules — the five static ones already have
+  // counts fetched up front (see `counts`), customer types have their own
+  // prefetched `typeCounts`, so only fetch here for the "advanced" rules
+  // once their required inputs are filled in. SPECIFIC_CUSTOMERS is the one
   // exception: its count is exactly the number of picks already made in the
   // UI, so it never needs a round trip to the server.
   useEffect(() => {
@@ -261,6 +282,8 @@ export function QuickSendAudienceSection({
         }
         const built = buildRule(
           selectedType as AudienceRuleType,
+          selectedCustomerTypeId,
+          "",
           sinceDate,
           historyCampaignType,
           beforeDate,
@@ -286,11 +309,16 @@ export function QuickSendAudienceSection({
     return () => {
       cancelled = true;
     };
-  }, [isAdvanced, selectedType, sinceDate, historyCampaignType, beforeDate, customerIds]);
+  }, [isAdvanced, selectedType, selectedCustomerTypeId, sinceDate, historyCampaignType, beforeDate, customerIds]);
 
   const staticSelected = STATIC_OPTIONS.find((o) => o.ruleType === selectedType);
   const advancedSelected = ADVANCED_OPTIONS.find((o) => o.ruleType === selectedType);
-  const selectedCount = staticSelected ? counts[staticSelected.countKey] : previewCount;
+  const customerTypeSelected = selectedType === "CUSTOMER_TYPE";
+  const selectedCount = staticSelected
+    ? counts[staticSelected.countKey]
+    : customerTypeSelected
+      ? (typeCounts[selectedCustomerTypeId] ?? null)
+      : previewCount;
 
   useEffect(() => {
     onRecipientCountChange(selectedType ? selectedCount : null);
@@ -299,14 +327,84 @@ export function QuickSendAudienceSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedType, selectedCount]);
 
+  function selectCustomerType(typeId: string) {
+    setSelectedType("CUSTOMER_TYPE");
+    setSelectedCustomerTypeId(typeId);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
           <CardTitle>Choose your audience</CardTitle>
           <CardDescription>
-            Select which customers will receive this campaign. Recipient
+            Select which customer type will receive this campaign. Recipient
             counts are calculated live from your customer database.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {typeCountsLoading && customerTypes.length === 0 && (
+            <p className="text-sm text-muted-foreground">Loading customer types…</p>
+          )}
+          {!typeCountsLoading && customerTypes.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No customer types yet — add one from Settings → Customers.
+            </p>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {customerTypes.map((type) => {
+              const isSelected = customerTypeSelected && selectedCustomerTypeId === type.id;
+              const count = typeCounts[type.id];
+              return (
+                <button
+                  key={type.id}
+                  type="button"
+                  onClick={() => selectCustomerType(type.id)}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    "group flex w-full items-center gap-4 rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                    isSelected
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border hover:border-primary/40 hover:bg-muted/50"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-md border",
+                      isSelected
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : "border-border bg-muted text-muted-foreground"
+                    )}
+                  >
+                    <Tag className="size-4" aria-hidden="true" />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{type.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      Customers labeled {type.name}
+                    </span>
+                  </span>
+
+                  <span className="shrink-0 text-right">
+                    <span className="block text-sm font-semibold tabular-nums">
+                      {count === undefined ? "…" : count.toLocaleString("en-US")}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">recipients</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-2 items-start gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Other audiences</CardTitle>
+          <CardDescription>
+            Target customers based on missing data or profile verification status.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -403,8 +501,13 @@ export function QuickSendAudienceSection({
 
                   {isSelected && (
                     <span className="shrink-0 text-right">
-                      <span className="block text-sm font-semibold tabular-nums">
-                        {previewLoading ? "…" : (previewCount ?? "—")}
+                      <span
+                        className={cn(
+                          "block text-sm font-semibold tabular-nums transition-opacity",
+                          previewLoading ? "opacity-40" : "opacity-100"
+                        )}
+                      >
+                        {previewCount !== null ? previewCount.toLocaleString("en-US") : "—"}
                       </span>
                       <span className="block text-xs text-muted-foreground">recipients</span>
                     </span>
@@ -510,6 +613,7 @@ export function QuickSendAudienceSection({
           })}
         </CardContent>
       </Card>
+      </div>
 
       <CustomerPickerDialog
         open={pickerOpen}
@@ -518,7 +622,7 @@ export function QuickSendAudienceSection({
         onConfirm={onPickedCustomersChange}
       />
 
-      {(staticSelected || advancedSelected) && selectedCount !== null && (
+      {(staticSelected || advancedSelected || customerTypeSelected) && selectedCount !== null && (
         <p className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground">
             {selectedCount.toLocaleString("en-US")} customers

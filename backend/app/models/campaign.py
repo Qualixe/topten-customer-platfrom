@@ -39,9 +39,16 @@ class CampaignType(str, enum.Enum):
 
 
 class AudienceRuleType(str, enum.Enum):
+    # GENERAL/VIP/VVIP are kept only so campaigns created before CUSTOMER_TYPE
+    # existed keep resolving correctly (a stored rule is never rewritten —
+    # see resolve_since_campaign's docstring for the same reasoning). Every
+    # new campaign — including ones targeting General, VIP, or VVIP — uses
+    # CUSTOMER_TYPE instead, since customer types are now admin-manageable
+    # rather than a fixed three.
     GENERAL = "GENERAL"
     VIP = "VIP"
     VVIP = "VVIP"
+    CUSTOMER_TYPE = "CUSTOMER_TYPE"
     NEW_SINCE_DATE = "NEW_SINCE_DATE"
     MISSING_DOB = "MISSING_DOB"
     MISSING_ADDRESS = "MISSING_ADDRESS"

@@ -30,9 +30,14 @@ export const CAMPAIGN_TYPE_LABELS: Record<CampaignType, string> = {
 };
 
 export type AudienceRuleType =
+  // GENERAL/VIP/VVIP are kept only so pre-existing campaigns (created
+  // before CUSTOMER_TYPE existed) keep reading correctly — never produced
+  // by the composer UI anymore. Every new campaign targeting a type
+  // (built-in or custom) uses CUSTOMER_TYPE instead.
   | "GENERAL"
   | "VIP"
   | "VVIP"
+  | "CUSTOMER_TYPE"
   | "NEW_SINCE_DATE"
   | "MISSING_DOB"
   | "MISSING_ADDRESS"
@@ -53,11 +58,15 @@ type NoParamRuleType =
   | "NEVER_VERIFIED"
   | "TARGETED_NOT_VERIFIED";
 
-/** Which customers a campaign targets. A discriminated union since four of
- * the rule types need extra input the others don't — see backend
- * app.modules.sms_campaigns.audience.AudienceRule. */
+/** Which customers a campaign targets. A discriminated union since several
+ * of the rule types need extra input the others don't — see backend
+ * app.modules.sms_campaigns.audience.AudienceRule. `customerTypeName` on
+ * CUSTOMER_TYPE is frontend-only display convenience (the picker already
+ * has the type's name at hand) — never read by `createCampaign` or sent to
+ * the backend, which only ever sees `customerTypeId`. */
 export type AudienceRule =
   | { ruleType: NoParamRuleType }
+  | { ruleType: "CUSTOMER_TYPE"; customerTypeId: string; customerTypeName?: string }
   | { ruleType: "NEW_SINCE_DATE"; sinceDate: string }
   | { ruleType: "NEVER_RECEIVED_TYPE"; campaignType: CampaignType }
   | { ruleType: "RECEIVED_TYPE_BEFORE_DATE"; campaignType: CampaignType; beforeDate: string }
@@ -65,6 +74,7 @@ export type AudienceRule =
 
 function audienceRuleToQueryParams(rule: AudienceRule): Record<string, string> {
   const params: Record<string, string> = { rule_type: rule.ruleType };
+  if (rule.ruleType === "CUSTOMER_TYPE") params.customer_type_id = rule.customerTypeId;
   if (rule.ruleType === "NEW_SINCE_DATE") params.since_date = rule.sinceDate;
   if (rule.ruleType === "NEVER_RECEIVED_TYPE") params.campaign_type = rule.campaignType;
   if (rule.ruleType === "RECEIVED_TYPE_BEFORE_DATE") {
@@ -227,6 +237,7 @@ export interface CreateCampaignResult {
 export async function createCampaign(input: CreateCampaignInput): Promise<CreateCampaignResult> {
   const rule = input.audienceRule;
   const audienceRuleBody: Record<string, unknown> = { rule_type: rule.ruleType };
+  if (rule.ruleType === "CUSTOMER_TYPE") audienceRuleBody.customer_type_id = rule.customerTypeId;
   if (rule.ruleType === "NEW_SINCE_DATE") audienceRuleBody.since_date = rule.sinceDate;
   if (rule.ruleType === "NEVER_RECEIVED_TYPE") audienceRuleBody.campaign_type = rule.campaignType;
   if (rule.ruleType === "RECEIVED_TYPE_BEFORE_DATE") {

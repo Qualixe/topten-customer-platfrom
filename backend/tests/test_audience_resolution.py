@@ -15,7 +15,7 @@ from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
 from app.services.sms_campaigns import count_audience
 from app.services.sms_campaigns_audience import AudienceRule, resolve_since_campaign
-from tests.support import get_customer_type_id
+from tests.support import get_customer_type_id, get_customer_type_public_id
 
 
 async def _add_customer(
@@ -104,6 +104,35 @@ async def test_general_vip_vvip(db_session: AsyncSession) -> None:
     assert await count_audience(db_session, AudienceRule(rule_type="GENERAL")) == 1
     assert await count_audience(db_session, AudienceRule(rule_type="VIP")) == 2
     assert await count_audience(db_session, AudienceRule(rule_type="VVIP")) == 1
+
+
+async def test_customer_type_rule_covers_built_in_and_custom_types(
+    db_session: AsyncSession,
+) -> None:
+    """CUSTOMER_TYPE is how every new campaign targets a type now (GENERAL/
+    VIP/VVIP are kept only for pre-existing campaigns — see AudienceRuleType's
+    docstring) — and unlike those three, it must resolve an admin-added
+    custom type just as well as a built-in one."""
+    await _add_customer(db_session, name="A", phone="+8801711000101", customer_type="General")
+    await _add_customer(db_session, name="B", phone="+8801711000102", customer_type="VIP")
+    await _add_customer(db_session, name="C", phone="+8801711000103", customer_type="Wholesale")
+    await _add_customer(db_session, name="D", phone="+8801711000104", customer_type="Wholesale")
+
+    vip_id = await get_customer_type_public_id(db_session, "VIP")
+    wholesale_id = await get_customer_type_public_id(db_session, "Wholesale")
+
+    assert (
+        await count_audience(
+            db_session, AudienceRule(rule_type="CUSTOMER_TYPE", customer_type_id=vip_id)
+        )
+        == 1
+    )
+    assert (
+        await count_audience(
+            db_session, AudienceRule(rule_type="CUSTOMER_TYPE", customer_type_id=wholesale_id)
+        )
+        == 2
+    )
 
 
 async def test_missing_dob(db_session: AsyncSession) -> None:

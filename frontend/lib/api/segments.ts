@@ -9,9 +9,10 @@ export interface SegmentBucket {
 
 export interface CustomerSegments {
   byStatus: SegmentBucket[];
-  /** VIP vs Regular, from `is_vip` — not the unused `customer_type` enum
-   * (every customer is currently GENERAL). */
-  byTier: SegmentBucket[];
+  /** Grouped by the admin-manageable customer type (General/VIP/VVIP and
+   * anything else added) — the dimension campaigns, gifts, and the
+   * customer list all filter by now. */
+  byCustomerType: SegmentBucket[];
 }
 
 /**

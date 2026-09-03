@@ -111,13 +111,13 @@ export function QuickSendComposer({
       />
 
       <QuickSendAudienceSection
-        counts={audienceCounts}
-        rule={audienceRule}
-        onRuleChange={setAudienceRule}
-        pickedCustomers={pickedCustomers}
-        onPickedCustomersChange={setPickedCustomers}
-        onRecipientCountChange={setRecipientCount}
-      />
+          counts={audienceCounts}
+          rule={audienceRule}
+          onRuleChange={setAudienceRule}
+          pickedCustomers={pickedCustomers}
+          onPickedCustomersChange={setPickedCustomers}
+          onRecipientCountChange={setRecipientCount}
+        />
 
       <QuickSendMessageSection
         message={message}

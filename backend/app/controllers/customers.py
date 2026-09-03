@@ -24,6 +24,7 @@ from app.services.customer_types import (
     create_customer_type,
     get_customer_type_or_404,
     get_seed_customer_type_id,
+    get_vip_tier_type_ids,
     list_customer_types,
     update_customer_type,
 )
@@ -487,25 +488,24 @@ async def _segment_buckets(
     ]
 
 
-async def _tier_buckets(db: AsyncSession) -> list[SegmentBucket]:
-    """VIP vs Regular, grouped by `is_vip` — the field the "VIP Customers"
-    page and the customers list's Tier filter both actually use. Not
-    `customer_type` (GENERAL/VIP/VVIP): that enum is never set by any flow
-    in this app yet and every row is stuck at GENERAL, so grouping by it
-    would hide real VIP customers behind a single meaningless bucket."""
+async def _customer_type_buckets(db: AsyncSession) -> list[SegmentBucket]:
+    """Grouped by the admin-manageable customer type (General/VIP/VVIP and
+    anything else added — see app.models.customer_type), the dimension
+    campaigns, gifts, and the customer list all filter by now. A type still
+    referenced by customers appears here even if it's since been
+    deactivated — history stays visible, matching how deactivation never
+    breaks existing assignments elsewhere."""
     query = (
-        select(Customer.is_vip, func.count())
-        .group_by(Customer.is_vip)
+        select(CustomerType.public_id, CustomerType.name, func.count())
+        .select_from(Customer)
+        .join(CustomerType, CustomerType.id == Customer.customer_type_id)
+        .group_by(CustomerType.public_id, CustomerType.name)
         .order_by(func.count().desc())
     )
     rows = (await db.execute(query)).all()
     return [
-        SegmentBucket(
-            value="VIP" if is_vip else "REGULAR",
-            label="VIP" if is_vip else "Regular",
-            count=count,
-        )
-        for is_vip, count in rows
+        SegmentBucket(value=str(public_id), label=name, count=count)
+        for public_id, name, count in rows
     ]
 
 
@@ -515,13 +515,13 @@ async def get_customer_segments(
     _: object = Depends(require_permission("customers.view")),
 ) -> CustomerSegmentsResponse:
     """Live breakdowns for campaign targeting. Only reports dimensions the
-    schema actually has meaningful data for (status, VIP tier) — city,
+    schema actually has meaningful data for (status, customer type) — city,
     gender, group, and tag aren't stored yet, so the frontend renders those
     as empty placeholders instead of this endpoint faking data for them."""
     return CustomerSegmentsResponse(
         data=CustomerSegments(
             by_status=await _segment_buckets(db, Customer.status, _STATUS_LABELS),
-            by_tier=await _tier_buckets(db),
+            by_customer_type=await _customer_type_buckets(db),
         )
     )
 
@@ -609,7 +609,7 @@ async def list_vip_customers(
     latest_period_subq = _vip_latest_period_subquery()
     status_expr = _vip_status_expr(latest_period_subq.c.latest_period, at_risk_cutoff)
 
-    filters: list[ColumnElement] = [Customer.is_vip.is_(True)]
+    filters: list[ColumnElement] = [Customer.customer_type_id.in_(await get_vip_tier_type_ids(db))]
     search = (search or "").strip()
     if search:
         pattern = f"%{search}%"
@@ -693,7 +693,7 @@ async def get_vip_customer_stats(
         )
         .select_from(Customer)
         .outerjoin(latest_period_subq, Customer.id == latest_period_subq.c.customer_id)
-        .where(Customer.is_vip.is_(True))
+        .where(Customer.customer_type_id.in_(await get_vip_tier_type_ids(db)))
     )
     row = (await db.execute(stats_query)).one()
     average_spend = (

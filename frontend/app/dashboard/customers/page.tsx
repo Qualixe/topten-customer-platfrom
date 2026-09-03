@@ -22,7 +22,6 @@ function parseParams(searchParams: RawSearchParams): CustomersUrlParams {
 
   return {
     search: firstValue(searchParams.search) ?? "",
-    tier: (firstValue(searchParams.tier) as CustomersUrlParams["tier"]) ?? "all",
     status:
       (firstValue(searchParams.status) as CustomersUrlParams["status"]) ?? "all",
     customerTypeId: firstValue(searchParams.customerTypeId) ?? "all",

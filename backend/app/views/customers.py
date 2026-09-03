@@ -202,15 +202,15 @@ class SegmentBucket(BaseModel):
 
 
 class CustomerSegments(BaseModel):
-    """Breakdowns the data actually supports today. `by_tier` groups by
-    `is_vip` (VIP/Regular) — the field actually used elsewhere in the app —
-    not the `customer_type` enum, which every customer is currently stuck
-    at GENERAL for. `by_city`, `by_gender`, `by_group`, and `by_tag` aren't
-    in the schema yet, so the frontend shows those as "No data yet" rather
-    than this endpoint returning empty lists for them."""
+    """Breakdowns the data actually supports today. `by_customer_type`
+    groups by the admin-manageable customer type (see
+    app.models.customer_type) — the dimension campaigns, gifts, and the
+    customer list all filter by. `by_city`, `by_gender`, `by_group`, and
+    `by_tag` aren't in the schema yet, so the frontend shows those as "No
+    data yet" rather than this endpoint returning empty lists for them."""
 
     by_status: list[SegmentBucket]
-    by_tier: list[SegmentBucket]
+    by_customer_type: list[SegmentBucket]
 
 
 class CustomerSegmentsResponse(BaseModel):
@@ -249,12 +249,11 @@ class CustomerProfileTokenResponse(BaseModel):
 
 
 class VipCustomerRead(BaseModel):
-    """A customer flagged `is_vip`, enriched with a derived engagement status.
-
-    `customer_type` is the customer's separate POS-import-driven segment
-    (GENERAL/VIP/VVIP) — it isn't kept in sync with `is_vip` (a customer can
-    be manually flagged VIP while still POS-classified GENERAL), so it's
-    surfaced here as-is rather than treated as a "VIP level" of the flag.
+    """A customer whose `customer_type` is the built-in VIP or VVIP type
+    (see app.services.customer_types.get_vip_tier_type_ids), enriched with a
+    derived engagement status. Independent of the separate `is_vip` flag
+    manual overrides use elsewhere — this page is specifically about the
+    VIP/VVIP customer type, not that flag.
 
     `status` is computed, not stored: ACTIVE unless the customer's
     administrative `Customer.status` isn't "active" (-> INACTIVE), or their

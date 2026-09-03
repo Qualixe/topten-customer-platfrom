@@ -1,7 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Pencil, Trash2, Users } from "lucide-react";
 
 import { CustomerStatusBadge } from "@/components/dashboard/customers/status-badge";
-import { CustomerTierBadge } from "@/components/dashboard/customers/tier-badge";
 import { CustomerTypeBadge } from "@/components/dashboard/customers/customer-type-badge";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -88,7 +87,6 @@ export function CustomersTable({
                 sortDir={sortDir}
                 onSort={onSort}
               />
-              <TableHead>Tier</TableHead>
               <TableHead>Customer Type</TableHead>
               <TableHead>Status</TableHead>
               <SortableHead
@@ -112,11 +110,11 @@ export function CustomersTable({
           <TableBody>
             {customers.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="p-0">
+                <TableCell colSpan={7} className="p-0">
                   <EmptyState
                     icon={Users}
                     title="No customers found"
-                    description="Try adjusting your search, tier, or status filter."
+                    description="Try adjusting your search, type, or status filter."
                   />
                 </TableCell>
               </TableRow>
@@ -137,9 +135,6 @@ export function CustomersTable({
                       </p>
                     </div>
                   </div>
-                </TableCell>
-                <TableCell>
-                  <CustomerTierBadge tier={customer.tier} />
                 </TableCell>
                 <TableCell>
                   <CustomerTypeBadge

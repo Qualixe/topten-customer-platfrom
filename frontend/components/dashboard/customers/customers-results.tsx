@@ -16,7 +16,6 @@ export async function CustomersResults({
   const { items, total, page, pageSize } = await listCustomers({
     page: current.page,
     search: current.search,
-    tier: current.tier,
     status: current.status,
     customerTypeId: current.customerTypeId,
     sortBy: current.sortBy,

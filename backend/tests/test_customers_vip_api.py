@@ -1,4 +1,8 @@
-"""GET /api/v1/customers/vip and /api/v1/customers/vip/stats."""
+"""GET /api/v1/customers/vip and /api/v1/customers/vip/stats.
+
+This page is scoped to the built-in VIP/VVIP customer type, not the
+separate `is_vip` flag — see get_vip_tier_type_ids.
+"""
 
 from datetime import date
 from decimal import Decimal
@@ -16,7 +20,7 @@ async def _add_customer(
     *,
     name: str,
     phone: str,
-    is_vip: bool = False,
+    customer_type: str = "General",
     status: str = "active",
     total_spent: str = "0",
 ) -> Customer:
@@ -24,10 +28,9 @@ async def _add_customer(
         name=name,
         phone=phone,
         normalized_phone=phone,
-        is_vip=is_vip,
         status=status,
         total_spent=Decimal(total_spent),
-        customer_type_id=await get_customer_type_id(db_session),
+        customer_type_id=await get_customer_type_id(db_session, customer_type),
     )
     db_session.add(customer)
     await db_session.commit()
@@ -46,31 +49,51 @@ async def _add_spending(
     await db_session.commit()
 
 
-async def test_vip_list_only_returns_is_vip_customers(
+async def test_vip_list_only_returns_vip_and_vvip_types(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
     await _add_customer(
-        db_session, name="VIP One", phone="+8801711000101", is_vip=True, total_spent="1000"
+        db_session,
+        name="VIP One",
+        phone="+8801711000101",
+        customer_type="VIP",
+        total_spent="1000",
     )
     await _add_customer(
-        db_session, name="Regular", phone="+8801711000102", is_vip=False, total_spent="5000"
+        db_session,
+        name="VVIP One",
+        phone="+8801711000102",
+        customer_type="VVIP",
+        total_spent="2000",
+    )
+    await _add_customer(
+        db_session,
+        name="Regular",
+        phone="+8801711000103",
+        customer_type="General",
+        total_spent="5000",
     )
 
     response = await client.get("/api/v1/customers/vip")
     data = response.json()["data"]
 
-    assert len(data) == 1
-    assert data[0]["name"] == "VIP One"
-    assert data[0]["status"] == "ACTIVE"
-    assert data[0]["last_purchase_year"] is None
-    assert data[0]["last_purchase_month"] is None
+    names = {row["name"] for row in data}
+    assert names == {"VIP One", "VVIP One"}
+    vip_row = next(row for row in data if row["name"] == "VIP One")
+    assert vip_row["status"] == "ACTIVE"
+    assert vip_row["last_purchase_year"] is None
+    assert vip_row["last_purchase_month"] is None
 
 
 async def test_vip_status_is_inactive_when_administratively_not_active(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
     await _add_customer(
-        db_session, name="Suspended VIP", phone="+8801711000101", is_vip=True, status="suspended"
+        db_session,
+        name="Suspended VIP",
+        phone="+8801711000101",
+        customer_type="VIP",
+        status="suspended",
     )
 
     response = await client.get("/api/v1/customers/vip")
@@ -83,7 +106,7 @@ async def test_vip_status_is_at_risk_after_a_stale_last_purchase(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
     customer = await _add_customer(
-        db_session, name="Fading VIP", phone="+8801711000101", is_vip=True
+        db_session, name="Fading VIP", phone="+8801711000101", customer_type="VIP"
     )
     today = date.today()
     stale_year = today.year if today.month > 3 else today.year - 1
@@ -102,7 +125,7 @@ async def test_vip_status_stays_active_with_a_recent_purchase(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
     customer = await _add_customer(
-        db_session, name="Fresh VIP", phone="+8801711000101", is_vip=True
+        db_session, name="Fresh VIP", phone="+8801711000101", customer_type="VIP"
     )
     today = date.today()
     await _add_spending(db_session, customer, year=today.year, month=today.month, amount="300")
@@ -117,9 +140,15 @@ async def test_vip_status_stays_active_with_a_recent_purchase(
 
 async def test_vip_status_filter(client: AsyncClient, db_session: AsyncSession) -> None:
     await _add_customer(
-        db_session, name="Suspended VIP", phone="+8801711000101", is_vip=True, status="suspended"
+        db_session,
+        name="Suspended VIP",
+        phone="+8801711000101",
+        customer_type="VIP",
+        status="suspended",
     )
-    await _add_customer(db_session, name="Active VIP", phone="+8801711000102", is_vip=True)
+    await _add_customer(
+        db_session, name="Active VIP", phone="+8801711000102", customer_type="VIP"
+    )
 
     response = await client.get("/api/v1/customers/vip", params={"vip_status": "INACTIVE"})
     names = [row["name"] for row in response.json()["data"]]
@@ -129,18 +158,26 @@ async def test_vip_status_filter(client: AsyncClient, db_session: AsyncSession) 
 
 async def test_vip_stats_reflect_real_rows(client: AsyncClient, db_session: AsyncSession) -> None:
     await _add_customer(
-        db_session, name="VIP One", phone="+8801711000101", is_vip=True, total_spent="1000"
+        db_session,
+        name="VIP One",
+        phone="+8801711000101",
+        customer_type="VIP",
+        total_spent="1000",
     )
     await _add_customer(
         db_session,
         name="Suspended VIP",
         phone="+8801711000102",
-        is_vip=True,
+        customer_type="VVIP",
         status="suspended",
         total_spent="500",
     )
     await _add_customer(
-        db_session, name="Regular", phone="+8801711000103", is_vip=False, total_spent="9999"
+        db_session,
+        name="Regular",
+        phone="+8801711000103",
+        customer_type="General",
+        total_spent="9999",
     )
 
     response = await client.get("/api/v1/customers/vip/stats")
