@@ -12,21 +12,26 @@ export const dynamic = "force-dynamic";
 
 function NewGiftHeader() {
   return (
-    <div className="flex items-center gap-3">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        nativeButton={false}
-        render={<Link href="/dashboard/gifts" aria-label="Back to gifts" />}
-      >
-        <ArrowLeft className="size-4" />
-      </Button>
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Add Gift</h2>
-        <p className="text-sm text-muted-foreground">
-          Adds a new item to the gift catalog.
-        </p>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          nativeButton={false}
+          render={<Link href="/dashboard/gifts" aria-label="Back to gifts" />}
+        >
+          <ArrowLeft className="size-4" />
+        </Button>
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Add Gift</h2>
+          <p className="text-sm text-muted-foreground">
+            Adds a new item to the gift catalog.
+          </p>
+        </div>
       </div>
+      <Button variant="outline" nativeButton={false} render={<Link href="/dashboard/gifts/catalog" />}>
+        Gift Catalog
+      </Button>
     </div>
   );
 }

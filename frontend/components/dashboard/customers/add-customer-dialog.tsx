@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { UserPlus } from "lucide-react";
 
 import { FormField } from "@/components/dashboard/form-field";
+import { ManageCustomerTypesDialog } from "@/components/dashboard/customers/manage-customer-types-dialog";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,10 +19,16 @@ import {
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createCustomer } from "@/lib/api/customers";
+import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 import { getErrorMessage } from "@/lib/api/types";
 
 export function AddCustomerDialog() {
@@ -63,9 +70,28 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const [isVip, setIsVip] = useState(false);
+  const [types, setTypes] = useState<CustomerTypeOption[]>([]);
+  // "" (not undefined) from the first render — a Base UI Select is
+  // controlled once its value is ever non-undefined, and switching from
+  // uncontrolled to controlled after the async fetch resolves logs a
+  // React warning.
+  const [customerTypeId, setCustomerTypeId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Only active types are offered for a brand-new customer — an inactive
+  // one has no history to preserve here, unlike the edit form.
+  const activeTypes = types.filter((type) => type.isActive);
+
+  useEffect(() => {
+    listCustomerTypes()
+      .then((fetched) => {
+        setTypes(fetched);
+        setCustomerTypeId((current) => current || fetched.find((t) => t.name === "General")?.id || "");
+      })
+      .catch(() => {
+        // Non-fatal — omitting customerTypeId defaults to General server-side.
+      });
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,7 +105,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
         email: email.trim() || undefined,
         address: address.trim() || undefined,
         dateOfBirth: dateOfBirth || undefined,
-        isVip,
+        customerTypeId: customerTypeId || undefined,
       });
       router.refresh();
       onClose();
@@ -142,15 +168,28 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
         <DatePicker id="add-customer-dob" value={dateOfBirth} onChange={setDateOfBirth} />
       </FormField>
 
-      <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-        <div className="min-w-0">
-          <Label htmlFor="add-customer-vip">VIP customer</Label>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Mark this customer as VIP.
-          </p>
+      <FormField htmlFor="add-customer-type" label="Customer Type">
+        <div className="flex items-center gap-2">
+          <Select
+            value={customerTypeId}
+            onValueChange={(value) => setCustomerTypeId(value ?? "")}
+          >
+            <SelectTrigger id="add-customer-type" className="w-full">
+              <SelectValue>
+                {(value: string) => activeTypes.find((t) => t.id === value)?.name ?? "General"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {activeTypes.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <ManageCustomerTypesDialog types={types} onTypesChange={setTypes} />
         </div>
-        <Switch id="add-customer-vip" checked={isVip} onCheckedChange={setIsVip} />
-      </div>
+      </FormField>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

@@ -53,25 +53,25 @@ async def _fetch_existing_phones(session: AsyncSession, normalized_phones: list[
 
 
 def _resolve_customer_type_on_conflict(stmt):
-    """Decides what `customer_type` becomes when an import row updates an
+    """Decides what `customer_type_id` becomes when an import row updates an
     already-existing customer. Currently: the type selected for *this*
     import always wins ("latest import wins"), regardless of the customer's
     previous type — see the task's own worked example (Jan GENERAL, Feb VIP
     -> VIP). To switch to a priority system instead (e.g. VVIP > VIP >
     GENERAL), replace the returned expression with a SQL CASE comparing the
-    existing customers.customer_type against stmt.excluded.customer_type —
+    existing customers.customer_type_id against stmt.excluded.customer_type_id —
     this is the only place that needs to change."""
-    return stmt.excluded.customer_type
+    return stmt.excluded.customer_type_id
 
 
 async def _upsert_customers(
-    session: AsyncSession, rows: list[ValidRow], customer_type: str
+    session: AsyncSession, rows: list[ValidRow], customer_type_id: int
 ) -> dict[str, int]:
     """Bulk upserts customers by normalized_phone in one statement, returning
     {normalized_phone: customer_id}. Deliberately never touches
     date_of_birth/address/email/is_vip/status/total_spent for existing rows —
     those are customer-submitted or system-computed, not POS fields.
-    `customer_type` is the one POS-driven field this *does* update on
+    `customer_type_id` is the one POS-driven field this *does* update on
     conflict — every row in a given import shares the same selected type."""
     if not rows:
         return {}
@@ -82,7 +82,7 @@ async def _upsert_customers(
             "name": row.name,
             "phone": row.raw_phone,
             "normalized_phone": row.normalized_phone,
-            "customer_type": customer_type,
+            "customer_type_id": customer_type_id,
             "updated_at": now,
         }
         for row in rows
@@ -94,7 +94,7 @@ async def _upsert_customers(
         set_={
             "name": stmt.excluded.name,
             "phone": stmt.excluded.phone,
-            "customer_type": _resolve_customer_type_on_conflict(stmt),
+            "customer_type_id": _resolve_customer_type_on_conflict(stmt),
             "updated_at": stmt.excluded.updated_at,
         },
     ).returning(Customer.id, Customer.normalized_phone)
@@ -175,7 +175,7 @@ async def process_chunk(
     phones = [row.normalized_phone for row in unique_rows]
 
     existing_phones = await _fetch_existing_phones(session, phones)
-    phone_to_customer_id = await _upsert_customers(session, unique_rows, batch.customer_type)
+    phone_to_customer_id = await _upsert_customers(session, unique_rows, batch.customer_type_id)
 
     await _upsert_monthly_spending(session, batch, unique_rows, phone_to_customer_id)
     await _recalculate_total_spent(session, list(phone_to_customer_id.values()))

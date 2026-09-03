@@ -3,12 +3,12 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Integer, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
-from app.models.customer import CustomerType
+from app.models.customer_type import CustomerType
 
 
 class ImportBatchStatus(str, enum.Enum):
@@ -44,16 +44,13 @@ class ImportBatch(Base):
     period_year: Mapped[int] = mapped_column(Integer, nullable=False)
     period_month: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    # The customer category this whole file was uploaded as (e.g. a "VIP"
+    # The customer type this whole file was uploaded as (e.g. a "VIP"
     # POS export) — every row in the file is imported/updated under this
-    # single type. Required at upload time; the server_default only backfills
-    # rows from before this column existed.
-    customer_type: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        default=CustomerType.GENERAL.value,
-        server_default=CustomerType.GENERAL.value,
+    # single type. Required at upload time.
+    customer_type_id: Mapped[int] = mapped_column(
+        ForeignKey("customer_types.id", ondelete="RESTRICT"), nullable=False
     )
+    customer_type: Mapped[CustomerType] = relationship(lazy="selectin")
 
     status: Mapped[str] = mapped_column(
         String(30),

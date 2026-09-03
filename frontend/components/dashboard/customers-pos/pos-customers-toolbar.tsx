@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -12,13 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const CUSTOMER_TYPE_LABELS: Record<string, string> = {
-  all: "All Types",
-  GENERAL: "General",
-  VIP: "VIP",
-  VVIP: "VVIP",
-};
+import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 
 const PROFILE_STATUS_LABELS: Record<string, string> = {
   all: "All Profiles",
@@ -33,6 +27,15 @@ export function PosCustomersToolbar() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const [types, setTypes] = useState<CustomerTypeOption[]>([]);
+
+  useEffect(() => {
+    listCustomerTypes()
+      .then(setTypes)
+      .catch(() => {
+        // Non-fatal — the filter just shows "All Types" only.
+      });
+  }, []);
 
   function navigate(patch: Record<string, string | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -68,16 +71,21 @@ export function PosCustomersToolbar() {
 
       <div className="flex items-center gap-2">
         <Select
-          value={searchParams.get("customerType") ?? "all"}
-          onValueChange={(value) => navigate({ customerType: value ?? "all" })}
+          value={searchParams.get("customerTypeId") ?? "all"}
+          onValueChange={(value) => navigate({ customerTypeId: value ?? "all" })}
         >
           <SelectTrigger className="w-full sm:w-40" aria-label="Filter by customer type">
-            <SelectValue>{(value: string) => CUSTOMER_TYPE_LABELS[value]}</SelectValue>
+            <SelectValue>
+              {(value: string) =>
+                value === "all" ? "All Types" : (types.find((t) => t.id === value)?.name ?? "…")
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(CUSTOMER_TYPE_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
+            <SelectItem value="all">All Types</SelectItem>
+            {types.map((type) => (
+              <SelectItem key={type.id} value={type.id}>
+                {type.name}
               </SelectItem>
             ))}
           </SelectContent>

@@ -4,6 +4,7 @@ import {
   listPosCustomers,
   listVerifiedCustomers,
 } from "@/lib/api/customers";
+import { listCustomerTypes } from "@/lib/api/customer-types";
 import { listGiftCatalog, listGiftOrders, type GiftItem } from "@/lib/api/gifts";
 import { listNotifications } from "@/lib/api/notifications";
 
@@ -82,6 +83,13 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   const days = lastNDhakaDays(TREND_DAYS);
   const today = days[days.length - 1];
 
+  // The 3 built-in types are always seeded (see get_seed_customer_type_id
+  // on the backend), so this resolves before the mix counts below can fire.
+  const types = await listCustomerTypes();
+  const generalId = types.find((t) => t.name === "General")?.id;
+  const vipId = types.find((t) => t.name === "VIP")?.id;
+  const vvipId = types.find((t) => t.name === "VVIP")?.id;
+
   const [
     stats,
     verifiedResult,
@@ -98,9 +106,9 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   ] = await Promise.all([
     getCustomerStats(),
     listCustomers({ verified: true, pageSize: 1 }),
-    listPosCustomers({ customerType: "GENERAL", pageSize: 1 }),
-    listPosCustomers({ customerType: "VIP", pageSize: 1 }),
-    listPosCustomers({ customerType: "VVIP", pageSize: 1 }),
+    listPosCustomers({ customerTypeId: generalId, pageSize: 1 }),
+    listPosCustomers({ customerTypeId: vipId, pageSize: 1 }),
+    listPosCustomers({ customerTypeId: vvipId, pageSize: 1 }),
     listPosCustomers({ profileStatus: "COMPLETE", pageSize: 1 }),
     Promise.all(
       days.map((day) =>

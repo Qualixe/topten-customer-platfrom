@@ -38,6 +38,7 @@ RESET_TABLES = [
     "gift_categories",
     "forms",
     "customers",
+    "customer_types",
 ]
 
 

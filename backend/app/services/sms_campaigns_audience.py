@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign import AudienceRuleType, Campaign, CampaignType
 from app.models.campaign_recipient import CampaignRecipient, VerificationStatus
-from app.models.customer import Customer, CustomerType
+from app.models.customer import Customer
+from app.services.customer_types import get_seed_customer_type_id
 
 
 class AudienceRule(BaseModel):
@@ -104,15 +105,18 @@ def _midnight_utc(value: date) -> datetime:
     return datetime.combine(value, time.min, tzinfo=UTC)
 
 
-def build_condition(rule: AudienceRule) -> ColumnElement[bool]:
+async def build_condition(db: AsyncSession, rule: AudienceRule) -> ColumnElement[bool]:
     """`rule.since_campaign_id` must already be resolved (see
     `resolve_since_campaign`) before calling this."""
     if rule.rule_type == AudienceRuleType.GENERAL:
-        return Customer.customer_type == CustomerType.GENERAL.value
+        type_id = await get_seed_customer_type_id(db, "General")
+        return Customer.customer_type_id == type_id
     if rule.rule_type == AudienceRuleType.VIP:
-        return Customer.customer_type == CustomerType.VIP.value
+        type_id = await get_seed_customer_type_id(db, "VIP")
+        return Customer.customer_type_id == type_id
     if rule.rule_type == AudienceRuleType.VVIP:
-        return Customer.customer_type == CustomerType.VVIP.value
+        type_id = await get_seed_customer_type_id(db, "VVIP")
+        return Customer.customer_type_id == type_id
     if rule.rule_type == AudienceRuleType.MISSING_DOB:
         return Customer.date_of_birth.is_(None)
     if rule.rule_type == AudienceRuleType.MISSING_ADDRESS:

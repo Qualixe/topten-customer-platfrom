@@ -15,6 +15,7 @@ from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
 from app.services.sms_campaigns import count_audience
 from app.services.sms_campaigns_audience import AudienceRule, resolve_since_campaign
+from tests.support import get_customer_type_id
 
 
 async def _add_customer(
@@ -22,7 +23,7 @@ async def _add_customer(
     *,
     name: str,
     phone: str,
-    customer_type: str = "GENERAL",
+    customer_type: str = "General",
     date_of_birth: date | None = None,
     address: str | None = None,
     created_at: datetime | None = None,
@@ -31,7 +32,7 @@ async def _add_customer(
         name=name,
         phone=phone,
         normalized_phone=phone,
-        customer_type=customer_type,
+        customer_type_id=await get_customer_type_id(db_session, customer_type),
         date_of_birth=date_of_birth,
         address=address,
     )
@@ -95,7 +96,7 @@ async def _add_recipient(
 
 
 async def test_general_vip_vvip(db_session: AsyncSession) -> None:
-    await _add_customer(db_session, name="A", phone="+8801711000101", customer_type="GENERAL")
+    await _add_customer(db_session, name="A", phone="+8801711000101", customer_type="General")
     await _add_customer(db_session, name="B", phone="+8801711000102", customer_type="VIP")
     await _add_customer(db_session, name="C", phone="+8801711000103", customer_type="VVIP")
     await _add_customer(db_session, name="D", phone="+8801711000104", customer_type="VIP")

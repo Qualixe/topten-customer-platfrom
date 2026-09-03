@@ -3,23 +3,18 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, Index, Numeric, String, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+from app.models.customer_type import CustomerType
 
 
 class CustomerStatus(str, enum.Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
-
-
-class CustomerType(str, enum.Enum):
-    GENERAL = "GENERAL"
-    VIP = "VIP"
-    VVIP = "VVIP"
 
 
 class Customer(Base):
@@ -67,13 +62,10 @@ class Customer(Base):
     marketing_synced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    customer_type: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        default=CustomerType.GENERAL.value,
-        server_default=CustomerType.GENERAL.value,
-        index=True,
+    customer_type_id: Mapped[int] = mapped_column(
+        ForeignKey("customer_types.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    customer_type: Mapped[CustomerType] = relationship(lazy="selectin")
     total_spent: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False, default=Decimal("0"), server_default="0"
     )

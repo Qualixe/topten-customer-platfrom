@@ -16,9 +16,17 @@ from app.common.exceptions import NotFoundError, ValidationAppError
 from app.common.phone import InvalidPhoneNumberError, normalize_phone
 from app.models.campaign import Campaign
 from app.models.campaign_recipient import CampaignRecipient, VerificationStatus
-from app.models.customer import Customer, CustomerStatus, CustomerType
+from app.models.customer import Customer, CustomerStatus
 from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.customer_profile_token import CustomerProfileToken
+from app.models.customer_type import CustomerType
+from app.services.customer_types import (
+    create_customer_type,
+    get_customer_type_or_404,
+    get_seed_customer_type_id,
+    list_customer_types,
+    update_customer_type,
+)
 from app.views.customers import (
     CustomerCreate,
     CustomerCreateResponse,
@@ -31,6 +39,11 @@ from app.views.customers import (
     CustomersMeta,
     CustomerStats,
     CustomerStatsResponse,
+    CustomerTypeCreate,
+    CustomerTypeRead,
+    CustomerTypeResponse,
+    CustomerTypesListResponse,
+    CustomerTypeUpdate,
     CustomerUpdate,
     SegmentBucket,
     UpcomingBirthday,
@@ -77,6 +90,52 @@ async def _get_customer_or_404(db: AsyncSession, customer_id: UUID) -> Customer:
     return customer
 
 
+def _customer_type_to_read(customer_type: CustomerType) -> CustomerTypeRead:
+    return CustomerTypeRead(
+        id=customer_type.public_id,
+        name=customer_type.name,
+        is_system=customer_type.is_system,
+        is_active=customer_type.is_active,
+    )
+
+
+@router.get("/types", response_model=CustomerTypesListResponse)
+async def list_customer_types_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+) -> CustomerTypesListResponse:
+    customer_types = await list_customer_types(db)
+    return CustomerTypesListResponse(
+        data=[_customer_type_to_read(customer_type) for customer_type in customer_types]
+    )
+
+
+@router.post(
+    "/types", response_model=CustomerTypeResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_customer_type_endpoint(
+    payload: CustomerTypeCreate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.manage")),
+) -> CustomerTypeResponse:
+    customer_type = await create_customer_type(db, name=payload.name)
+    return CustomerTypeResponse(data=_customer_type_to_read(customer_type))
+
+
+@router.patch("/types/{type_id}", response_model=CustomerTypeResponse)
+async def update_customer_type_endpoint(
+    type_id: UUID,
+    payload: CustomerTypeUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.manage")),
+) -> CustomerTypeResponse:
+    customer_type = await get_customer_type_or_404(db, type_id)
+    customer_type = await update_customer_type(
+        db, customer_type, name=payload.name, is_active=payload.is_active
+    )
+    return CustomerTypeResponse(data=_customer_type_to_read(customer_type))
+
+
 @router.post(
     "", response_model=CustomerCreateResponse, status_code=status.HTTP_201_CREATED
 )
@@ -96,6 +155,11 @@ async def create_customer(
     if existing.scalar_one_or_none() is not None:
         raise ValidationAppError("A customer with this phone number already exists")
 
+    if payload.customer_type_id is not None:
+        customer_type_id = (await get_customer_type_or_404(db, payload.customer_type_id)).id
+    else:
+        customer_type_id = await get_seed_customer_type_id(db, "General")
+
     customer = Customer(
         name=payload.name,
         phone=payload.phone.strip(),
@@ -106,6 +170,7 @@ async def create_customer(
         is_vip=payload.is_vip,
         marketing_opt_in=payload.marketing_opt_in,
         marketing_opt_in_at=datetime.now(UTC) if payload.marketing_opt_in else None,
+        customer_type_id=customer_type_id,
     )
     db.add(customer)
     await db.commit()
@@ -114,12 +179,13 @@ async def create_customer(
     return CustomerCreateResponse(data=CustomerRead.model_validate(customer))
 
 
-def _build_customer_filters(
+async def _build_customer_filters(
+    db: AsyncSession,
     *,
     search: str | None,
     status: str | None,
     is_vip: bool | None,
-    customer_type: str | None,
+    customer_type_id: UUID | None,
     profile_status: str | None,
     verified: bool | None,
     marketing_opt_in: bool | None,
@@ -148,13 +214,9 @@ def _build_customer_filters(
     if is_vip is not None:
         filters.append(Customer.is_vip == is_vip)
 
-    if customer_type and customer_type != "all":
-        valid_types = {member.value for member in CustomerType}
-        if customer_type not in valid_types:
-            raise ValidationAppError(
-                f"Invalid customer_type {customer_type!r}; expected one of {sorted(valid_types)}"
-            )
-        filters.append(Customer.customer_type == customer_type)
+    if customer_type_id is not None:
+        resolved_type = await get_customer_type_or_404(db, customer_type_id)
+        filters.append(Customer.customer_type_id == resolved_type.id)
 
     # profile_status is derived (see Customer.profile_status), not a stored
     # column — this is that same COMPLETE rule expressed in SQL.
@@ -202,7 +264,7 @@ async def list_customers(
     search: str | None = Query(None, description="Matches name, phone, or email"),
     status: str | None = Query(None),
     is_vip: bool | None = Query(None),
-    customer_type: str | None = Query(None, description="GENERAL, VIP, or VVIP"),
+    customer_type_id: UUID | None = Query(None),
     profile_status: str | None = Query(None, description="COMPLETE or INCOMPLETE"),
     verified: bool | None = Query(
         None, description="True to only return customers verified through at least one campaign"
@@ -215,11 +277,12 @@ async def list_customers(
     sort_by: str | None = Query(None),
     sort_dir: Literal["asc", "desc"] = Query("asc"),
 ) -> CustomersListResponse:
-    filters = _build_customer_filters(
+    filters = await _build_customer_filters(
+        db,
         search=search,
         status=status,
         is_vip=is_vip,
-        customer_type=customer_type,
+        customer_type_id=customer_type_id,
         profile_status=profile_status,
         verified=verified,
         marketing_opt_in=marketing_opt_in,
@@ -274,7 +337,7 @@ def _customer_export_row(customer: Customer) -> tuple[str, ...]:
         record.email or "",
         record.address or "",
         record.date_of_birth.isoformat() if record.date_of_birth else "",
-        record.customer_type.value,
+        record.customer_type.name,
         "Yes" if record.is_vip else "No",
         str(record.total_spent),
         record.status,
@@ -327,7 +390,7 @@ async def export_customers_csv(
     search: str | None = Query(None, description="Matches name, phone, or email"),
     status: str | None = Query(None),
     is_vip: bool | None = Query(None),
-    customer_type: str | None = Query(None, description="GENERAL, VIP, or VVIP"),
+    customer_type_id: UUID | None = Query(None),
     profile_status: str | None = Query(None, description="COMPLETE or INCOMPLETE"),
     verified: bool | None = Query(
         None, description="True to only return customers verified through at least one campaign"
@@ -342,11 +405,12 @@ async def export_customers_csv(
 ) -> StreamingResponse:
     """Same filters as `GET /customers`, minus pagination — every matching
     row is exported, not just the current page."""
-    filters = _build_customer_filters(
+    filters = await _build_customer_filters(
+        db,
         search=search,
         status=status,
         is_vip=is_vip,
-        customer_type=customer_type,
+        customer_type_id=customer_type_id,
         profile_status=profile_status,
         verified=verified,
         marketing_opt_in=marketing_opt_in,
@@ -593,7 +657,7 @@ async def list_vip_customers(
             email=customer.email,
             phone=customer.phone,
             address=customer.address,
-            customer_type=customer.customer_type,
+            customer_type=_customer_type_to_read(customer.customer_type),
             status=row_status,
             total_spent=customer.total_spent,
             last_purchase_year=latest_period // 12 if latest_period is not None else None,
@@ -654,7 +718,7 @@ async def list_verified_customers(
     page_size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None, description="Matches name or phone"),
     campaign_id: UUID | None = Query(None),
-    customer_type: str | None = Query(None, description="GENERAL, VIP, or VVIP"),
+    customer_type_id: UUID | None = Query(None),
     verified_from: date | None = Query(None),
     verified_to: date | None = Query(None),
 ) -> VerifiedCustomersListResponse:
@@ -676,13 +740,9 @@ async def list_verified_customers(
         campaign = await _get_campaign_or_404(db, campaign_id)
         filters.append(CampaignRecipient.campaign_id == campaign.id)
 
-    if customer_type and customer_type != "all":
-        valid_types = {member.value for member in CustomerType}
-        if customer_type not in valid_types:
-            raise ValidationAppError(
-                f"Invalid customer_type {customer_type!r}; expected one of {sorted(valid_types)}"
-            )
-        filters.append(Customer.customer_type == customer_type)
+    if customer_type_id is not None:
+        resolved_type = await get_customer_type_or_404(db, customer_type_id)
+        filters.append(Customer.customer_type_id == resolved_type.id)
 
     if verified_from is not None:
         filters.append(CampaignRecipient.verified_at >= verified_from)
@@ -721,7 +781,7 @@ async def list_verified_customers(
             phone=customer.phone,
             campaign_id=campaign.public_id,
             campaign_name=campaign.name,
-            customer_type=customer.customer_type,
+            customer_type=_customer_type_to_read(customer.customer_type),
             verified_at=recipient.verified_at,
             date_of_birth=customer.date_of_birth,
             address=customer.address,
@@ -781,6 +841,12 @@ async def update_customer(
             raise ValidationAppError(
                 f"Invalid status {updates['status']!r}; expected one of {sorted(valid_statuses)}"
             )
+
+    if "customer_type_id" in updates:
+        # The payload carries the type's public UUID; the column stores the
+        # internal integer id — resolve before the generic setattr loop.
+        resolved_type = await get_customer_type_or_404(db, updates.pop("customer_type_id"))
+        customer.customer_type_id = resolved_type.id
 
     if updates.get("marketing_opt_in") and not customer.marketing_opt_in:
         customer.marketing_opt_in_at = datetime.now(UTC)

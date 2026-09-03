@@ -1,8 +1,7 @@
+import type { CustomerTypeOption } from "@/lib/api/customer-types";
+
 export type CustomerTier = "VIP" | "Regular";
 export type CustomerStatus = "Active" | "Inactive" | "Suspended";
-/** The POS-driven customer category, separate from `tier` (which is derived
- * from `is_vip`). Set via CSV import; see backend `CustomerType`. */
-export type CustomerType = "GENERAL" | "VIP" | "VVIP";
 
 export interface Customer {
   id: string;
@@ -22,7 +21,7 @@ export interface Customer {
    * can pre-fill it; absent (undefined) on mock-generated customers. */
   dateOfBirth?: string | null;
   /** Absent (undefined) on mock-generated customers, same as dateOfBirth. */
-  customerType?: CustomerType;
+  customerType?: CustomerTypeOption;
   /** Raw saved address (or null), same availability caveat as dateOfBirth —
    * `city` above is a display-friendly "—"-on-null fallback derived from
    * this same backend field, not a separate value. */

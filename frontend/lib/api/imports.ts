@@ -1,6 +1,6 @@
 import { API_BASE_URL, apiGet, getAuthorizationHeader } from "@/lib/api/client";
 import { ApiError, NetworkError } from "@/lib/api/types";
-import type { CustomerType } from "@/lib/mock/customers";
+import type { CustomerTypeOption } from "@/lib/api/customer-types";
 
 export type ImportBatchStatus =
   | "UPLOADED"
@@ -16,7 +16,7 @@ export interface ImportBatch {
   fileName: string;
   periodYear: number;
   periodMonth: number;
-  customerType: CustomerType;
+  customerType: CustomerTypeOption;
   status: ImportBatchStatus;
   totalRows: number;
   processedRows: number;
@@ -37,7 +37,7 @@ interface ImportBatchDto {
   fileName: string;
   periodYear: number;
   periodMonth: number;
-  customerType: string;
+  customerType: CustomerTypeOption;
   status: ImportBatchStatus;
   totalRows: number;
   processedRows: number;
@@ -58,7 +58,7 @@ function mapDtoToImportBatch(dto: ImportBatchDto): ImportBatch {
     fileName: dto.fileName,
     periodYear: dto.periodYear,
     periodMonth: dto.periodMonth,
-    customerType: dto.customerType as CustomerType,
+    customerType: dto.customerType,
     status: dto.status,
     totalRows: dto.totalRows,
     processedRows: dto.processedRows,
@@ -78,7 +78,7 @@ export interface UploadCustomerImportInput {
   file: File;
   periodYear: number;
   periodMonth: number;
-  customerType: CustomerType;
+  customerTypeId: string;
 }
 
 /**
@@ -90,7 +90,7 @@ export interface UploadCustomerImportInput {
 export interface CreatedImportBatch {
   importId: string;
   status: ImportBatchStatus;
-  customerType: CustomerType;
+  customerType: CustomerTypeOption;
 }
 
 /**
@@ -107,7 +107,7 @@ export async function uploadCustomerImport(
   const formData = new FormData();
   formData.append("period_year", String(input.periodYear));
   formData.append("period_month", String(input.periodMonth));
-  formData.append("customer_type", input.customerType);
+  formData.append("customer_type_id", input.customerTypeId);
   formData.append("file", input.file);
 
   let response: Response;
@@ -139,12 +139,21 @@ export async function uploadCustomerImport(
   }
 
   const body = (await response.json()) as {
-    data: { import_id: string; status: ImportBatchStatus; customer_type: string };
+    data: {
+      import_id: string;
+      status: ImportBatchStatus;
+      customer_type: { id: string; name: string; is_system: boolean; is_active: boolean };
+    };
   };
   return {
     importId: body.data.import_id,
     status: body.data.status,
-    customerType: body.data.customer_type as CustomerType,
+    customerType: {
+      id: body.data.customer_type.id,
+      name: body.data.customer_type.name,
+      isSystem: body.data.customer_type.is_system,
+      isActive: body.data.customer_type.is_active,
+    },
   };
 }
 

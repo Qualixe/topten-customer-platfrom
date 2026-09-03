@@ -14,6 +14,7 @@ from app.models.role import Role
 from app.models.user import User
 from scripts.seed_auth import seed_auth
 from tests.conftest import TestSessionLocal
+from tests.support import get_customer_type_id
 
 
 async def _get_role(db_session: AsyncSession, name: str) -> Role:
@@ -81,7 +82,12 @@ async def test_staff_cannot_create_customer(
 async def test_staff_cannot_update_customer(
     unauthenticated_client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    customer = Customer(name="Existing", phone="01711000102", normalized_phone="+8801711000102")
+    customer = Customer(
+        name="Existing",
+        phone="01711000102",
+        normalized_phone="+8801711000102",
+        customer_type_id=await get_customer_type_id(db_session),
+    )
     db_session.add(customer)
     await db_session.commit()
     await db_session.refresh(customer)
@@ -96,7 +102,12 @@ async def test_staff_cannot_update_customer(
 async def test_staff_cannot_delete_customer(
     unauthenticated_client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    customer = Customer(name="Existing", phone="01711000103", normalized_phone="+8801711000103")
+    customer = Customer(
+        name="Existing",
+        phone="01711000103",
+        normalized_phone="+8801711000103",
+        customer_type_id=await get_customer_type_id(db_session),
+    )
     db_session.add(customer)
     await db_session.commit()
     await db_session.refresh(customer)

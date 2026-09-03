@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Zap } from "lucide-react";
 
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,20 @@ export function CampaignsPageHeader() {
         </p>
       </div>
       {hasPermission("campaigns.manage") && (
-        <Button nativeButton={false} render={<Link href="/dashboard/campaigns/new" />}>
-          <Plus />
-          New Campaign
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/dashboard/campaigns/quick-send" />}
+          >
+            <Zap />
+            Quick Send
+          </Button>
+          <Button nativeButton={false} render={<Link href="/dashboard/campaigns/new" />}>
+            <Plus />
+            New Campaign
+          </Button>
+        </div>
       )}
     </div>
   );

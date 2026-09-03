@@ -142,7 +142,16 @@ export function CustomersTable({
                   <CustomerTierBadge tier={customer.tier} />
                 </TableCell>
                 <TableCell>
-                  <CustomerTypeBadge customerType={customer.customerType ?? "GENERAL"} />
+                  <CustomerTypeBadge
+                    customerType={
+                      customer.customerType ?? {
+                        id: "",
+                        name: "General",
+                        isSystem: true,
+                        isActive: true,
+                      }
+                    }
+                  />
                 </TableCell>
                 <TableCell>
                   <CustomerStatusBadge status={customer.status} />

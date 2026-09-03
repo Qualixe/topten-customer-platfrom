@@ -72,7 +72,7 @@ async def resolve_campaign_audience_async(
             return
 
         rule = AudienceRule.from_stored(campaign.audience_rule_type, campaign.audience_rule_params)
-        condition = build_condition(rule)
+        condition = await build_condition(session, rule)
         # An EMAIL campaign can't reach a customer with no email on file —
         # excluded from the snapshot itself (not just skipped at send time)
         # so total_recipients/estimated_cost reflect who can actually be

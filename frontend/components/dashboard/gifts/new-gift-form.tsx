@@ -96,7 +96,7 @@ export function NewGiftForm({
         }
       }
 
-      router.push(`/dashboard/gifts/${created.id}`);
+      router.push("/dashboard/gifts/catalog");
     } catch (err) {
       setError(getErrorMessage(err, "Unable to reach the API server. Please try again."));
       setSubmitting(false);

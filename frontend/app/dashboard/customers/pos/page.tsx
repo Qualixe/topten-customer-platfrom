@@ -64,12 +64,12 @@ export default async function PosCustomersPage({
   const raw = await searchParams;
   const page = Number(firstValue(raw.page)) || 1;
   const search = firstValue(raw.search) ?? "";
-  const customerType = (firstValue(raw.customerType) ?? "all") as "all" | "GENERAL" | "VIP" | "VVIP";
+  const customerTypeId = firstValue(raw.customerTypeId) ?? "all";
   const profileStatus = (firstValue(raw.profileStatus) ?? "all") as ProfileStatus | "all";
 
   const [user, customersResult] = await Promise.all([
     getCurrentUserSafeCached(),
-    settleOk(listPosCustomers({ page, search, customerType, profileStatus })),
+    settleOk(listPosCustomers({ page, search, customerTypeId, profileStatus })),
   ]);
   if (!user?.permissions.includes("customers.view")) {
     return (
@@ -133,7 +133,7 @@ export default async function PosCustomersPage({
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
                       <TableCell>{customer.phone}</TableCell>
-                      <TableCell>{customer.customerType}</TableCell>
+                      <TableCell>{customer.customerType.name}</TableCell>
                       <TableCell>{customer.dateOfBirth ?? "—"}</TableCell>
                       <TableCell className="max-w-48 truncate">
                         {customer.address ?? "—"}

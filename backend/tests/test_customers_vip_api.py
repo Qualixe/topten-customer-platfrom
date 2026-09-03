@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customer import Customer
 from app.models.customer_monthly_spending import CustomerMonthlySpending
+from tests.support import get_customer_type_id
 
 
 async def _add_customer(
@@ -26,6 +27,7 @@ async def _add_customer(
         is_vip=is_vip,
         status=status,
         total_spent=Decimal(total_spent),
+        customer_type_id=await get_customer_type_id(db_session),
     )
     db_session.add(customer)
     await db_session.commit()

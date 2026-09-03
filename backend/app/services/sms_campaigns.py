@@ -64,7 +64,7 @@ async def get_sms_rate_per_segment(db: AsyncSession) -> Decimal:
 
 
 async def count_audience(db: AsyncSession, rule: AudienceRule) -> int:
-    condition = build_condition(rule)
+    condition = await build_condition(db, rule)
     result = await db.execute(select(func.count()).select_from(Customer).where(condition))
     return result.scalar_one()
 
@@ -86,7 +86,7 @@ async def preview_audience_recipients(
     """A bounded, paginated peek at which customers a rule would match,
     without creating anything — for admin review before confirming a
     campaign. Never loads the full match set."""
-    condition = build_condition(rule)
+    condition = await build_condition(db, rule)
 
     total = (
         await db.execute(select(func.count()).select_from(Customer).where(condition))

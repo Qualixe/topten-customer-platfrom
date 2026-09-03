@@ -4,14 +4,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from app.models.customer import CustomerType
 from app.models.import_batch import ImportBatchStatus
+from app.views.customers import CustomerTypeRead
 
 
 class ImportBatchCreateData(BaseModel):
     import_id: UUID
     status: ImportBatchStatus
-    customer_type: CustomerType
+    customer_type: CustomerTypeRead
 
 
 class ImportBatchCreateResponse(BaseModel):
@@ -32,7 +32,7 @@ class ImportBatchRead(BaseModel):
     file_name: str
     period_year: int
     period_month: int
-    customer_type: CustomerType
+    customer_type: CustomerTypeRead
     status: ImportBatchStatus
 
     total_rows: int

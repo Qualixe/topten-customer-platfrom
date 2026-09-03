@@ -20,6 +20,11 @@ export function VipDirectory({ customers }: { customers: VipCustomer[] }) {
   );
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  const segments = useMemo(
+    () => [...new Set(customers.map((customer) => customer.segment))].sort((a, b) => a.localeCompare(b)),
+    [customers]
+  );
+
   const filteredCustomers = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -48,6 +53,7 @@ export function VipDirectory({ customers }: { customers: VipCustomer[] }) {
       <VipToolbar
         search={search}
         onSearchChange={setSearch}
+        segments={segments}
         segmentFilter={segmentFilter}
         onSegmentFilterChange={setSegmentFilter}
         statusFilter={statusFilter}

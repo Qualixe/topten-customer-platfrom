@@ -5,7 +5,65 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.customer import CustomerType
+
+class CustomerTypeCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+
+    @field_validator("name")
+    @classmethod
+    def _name_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Customer type name cannot be blank")
+        return stripped
+
+
+class CustomerTypeUpdate(BaseModel):
+    """PATCH body for renaming and/or toggling a customer type active. Both
+    fields are optional — send just the one being changed. There is no
+    delete; `is_active=False` is how a type is retired."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    is_active: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name_not_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Customer type name cannot be blank")
+        return stripped
+
+
+class CustomerTypeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    # populate_by_name so this validates both ways: from_attributes off an
+    # ORM CustomerType object (which has no `.id: UUID` — only `.public_id`,
+    # hence the alias) when nested inside CustomerRead/VipCustomerRead/etc,
+    # and via a direct `CustomerTypeRead(id=..., ...)` call (the pattern
+    # used everywhere this is built by hand — see e.g.
+    # app.controllers.customers._customer_type_to_read).
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    id: UUID = Field(validation_alias="public_id")
+    name: str
+    is_system: bool
+    is_active: bool
+
+
+class CustomerTypeResponse(BaseModel):
+    success: bool = True
+    data: CustomerTypeRead
+    meta: dict = {}
+
+
+class CustomerTypesListResponse(BaseModel):
+    success: bool = True
+    data: list[CustomerTypeRead]
+    meta: dict = {}
 
 
 class CustomerCreate(BaseModel):
@@ -18,6 +76,10 @@ class CustomerCreate(BaseModel):
     date_of_birth: date | None = None
     is_vip: bool = False
     marketing_opt_in: bool = False
+    # Optional — omitted defaults to the built-in "General" type server-side
+    # (see app.controllers.customers.create_customer), matching the old
+    # fixed-enum column's default before customer types became admin-editable.
+    customer_type_id: UUID | None = None
 
     @field_validator("name")
     @classmethod
@@ -52,7 +114,7 @@ class CustomerRead(BaseModel):
     marketing_opt_in: bool
     marketing_opt_in_at: datetime | None
     marketing_synced_at: datetime | None
-    customer_type: CustomerType
+    customer_type: CustomerTypeRead
     total_spent: Decimal
     status: str
     profile_status: Literal["COMPLETE", "INCOMPLETE"]
@@ -73,6 +135,7 @@ class CustomerUpdate(BaseModel):
     is_vip: bool | None = None
     marketing_opt_in: bool | None = None
     status: str | None = None
+    customer_type_id: UUID | None = None
 
     @field_validator("name")
     @classmethod
@@ -206,7 +269,7 @@ class VipCustomerRead(BaseModel):
     email: str | None
     phone: str
     address: str | None
-    customer_type: CustomerType
+    customer_type: CustomerTypeRead
     status: Literal["ACTIVE", "AT_RISK", "INACTIVE"]
     total_spent: Decimal
     last_purchase_year: int | None
@@ -244,7 +307,7 @@ class VerifiedCustomerRead(BaseModel):
     phone: str
     campaign_id: UUID
     campaign_name: str
-    customer_type: CustomerType
+    customer_type: CustomerTypeRead
     verified_at: datetime
     date_of_birth: date | None
     address: str | None

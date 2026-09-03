@@ -33,18 +33,11 @@ import {
   type ImportBatch,
 } from "@/lib/api/imports";
 import { ApiError } from "@/lib/api/types";
-import type { CustomerType } from "@/lib/mock/customers";
 import { MAX_FILE_SIZE_BYTES } from "@/lib/mock/imports";
 
 const POLL_INTERVAL_MS = 1200;
 const MAX_POLL_ATTEMPTS = 100; // ~2 minutes
 const MAX_CONSECUTIVE_POLL_ERRORS = 5; // ~6 seconds — a real failure, not a blip
-
-const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
-  GENERAL: "General",
-  VIP: "VIP",
-  VVIP: "VVIP",
-};
 
 const TERMINAL_STATUSES: ImportBatch["status"][] = [
   "COMPLETED",
@@ -55,7 +48,7 @@ const TERMINAL_STATUSES: ImportBatch["status"][] = [
 
 export function ImportsWorkspace({ initialHistory }: { initialHistory: ImportBatch[] }) {
   const [history, setHistory] = useState(initialHistory);
-  const [customerType, setCustomerType] = useState<CustomerType>("GENERAL");
+  const [customerTypeId, setCustomerTypeId] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodValue>(currentPeriod());
   const [file, setFile] = useState<File | null>(null);
   const [validationState, setValidationState] =
@@ -171,6 +164,10 @@ export function ImportsWorkspace({ initialHistory }: { initialHistory: ImportBat
       setUploadError("Choose which month this file covers before importing.");
       return;
     }
+    if (!customerTypeId) {
+      setUploadError("Choose a customer type before importing.");
+      return;
+    }
 
     setUploading(true);
     setUploadError(null);
@@ -182,7 +179,7 @@ export function ImportsWorkspace({ initialHistory }: { initialHistory: ImportBat
         file,
         periodYear: parsedPeriod.year,
         periodMonth: parsedPeriod.month,
-        customerType,
+        customerTypeId,
       });
       setFile(null);
       // Placeholder shown until the first real poll resolves — the upload
@@ -246,7 +243,7 @@ export function ImportsWorkspace({ initialHistory }: { initialHistory: ImportBat
                 <AlertDescription>
                   <div className="flex flex-col gap-1">
                     <p>
-                      Customer Type: {CUSTOMER_TYPE_LABELS[completedBatch.customerType]}
+                      Customer Type: {completedBatch.customerType.name}
                     </p>
                     <p>
                       Total rows: {completedBatch.totalRows} · New:{" "}
@@ -283,8 +280,8 @@ export function ImportsWorkspace({ initialHistory }: { initialHistory: ImportBat
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <CustomerTypeSelect
-                value={customerType}
-                onChange={setCustomerType}
+                value={customerTypeId}
+                onChange={setCustomerTypeId}
                 disabled={busy}
               />
               <PeriodSelect value={period} onChange={setPeriod} disabled={busy} />

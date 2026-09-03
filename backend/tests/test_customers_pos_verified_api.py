@@ -12,13 +12,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.campaign import Campaign
 from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
+from tests.support import get_customer_type_id
 
 
 async def _create_customer(
-    db_session: AsyncSession, *, name: str, phone: str, **overrides
+    db_session: AsyncSession, *, name: str, phone: str, customer_type: str = "General", **overrides
 ) -> Customer:
-    overrides.setdefault("customer_type", "GENERAL")
-    customer = Customer(name=name, phone=phone, normalized_phone=phone, **overrides)
+    customer = Customer(
+        name=name,
+        phone=phone,
+        normalized_phone=phone,
+        customer_type_id=await get_customer_type_id(db_session, customer_type),
+        **overrides,
+    )
     db_session.add(customer)
     await db_session.commit()
     await db_session.refresh(customer)
@@ -90,14 +96,17 @@ async def test_pos_customer_search_and_customer_type_filter(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
     await _create_customer(db_session, name="Rahim Uddin", phone="+8801711000103")
-    await _create_customer(
+    vip_customer = await _create_customer(
         db_session, name="VIP Karim", phone="+8801711000104", customer_type="VIP"
     )
 
     search_response = await client.get("/api/v1/customers", params={"search": "Rahim"})
     assert [row["name"] for row in search_response.json()["data"]] == ["Rahim Uddin"]
 
-    vip_response = await client.get("/api/v1/customers", params={"customer_type": "VIP"})
+    vip_response = await client.get(
+        "/api/v1/customers",
+        params={"customer_type_id": str(vip_customer.customer_type.public_id)},
+    )
     assert [row["name"] for row in vip_response.json()["data"]] == ["VIP Karim"]
 
 
@@ -135,7 +144,8 @@ async def test_verified_customer_filtering_by_customer_type_and_search(
     await _add_verified_recipient(db_session, campaign=campaign, customer=vvip_customer)
 
     type_response = await client.get(
-        "/api/v1/customers/verified", params={"customer_type": "VVIP"}
+        "/api/v1/customers/verified",
+        params={"customer_type_id": str(vvip_customer.customer_type.public_id)},
     )
     assert [row["name"] for row in type_response.json()["data"]] == ["VVIP Person"]
 

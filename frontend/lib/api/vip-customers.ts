@@ -1,11 +1,14 @@
 import { apiGet, buildQueryString } from "@/lib/api/client";
+import type { CustomerTypeOption } from "@/lib/api/customer-types";
 import type { ApiEnvelope, ApiListEnvelope, PaginatedResponse } from "@/lib/api/types";
 
-/** The customer's real POS-import-driven segment. Independent of the
- * `is_vip` flag that puts a customer on this page at all — a customer can
- * be manually flagged VIP while still POS-classified GENERAL, so this is
- * shown as-is rather than treated as a "level" of VIP-ness. */
-export type CustomerSegment = "GENERAL" | "VIP" | "VVIP";
+/** The customer's real, admin-manageable customer type name (POS-import-
+ * driven, or set on the customer form). Independent of the `is_vip` flag
+ * that puts a customer on this page at all — a customer can be manually
+ * flagged VIP while still classified under any other type — so this is
+ * shown as-is rather than treated as a "level" of VIP-ness. Not restricted
+ * to General/VIP/VVIP since admins can add arbitrary types. */
+export type CustomerSegment = string;
 
 export type VipStatus = "Active" | "At Risk" | "Inactive";
 
@@ -46,7 +49,7 @@ interface VipCustomerDto {
   email: string | null;
   phone: string;
   address: string | null;
-  customerType: string;
+  customerType: CustomerTypeOption;
   status: "ACTIVE" | "AT_RISK" | "INACTIVE";
   totalSpent: string | number;
   lastPurchaseYear: number | null;
@@ -114,7 +117,7 @@ function mapDtoToVipCustomer(dto: VipCustomerDto): VipCustomer {
     email: dto.email,
     phone: dto.phone,
     city: dto.address ?? "—",
-    segment: dto.customerType as CustomerSegment,
+    segment: dto.customerType.name,
     status: STATUS_FROM_BACKEND[dto.status],
     totalSpent: Number(dto.totalSpent),
     lastPurchaseLabel: formatLastPurchase(dto.lastPurchaseYear, dto.lastPurchaseMonth),

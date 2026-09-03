@@ -2,10 +2,14 @@ import { Gem, Star } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { CustomerType } from "@/lib/mock/customers";
+import type { CustomerTypeOption } from "@/lib/api/customer-types";
 
-export function CustomerTypeBadge({ customerType }: { customerType: CustomerType }) {
-  if (customerType === "VVIP") {
+/** VIP/VVIP keep their special styling by name (campaign targeting already
+ * treats them as fixed concepts — see `get_seed_customer_type_id`); any
+ * other type, including General and admin-added ones, gets a neutral
+ * outline badge showing its real name. */
+export function CustomerTypeBadge({ customerType }: { customerType: CustomerTypeOption }) {
+  if (customerType.name === "VVIP") {
     return (
       <Badge
         className={cn(
@@ -19,7 +23,7 @@ export function CustomerTypeBadge({ customerType }: { customerType: CustomerType
     );
   }
 
-  if (customerType === "VIP") {
+  if (customerType.name === "VIP") {
     return (
       <Badge
         className={cn(
@@ -33,5 +37,5 @@ export function CustomerTypeBadge({ customerType }: { customerType: CustomerType
     );
   }
 
-  return <Badge variant="outline">General</Badge>;
+  return <Badge variant="outline">{customerType.name}</Badge>;
 }

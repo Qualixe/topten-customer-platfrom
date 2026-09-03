@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import type {
   StatusFilter,
   TierFilter,
 } from "@/components/dashboard/customers/customers-url";
+import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 
 const TIER_LABELS: Record<TierFilter, string> = {
   all: "All Tiers",
@@ -25,13 +27,6 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   Active: "Active",
   Inactive: "Inactive",
   Suspended: "Suspended",
-};
-
-const CUSTOMER_TYPE_LABELS: Record<CustomerTypeFilter, string> = {
-  all: "All Types",
-  GENERAL: "General",
-  VIP: "VIP",
-  VVIP: "VVIP",
 };
 
 export function CustomersToolbar({
@@ -53,6 +48,15 @@ export function CustomersToolbar({
   customerTypeFilter: CustomerTypeFilter;
   onCustomerTypeFilterChange: (value: CustomerTypeFilter) => void;
 }) {
+  const [types, setTypes] = useState<CustomerTypeOption[]>([]);
+
+  useEffect(() => {
+    listCustomerTypes()
+      .then(setTypes)
+      .catch(() => {
+        // Non-fatal — the filter just shows "All Types" only.
+      });
+  }, []);
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div className="relative flex-1 sm:max-w-sm">
@@ -109,14 +113,18 @@ export function CustomersToolbar({
         >
           <SelectTrigger className="w-full sm:w-36" aria-label="Filter by customer type">
             <SelectValue>
-              {(value: CustomerTypeFilter) => CUSTOMER_TYPE_LABELS[value]}
+              {(value: CustomerTypeFilter) =>
+                value === "all" ? "All Types" : (types.find((t) => t.id === value)?.name ?? "…")
+              }
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="GENERAL">General</SelectItem>
-            <SelectItem value="VIP">VIP</SelectItem>
-            <SelectItem value="VVIP">VVIP</SelectItem>
+            {types.map((type) => (
+              <SelectItem key={type.id} value={type.id}>
+                {type.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

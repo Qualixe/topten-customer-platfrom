@@ -16,6 +16,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { CampaignHistory } from "@/components/dashboard/reports/campaign-history";
 import { ChartCardSkeleton } from "@/components/dashboard/overview/chart-card-skeleton";
 import { HealthCircles } from "@/components/dashboard/overview/health-circles";
 import { TopGifts } from "@/components/dashboard/overview/top-gifts";
@@ -24,8 +25,10 @@ import { ReportsPageHeader } from "@/components/dashboard/reports/page-header";
 import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
 import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getBirthdaysOverview } from "@/lib/api/birthdays";
+import { listCampaigns } from "@/lib/api/campaigns";
 import { listUpcomingBirthdays } from "@/lib/api/customers";
 import { getDashboardOverview } from "@/lib/api/dashboard-overview";
+import { settleOk } from "@/lib/api/settle";
 
 const GiftOrdersChart = nextDynamic(
   () => import("@/components/dashboard/overview/gift-orders-chart").then((m) => m.GiftOrdersChart),
@@ -35,11 +38,16 @@ const GiftOrdersChart = nextDynamic(
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-  const [upcomingBirthdays, overview, birthdaysOverview] = await Promise.all([
+  const [upcomingBirthdays, overview, birthdaysOverview, campaignsResult] = await Promise.all([
     listUpcomingBirthdays(30),
     getDashboardOverview(),
     getBirthdaysOverview(),
+    // Reports has no permission gate of its own (unlike the Campaigns page)
+    // — settleOk so a viewer without campaigns.view still gets every other
+    // section instead of the whole page erroring out.
+    settleOk(listCampaigns({ pageSize: 100 })),
   ]);
+  const campaigns = campaignsResult?.items ?? [];
   const birthdayStats = birthdaysOverview.stats;
   const currentMonthName = new Date().toLocaleDateString("en-US", { month: "long" });
   // birthdaysOverview.all already covers a full year out (within_days=365),
@@ -179,6 +187,8 @@ export default async function ReportsPage() {
       </div>
 
       <UpcomingBirthdays birthdays={upcomingBirthdays} />
+
+      <CampaignHistory campaigns={campaigns} />
     </div>
   );
 }

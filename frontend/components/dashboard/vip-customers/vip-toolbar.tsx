@@ -13,13 +13,6 @@ import type { CustomerSegment, VipStatus } from "@/lib/api/vip-customers";
 export type SegmentFilter = CustomerSegment | "all";
 export type StatusFilter = VipStatus | "all";
 
-const SEGMENT_LABELS: Record<SegmentFilter, string> = {
-  all: "All Segments",
-  GENERAL: "General",
-  VIP: "VIP",
-  VVIP: "VVIP",
-};
-
 const STATUS_LABELS: Record<StatusFilter, string> = {
   all: "All Statuses",
   Active: "Active",
@@ -30,6 +23,7 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 export function VipToolbar({
   search,
   onSearchChange,
+  segments,
   segmentFilter,
   onSegmentFilterChange,
   statusFilter,
@@ -37,6 +31,10 @@ export function VipToolbar({
 }: {
   search: string;
   onSearchChange: (value: string) => void;
+  /** Distinct segment names actually present among the fetched VIP
+   * customers — derived client-side rather than fetched separately, so the
+   * filter never lists a type with zero VIP customers. */
+  segments: string[];
   segmentFilter: SegmentFilter;
   onSegmentFilterChange: (value: SegmentFilter) => void;
   statusFilter: StatusFilter;
@@ -65,14 +63,16 @@ export function VipToolbar({
         >
           <SelectTrigger className="w-full sm:w-36" aria-label="Filter by segment">
             <SelectValue>
-              {(value: SegmentFilter) => SEGMENT_LABELS[value]}
+              {(value: SegmentFilter) => (value === "all" ? "All Segments" : value)}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Segments</SelectItem>
-            <SelectItem value="GENERAL">General</SelectItem>
-            <SelectItem value="VIP">VIP</SelectItem>
-            <SelectItem value="VVIP">VVIP</SelectItem>
+            {segments.map((segment) => (
+              <SelectItem key={segment} value={segment}>
+                {segment}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

@@ -20,6 +20,7 @@ from app.models.role import Role
 from app.models.user import User
 from scripts.seed_auth import seed_auth
 from tests.conftest import TestSessionLocal
+from tests.support import get_customer_type_id
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +52,12 @@ async def _manager_headers(db_session: AsyncSession) -> dict:
 
 
 async def _add_customer(db_session: AsyncSession, *, name: str, phone: str) -> Customer:
-    customer = Customer(name=name, phone=phone, normalized_phone=phone)
+    customer = Customer(
+        name=name,
+        phone=phone,
+        normalized_phone=phone,
+        customer_type_id=await get_customer_type_id(db_session),
+    )
     db_session.add(customer)
     await db_session.commit()
     await db_session.refresh(customer)

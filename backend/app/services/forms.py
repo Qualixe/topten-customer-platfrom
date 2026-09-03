@@ -16,6 +16,7 @@ from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.customer import Customer
 from app.models.form import Form
 from app.services import campaign_landing_pages as landing_page_service
+from app.services.customer_types import get_seed_customer_type_id
 from app.views.campaign_landing_pages import LandingPageBlock, LandingPageBuilderData
 from app.views.forms import FormBuilderData, FormFieldSchema, GenericFormSubmission
 
@@ -232,7 +233,10 @@ async def submit_generic_form(
 
     if customer is None:
         customer = Customer(
-            name=submission.name, phone=submission.phone, normalized_phone=normalized
+            name=submission.name,
+            phone=submission.phone,
+            normalized_phone=normalized,
+            customer_type_id=await get_seed_customer_type_id(db, "General"),
         )
         db.add(customer)
     # An existing customer's name/phone are never overwritten here — this is

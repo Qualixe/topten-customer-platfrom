@@ -23,18 +23,21 @@ from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
 from app.tasks.sms_campaigns import resolve_campaign_audience_async
 from tests.conftest import TestSessionLocal
+from tests.support import get_customer_type_id
 
 DAY_1 = datetime(2026, 8, 19, 9, 0, tzinfo=UTC)
 DAY_2 = datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
 
 
-def _customer_rows(count: int, *, start: int, created_at: datetime) -> list[dict]:
+def _customer_rows(
+    count: int, *, start: int, created_at: datetime, customer_type_id: int
+) -> list[dict]:
     return [
         {
             "name": f"Customer {start + i}",
             "phone": f"+88017{start + i:08d}",
             "normalized_phone": f"+88017{start + i:08d}",
-            "customer_type": "GENERAL",
+            "customer_type_id": customer_type_id,
             "created_at": created_at,
         }
         for i in range(count)
@@ -44,7 +47,8 @@ def _customer_rows(count: int, *, start: int, created_at: datetime) -> list[dict
 async def _bulk_insert_customers(
     db_session: AsyncSession, count: int, *, start: int, created_at: datetime
 ) -> None:
-    rows = _customer_rows(count, start=start, created_at=created_at)
+    general_id = await get_customer_type_id(db_session, "General")
+    rows = _customer_rows(count, start=start, created_at=created_at, customer_type_id=general_id)
     await db_session.execute(Customer.__table__.insert(), rows)
     await db_session.commit()
 
@@ -218,11 +222,12 @@ async def test_large_dataset_never_received_type_query(db_session: AsyncSession)
     # 1,200 rows of this batch" off this batch's own min id rather than an
     # absolute id value.
     vip_count = 1_200
+    vip_id = await get_customer_type_id(db_session, "VIP")
     min_id = (await db_session.execute(select(func.min(Customer.id)))).scalar_one()
     await db_session.execute(
         Customer.__table__.update()
         .where(Customer.id < min_id + vip_count)
-        .values(customer_type="VIP")
+        .values(customer_type_id=vip_id)
     )
     await db_session.commit()
 

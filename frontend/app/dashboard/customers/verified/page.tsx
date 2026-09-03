@@ -52,11 +52,11 @@ export default async function VerifiedCustomersPage({
   const page = Number(firstValue(raw.page)) || 1;
   const search = firstValue(raw.search) ?? "";
   const campaignId = firstValue(raw.campaignId);
-  const customerType = (firstValue(raw.customerType) ?? "all") as "all" | "GENERAL" | "VIP" | "VVIP";
+  const customerTypeId = firstValue(raw.customerTypeId) ?? "all";
 
   const [user, customersResult, campaignsResult] = await Promise.all([
     getCurrentUserSafeCached(),
-    settleOk(listVerifiedCustomers({ page, search, campaignId, customerType })),
+    settleOk(listVerifiedCustomers({ page, search, campaignId, customerTypeId })),
     settleOk(listCampaigns({ pageSize: 100 })),
   ]);
   if (!user?.permissions.includes("customers.view")) {
@@ -125,7 +125,7 @@ export default async function VerifiedCustomersPage({
                       <TableCell className="font-medium">{row.name}</TableCell>
                       <TableCell>{row.phone}</TableCell>
                       <TableCell>{row.campaignName}</TableCell>
-                      <TableCell>{row.customerType}</TableCell>
+                      <TableCell>{row.customerType.name}</TableCell>
                       <TableCell>{formatDateTime(row.verifiedAt)}</TableCell>
                       <TableCell>{row.dateOfBirth ?? "—"}</TableCell>
                       <TableCell className="max-w-48 truncate">{row.address ?? "—"}</TableCell>

@@ -9,9 +9,11 @@ import {
 } from "@/lib/api/client";
 import { ApiError, NetworkError } from "@/lib/api/types";
 import type { ApiEnvelope, ApiListEnvelope, PaginatedResponse } from "@/lib/api/types";
-import type { Customer, CustomerStatus, CustomerTier, CustomerType } from "@/lib/mock/customers";
+import type { CustomerTypeOption } from "@/lib/api/customer-types";
+import type { Customer, CustomerStatus, CustomerTier } from "@/lib/mock/customers";
 
-export type { Customer, CustomerStatus, CustomerTier, CustomerType } from "@/lib/mock/customers";
+export type { Customer, CustomerStatus, CustomerTier } from "@/lib/mock/customers";
+export type { CustomerTypeOption } from "@/lib/api/customer-types";
 export { formatCurrency } from "@/lib/mock/customers";
 
 export type CustomersSortBy = "name" | "totalSpent" | "totalOrders";
@@ -23,7 +25,8 @@ export interface ListCustomersParams {
   search?: string;
   tier?: CustomerTier | "all";
   status?: CustomerStatus | "all";
-  customerType?: CustomerType | "all";
+  /** Opaque customer type id (from `listCustomerTypes()`), or "all". */
+  customerTypeId?: string | "all";
   sortBy?: CustomersSortBy;
   sortDir?: SortDirection;
   /** Only customers verified through at least one campaign. */
@@ -44,7 +47,7 @@ interface CustomerDto {
   dateOfBirth: string | null;
   isVip: boolean;
   marketingOptIn: boolean;
-  customerType: string;
+  customerType: CustomerTypeOption;
   totalSpent: string | number;
   status: string;
   createdAt: string;
@@ -69,17 +72,6 @@ function toStatus(status: string): CustomerStatus {
       return "Suspended";
     default:
       return "Active";
-  }
-}
-
-function toCustomerType(customerType: string): CustomerType {
-  switch (customerType.toUpperCase()) {
-    case "VIP":
-      return "VIP";
-    case "VVIP":
-      return "VVIP";
-    default:
-      return "GENERAL";
   }
 }
 
@@ -126,7 +118,7 @@ function mapDtoToCustomer(dto: CustomerDto): Customer {
     lastPurchaseAt: "—",
     notes: "",
     dateOfBirth: dto.dateOfBirth,
-    customerType: toCustomerType(dto.customerType),
+    customerType: dto.customerType,
     marketingOptIn: dto.marketingOptIn,
   };
 }
@@ -148,8 +140,10 @@ function buildCustomersFilterQuery(
     search: params.search?.trim() || undefined,
     status: params.status && params.status !== "all" ? params.status.toLowerCase() : undefined,
     is_vip: params.tier && params.tier !== "all" ? params.tier === "VIP" : undefined,
-    customer_type:
-      params.customerType && params.customerType !== "all" ? params.customerType : undefined,
+    customer_type_id:
+      params.customerTypeId && params.customerTypeId !== "all"
+        ? params.customerTypeId
+        : undefined,
     sort_by: params.sortBy ? SORT_BY_TO_BACKEND[params.sortBy] : undefined,
     sort_dir: params.sortDir,
     verified: params.verified,
@@ -235,7 +229,7 @@ export interface PosCustomerRow {
   id: string;
   name: string;
   phone: string;
-  customerType: CustomerType;
+  customerType: CustomerTypeOption;
   dateOfBirth: string | null;
   address: string | null;
   profileStatus: ProfileStatus;
@@ -247,7 +241,7 @@ interface PosCustomerDto {
   id: string;
   name: string;
   phone: string;
-  customerType: string;
+  customerType: CustomerTypeOption;
   dateOfBirth: string | null;
   address: string | null;
   profileStatus: ProfileStatus;
@@ -260,7 +254,7 @@ function mapDtoToPosCustomerRow(dto: PosCustomerDto): PosCustomerRow {
     id: dto.id,
     name: dto.name,
     phone: dto.phone,
-    customerType: toCustomerType(dto.customerType),
+    customerType: dto.customerType,
     dateOfBirth: dto.dateOfBirth,
     address: dto.address,
     profileStatus: dto.profileStatus,
@@ -273,7 +267,7 @@ export interface ListPosCustomersParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  customerType?: CustomerType | "all";
+  customerTypeId?: string | "all";
   profileStatus?: ProfileStatus | "all";
   createdFrom?: string;
   createdTo?: string;
@@ -289,8 +283,10 @@ export async function listPosCustomers(
     page: params.page ?? 1,
     page_size: params.pageSize ?? DEFAULT_PAGE_SIZE,
     search: params.search?.trim() || undefined,
-    customer_type:
-      params.customerType && params.customerType !== "all" ? params.customerType : undefined,
+    customer_type_id:
+      params.customerTypeId && params.customerTypeId !== "all"
+        ? params.customerTypeId
+        : undefined,
     profile_status:
       params.profileStatus && params.profileStatus !== "all" ? params.profileStatus : undefined,
     created_from: params.createdFrom,
@@ -313,7 +309,7 @@ export interface VerifiedCustomerRow {
   phone: string;
   campaignId: string;
   campaignName: string;
-  customerType: CustomerType;
+  customerType: CustomerTypeOption;
   verifiedAt: string;
   dateOfBirth: string | null;
   address: string | null;
@@ -326,7 +322,7 @@ interface VerifiedCustomerDto {
   phone: string;
   campaignId: string;
   campaignName: string;
-  customerType: string;
+  customerType: CustomerTypeOption;
   verifiedAt: string;
   dateOfBirth: string | null;
   address: string | null;
@@ -340,7 +336,7 @@ function mapDtoToVerifiedCustomerRow(dto: VerifiedCustomerDto): VerifiedCustomer
     phone: dto.phone,
     campaignId: dto.campaignId,
     campaignName: dto.campaignName,
-    customerType: toCustomerType(dto.customerType),
+    customerType: dto.customerType,
     verifiedAt: dto.verifiedAt,
     dateOfBirth: dto.dateOfBirth,
     address: dto.address,
@@ -353,7 +349,7 @@ export interface ListVerifiedCustomersParams {
   pageSize?: number;
   search?: string;
   campaignId?: string;
-  customerType?: CustomerType | "all";
+  customerTypeId?: string | "all";
   verifiedFrom?: string;
   verifiedTo?: string;
 }
@@ -368,8 +364,10 @@ export async function listVerifiedCustomers(
     page_size: params.pageSize ?? DEFAULT_PAGE_SIZE,
     search: params.search?.trim() || undefined,
     campaign_id: params.campaignId,
-    customer_type:
-      params.customerType && params.customerType !== "all" ? params.customerType : undefined,
+    customer_type_id:
+      params.customerTypeId && params.customerTypeId !== "all"
+        ? params.customerTypeId
+        : undefined,
     verified_from: params.verifiedFrom,
     verified_to: params.verifiedTo,
   });
@@ -472,6 +470,8 @@ export interface CreateCustomerInput {
   dateOfBirth?: string;
   isVip?: boolean;
   marketingOptIn?: boolean;
+  /** Omitted defaults to the built-in "General" type server-side. */
+  customerTypeId?: string;
 }
 
 /** Creates a real customer row via `POST /api/v1/customers`. Throws `ApiError`
@@ -485,6 +485,7 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Custom
     date_of_birth: input.dateOfBirth,
     is_vip: input.isVip ?? false,
     marketing_opt_in: input.marketingOptIn ?? false,
+    customer_type_id: input.customerTypeId,
   });
 
   return mapDtoToCustomer(envelope.data);
@@ -500,6 +501,7 @@ export interface UpdateCustomerInput {
   isVip?: boolean;
   marketingOptIn?: boolean;
   status?: CustomerStatus;
+  customerTypeId?: string;
 }
 
 /** Updates a real customer row via `PATCH /api/v1/customers/{id}`. Only the
@@ -516,6 +518,7 @@ export async function updateCustomer(id: string, input: UpdateCustomerInput): Pr
   if (input.isVip !== undefined) body.is_vip = input.isVip;
   if (input.marketingOptIn !== undefined) body.marketing_opt_in = input.marketingOptIn;
   if (input.status !== undefined) body.status = input.status.toLowerCase();
+  if (input.customerTypeId !== undefined) body.customer_type_id = input.customerTypeId;
 
   const envelope = await apiPatch<ApiEnvelope<CustomerDto>>(`/customers/${id}`, body);
   return mapDtoToCustomer(envelope.data);

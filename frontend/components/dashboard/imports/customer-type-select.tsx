@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 import { Label } from "@/components/ui/label";
@@ -8,13 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CustomerType } from "@/lib/mock/customers";
-
-const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
-  GENERAL: "General",
-  VIP: "VIP",
-  VVIP: "VVIP",
-};
+import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 
 /**
  * Required first step of the import flow — every row in the uploaded file
@@ -26,10 +23,25 @@ export function CustomerTypeSelect({
   onChange,
   disabled,
 }: {
-  value: CustomerType | null;
-  onChange: (value: CustomerType) => void;
+  value: string | null;
+  onChange: (value: string) => void;
   disabled?: boolean;
 }) {
+  const [types, setTypes] = useState<CustomerTypeOption[]>([]);
+  // Every row in a new import gets freshly assigned to whatever's picked
+  // here, so — unlike the edit-customer form — there's no "current value"
+  // to preserve, and inactive types are hidden outright.
+  const activeTypes = types.filter((type) => type.isActive);
+
+  useEffect(() => {
+    listCustomerTypes()
+      .then(setTypes)
+      .catch(() => {
+        // Non-fatal — the select just stays empty; the "required" hint below
+        // still guides the admin, and the request will fail loudly on submit.
+      });
+  }, []);
+
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor="import-customer-type">
@@ -37,18 +49,22 @@ export function CustomerTypeSelect({
       </Label>
       <Select
         value={value ?? undefined}
-        onValueChange={(next) => onChange(next as CustomerType)}
+        onValueChange={(next) => {
+          if (next) onChange(next);
+        }}
         disabled={disabled}
       >
         <SelectTrigger id="import-customer-type" className="w-full sm:w-56">
           <SelectValue placeholder="Select a customer type…">
-            {(selected: CustomerType) => CUSTOMER_TYPE_LABELS[selected]}
+            {(selected: string) => activeTypes.find((t) => t.id === selected)?.name ?? "…"}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="GENERAL">General</SelectItem>
-          <SelectItem value="VIP">VIP</SelectItem>
-          <SelectItem value="VVIP">VVIP</SelectItem>
+          {activeTypes.map((type) => (
+            <SelectItem key={type.id} value={type.id}>
+              {type.name}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       {!value && (

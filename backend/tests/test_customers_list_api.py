@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.campaign import Campaign
 from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
+from tests.support import get_customer_type_id
 
 
 async def _add_customer(
@@ -18,7 +19,7 @@ async def _add_customer(
     status: str = "active",
     is_vip: bool = False,
     total_spent: str = "0",
-    customer_type: str | None = None,
+    customer_type: str = "General",
 ) -> Customer:
     customer = Customer(
         name=name,
@@ -27,7 +28,7 @@ async def _add_customer(
         status=status,
         is_vip=is_vip,
         total_spent=Decimal(total_spent),
-        **({"customer_type": customer_type} if customer_type else {}),
+        customer_type_id=await get_customer_type_id(db_session, customer_type),
     )
     db_session.add(customer)
     await db_session.commit()
@@ -161,40 +162,46 @@ async def test_customer_type_defaults_to_general(
     await _add_customer(db_session, name="Rahim Uddin", phone="+8801711000101")
 
     response = await client.get("/api/v1/customers")
-    assert response.json()["data"][0]["customer_type"] == "GENERAL"
+    assert response.json()["data"][0]["customer_type"]["name"] == "General"
 
 
 async def test_customer_type_filter(client: AsyncClient, db_session: AsyncSession) -> None:
     await _add_customer(
-        db_session, name="General One", phone="+8801711000101", customer_type="GENERAL"
+        db_session, name="General One", phone="+8801711000101", customer_type="General"
     )
-    await _add_customer(db_session, name="VIP One", phone="+8801711000102", customer_type="VIP")
+    vip = await _add_customer(
+        db_session, name="VIP One", phone="+8801711000102", customer_type="VIP"
+    )
     await _add_customer(
         db_session, name="VVIP One", phone="+8801711000103", customer_type="VVIP"
     )
 
-    response = await client.get("/api/v1/customers", params={"customer_type": "VIP"})
+    response = await client.get(
+        "/api/v1/customers", params={"customer_type_id": str(vip.customer_type.public_id)}
+    )
     body = response.json()
 
     assert body["meta"]["total"] == 1
     assert body["data"][0]["name"] == "VIP One"
 
 
-async def test_customer_type_filter_all_returns_everyone(
+async def test_customer_type_filter_omitted_returns_everyone(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
     await _add_customer(
-        db_session, name="General One", phone="+8801711000101", customer_type="GENERAL"
+        db_session, name="General One", phone="+8801711000101", customer_type="General"
     )
     await _add_customer(db_session, name="VIP One", phone="+8801711000102", customer_type="VIP")
 
-    response = await client.get("/api/v1/customers", params={"customer_type": "all"})
+    response = await client.get("/api/v1/customers")
     assert response.json()["meta"]["total"] == 2
 
 
-# Scenario 10: invalid customer type is rejected.
+# Scenario 10: unknown customer type id is rejected.
 
 
-async def test_invalid_customer_type_filter_is_rejected(client: AsyncClient) -> None:
-    response = await client.get("/api/v1/customers", params={"customer_type": "PLATINUM"})
-    assert response.status_code == 422
+async def test_unknown_customer_type_filter_is_rejected(client: AsyncClient) -> None:
+    response = await client.get(
+        "/api/v1/customers", params={"customer_type_id": "00000000-0000-0000-0000-000000000000"}
+    )
+    assert response.status_code == 404

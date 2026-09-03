@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { FormField } from "@/components/dashboard/form-field";
+import { ManageCustomerTypesDialog } from "@/components/dashboard/customers/manage-customer-types-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,6 +27,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { updateCustomer, type Customer, type CustomerStatus } from "@/lib/api/customers";
+import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 import { getErrorMessage } from "@/lib/api/types";
 
 const STATUS_OPTIONS: CustomerStatus[] = ["Active", "Inactive", "Suspended"];
@@ -75,8 +77,24 @@ function EditCustomerForm({
   const [statusValue, setStatusValue] = useState<CustomerStatus>(customer.status);
   const [isVip, setIsVip] = useState(customer.tier === "VIP");
   const [marketingOptIn, setMarketingOptIn] = useState(customer.marketingOptIn ?? false);
+  const [types, setTypes] = useState<CustomerTypeOption[]>([]);
+  const [customerTypeId, setCustomerTypeId] = useState(customer.customerType?.id ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The customer's own current type stays selectable even if it's since
+  // been deactivated — only *other* inactive types are hidden, so this
+  // form never silently drops what the customer is already assigned.
+  const selectableTypes = types.filter(
+    (type) => type.isActive || type.id === customer.customerType?.id
+  );
+
+  useEffect(() => {
+    listCustomerTypes()
+      .then(setTypes)
+      .catch(() => {
+        // Non-fatal — the select just falls back to the customer's current type.
+      });
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,6 +111,7 @@ function EditCustomerForm({
         isVip,
         marketingOptIn,
         status: statusValue,
+        customerTypeId: customerTypeId || undefined,
       });
       router.refresh();
       onClose();
@@ -168,6 +187,29 @@ function EditCustomerForm({
             ))}
           </SelectContent>
         </Select>
+      </FormField>
+
+      <FormField htmlFor="edit-customer-type" label="Customer Type">
+        <div className="flex items-center gap-2">
+          <Select
+            value={customerTypeId}
+            onValueChange={(value) => setCustomerTypeId(value ?? "")}
+          >
+            <SelectTrigger id="edit-customer-type" className="w-full">
+              <SelectValue>
+                {(value: string) => selectableTypes.find((t) => t.id === value)?.name ?? "General"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {selectableTypes.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <ManageCustomerTypesDialog types={types} onTypesChange={setTypes} />
+        </div>
       </FormField>
 
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">

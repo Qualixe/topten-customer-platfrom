@@ -28,6 +28,7 @@ from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
 from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.customer_profile_token import CustomerProfileToken
+from app.models.customer_type import CustomerType
 from app.models.delivery import Delivery
 from app.models.form import Form
 from app.models.gift_catalog_item import GiftCatalogItem
@@ -58,7 +59,15 @@ def anyio_backend() -> str:
 
 @pytest_asyncio.fixture(autouse=True)
 async def _clean_tables() -> AsyncGenerator[None, None]:
-    """Truncates every import-related table before each test for isolation."""
+    """Truncates every import-related table before each test for isolation.
+
+    `customer_types` gets General/VIP/VVIP re-seeded immediately after
+    truncating (unlike `gift_categories`, which stays empty) — a real
+    migration guarantees these three always exist in production, and
+    production code relies on that (see `get_seed_customer_type_id`, used
+    by both the default-to-General path on customer creation and public
+    form submission) — so every test should start from that same
+    always-seeded baseline rather than an artificially empty table."""
     async with test_engine.begin() as conn:
         await conn.execute(role_permissions.delete())
         for table in (
@@ -75,6 +84,7 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
             GiftCatalogItem,
             GiftCategory,
             Customer,
+            CustomerType,
             IntegrationCredential,
             MessageTemplate,
             SendGridCampaign,
@@ -85,6 +95,10 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
             Permission,
         ):
             await conn.execute(table.__table__.delete())
+        await conn.execute(
+            CustomerType.__table__.insert(),
+            [{"name": name, "is_system": True} for name in ("General", "VIP", "VVIP")],
+        )
     yield
 
 

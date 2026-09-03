@@ -20,6 +20,7 @@ import {
 import { AccountSettingsForm } from "@/components/dashboard/settings/account-settings-form";
 import { BirthdaySettingsForm } from "@/components/dashboard/settings/birthday-settings-form";
 import { CustomerSettingsForm } from "@/components/dashboard/settings/customer-settings-form";
+import { CustomerTypesSettings } from "@/components/dashboard/settings/customer-types-settings";
 import { DatabaseResetCard } from "@/components/dashboard/settings/database-reset-card";
 import { GeneralSettingsForm } from "@/components/dashboard/settings/general-settings-form";
 import { NotificationSettingsForm } from "@/components/dashboard/settings/notification-settings-form";
@@ -104,7 +105,8 @@ export function SettingsTabs() {
       <TabsContent value="general" keepMounted>
         <GeneralSettingsForm />
       </TabsContent>
-      <TabsContent value="customers" keepMounted>
+      <TabsContent value="customers" keepMounted className="flex flex-col gap-6">
+        <CustomerTypesSettings />
         <CustomerSettingsForm />
       </TabsContent>
       <TabsContent value="birthdays" keepMounted>

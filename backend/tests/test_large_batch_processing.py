@@ -12,6 +12,7 @@ from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.import_batch import ImportBatch, ImportBatchStatus
 from app.tasks.imports import _process_import_batch_async
 from tests.conftest import TestSessionLocal
+from tests.support import get_customer_type_id
 
 ROW_COUNT = 1200  # spans 3 chunks at the default chunk size of 500
 
@@ -39,6 +40,7 @@ async def test_large_file_is_processed_in_multiple_chunks(
         period_year=2026,
         period_month=1,
         status=ImportBatchStatus.UPLOADED.value,
+        customer_type_id=await get_customer_type_id(db_session),
     )
     db_session.add(batch)
     await db_session.commit()

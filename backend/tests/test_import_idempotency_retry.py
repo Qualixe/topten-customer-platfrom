@@ -16,6 +16,7 @@ from app.models.customer_monthly_spending import CustomerMonthlySpending
 from app.models.import_batch import ImportBatch, ImportBatchStatus
 from app.tasks.imports import _process_import_batch_async
 from tests.conftest import TestSessionLocal
+from tests.support import get_customer_type_id
 
 
 def _write_csv(tmp_path: Path, rows: list[tuple[str, str, str]]) -> str:
@@ -34,6 +35,7 @@ async def _create_uploaded_batch(
         period_year=year,
         period_month=month,
         status=ImportBatchStatus.UPLOADED.value,
+        customer_type_id=await get_customer_type_id(db_session),
     )
     db_session.add(batch)
     await db_session.commit()

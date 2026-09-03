@@ -1,5 +1,3 @@
-import type { CustomerType } from "@/lib/mock/customers";
-
 export type ImportStatus = "Completed" | "Partial" | "Failed" | "Processing";
 
 export interface ImportRecord {
@@ -15,7 +13,7 @@ export interface ImportRecord {
   /** The customer category this whole file was imported as. Required for
    * new imports; optional here only because older mock history rows predate
    * this field. */
-  customerType?: CustomerType;
+  customerType?: string;
   errorMessage?: string;
 }
 

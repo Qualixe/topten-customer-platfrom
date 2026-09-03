@@ -8,11 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.dependencies import get_db, require_permission
 from app.common.exceptions import NotFoundError, ValidationAppError
 from app.core.config import settings
-from app.models.customer import CustomerType
 from app.models.import_batch import ImportBatch, ImportBatchStatus
 from app.models.import_row_error import ImportRowError
+from app.services.customer_types import get_customer_type_or_404
 from app.services.imports_validation import InvalidPeriodError, validate_period
 from app.tasks.imports import process_import_batch
+from app.views.customers import CustomerTypeRead
 from app.views.imports import (
     ImportBatchCreateData,
     ImportBatchCreateResponse,
@@ -35,8 +36,8 @@ MAX_IMPORT_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB — generous for a POS CSV exp
 async def upload_customer_import(
     period_year: int = Form(..., description="Calendar year this POS export covers"),
     period_month: int = Form(..., description="Calendar month (1-12) this POS export covers"),
-    customer_type: CustomerType = Form(
-        ..., description="Customer category this whole file is imported as"
+    customer_type_id: uuid.UUID = Form(
+        ..., description="Id of the customer type this whole file is imported as"
     ),
     file: UploadFile = File(..., description="POS export CSV: name, phone, amount columns"),
     db: AsyncSession = Depends(get_db),
@@ -54,6 +55,10 @@ async def upload_customer_import(
         validate_period(period_year, period_month)
     except InvalidPeriodError as exc:
         raise ValidationAppError(str(exc)) from exc
+
+    # Resolved before the file is even written to disk, so an invalid type
+    # id fails fast rather than after streaming a whole 50MB upload.
+    customer_type = await get_customer_type_or_404(db, customer_type_id)
 
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -89,7 +94,7 @@ async def upload_customer_import(
         file_path=str(destination),
         period_year=period_year,
         period_month=period_month,
-        customer_type=customer_type.value,
+        customer_type_id=customer_type.id,
         status=ImportBatchStatus.UPLOADED.value,
     )
     db.add(batch)
@@ -102,7 +107,12 @@ async def upload_customer_import(
         data=ImportBatchCreateData(
             import_id=batch.public_id,
             status=ImportBatchStatus(batch.status),
-            customer_type=customer_type,
+            customer_type=CustomerTypeRead(
+                id=customer_type.public_id,
+                name=customer_type.name,
+                is_system=customer_type.is_system,
+                is_active=customer_type.is_active,
+            ),
         )
     )
 

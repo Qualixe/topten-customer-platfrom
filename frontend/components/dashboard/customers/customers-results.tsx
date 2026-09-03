@@ -18,7 +18,7 @@ export async function CustomersResults({
     search: current.search,
     tier: current.tier,
     status: current.status,
-    customerType: current.customerType,
+    customerTypeId: current.customerTypeId,
     sortBy: current.sortBy,
     sortDir: current.sortDir,
   });

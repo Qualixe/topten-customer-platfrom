@@ -20,10 +20,16 @@ from app.models.campaign_recipient import (
 )
 from app.models.customer import Customer
 from app.models.customer_profile_token import CustomerProfileToken
+from tests.support import get_customer_type_id
 
 
 async def _create_customer(db_session: AsyncSession, *, name: str, phone: str) -> Customer:
-    customer = Customer(name=name, phone=phone, normalized_phone=phone, customer_type="GENERAL")
+    customer = Customer(
+        name=name,
+        phone=phone,
+        normalized_phone=phone,
+        customer_type_id=await get_customer_type_id(db_session),
+    )
     db_session.add(customer)
     await db_session.commit()
     await db_session.refresh(customer)

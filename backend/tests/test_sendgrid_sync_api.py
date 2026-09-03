@@ -25,6 +25,7 @@ from app.models.user import User
 from app.services.sendgrid_sync import SENDGRID_PROVIDER
 from scripts.seed_auth import seed_auth
 from tests.conftest import TestSessionLocal
+from tests.support import get_customer_type_id
 
 CREDENTIALS = {
     "api_key": "SG.fake-key",
@@ -49,6 +50,7 @@ async def _add_customer(
         normalized_phone=phone,
         email=email,
         marketing_opt_in=opted_in,
+        customer_type_id=await get_customer_type_id(db_session),
     )
     db_session.add(customer)
     await db_session.commit()

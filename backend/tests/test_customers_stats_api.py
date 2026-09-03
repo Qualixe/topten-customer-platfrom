@@ -7,6 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customer import Customer
+from tests.support import get_customer_type_id
 
 
 async def _add_customer(
@@ -25,6 +26,7 @@ async def _add_customer(
         is_vip=is_vip,
         total_spent=Decimal(total_spent),
         date_of_birth=date_of_birth,
+        customer_type_id=await get_customer_type_id(db_session),
     )
     db_session.add(customer)
     await db_session.commit()

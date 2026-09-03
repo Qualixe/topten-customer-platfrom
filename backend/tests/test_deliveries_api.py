@@ -6,12 +6,18 @@ from app.models.customer import Customer
 from app.models.gift_catalog_item import GiftCatalogItem
 from app.models.gift_category import GiftCategory
 from app.models.gift_order import GiftOrder
+from tests.support import get_customer_type_id
 
 
 async def _add_customer(
     db_session: AsyncSession, *, name: str = "Rahim Uddin", phone: str = "+8801711000101"
 ) -> Customer:
-    customer = Customer(name=name, phone=phone, normalized_phone=phone, customer_type="GENERAL")
+    customer = Customer(
+        name=name,
+        phone=phone,
+        normalized_phone=phone,
+        customer_type_id=await get_customer_type_id(db_session),
+    )
     db_session.add(customer)
     await db_session.commit()
     await db_session.refresh(customer)
