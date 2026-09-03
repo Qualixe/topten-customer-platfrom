@@ -3,6 +3,7 @@
 import { CheckCircle2, Send } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +25,13 @@ import { getErrorMessage } from "@/lib/api/types";
  * builder/publish/token/verification pipeline; this dialog is just a
  * shortcut for "create/replace that campaign's landing page from this
  * form" instead of rebuilding it block by block. */
-export function AttachToCampaignDialog({ formId }: { formId: string }) {
+export function AttachToCampaignDialog({
+  formId,
+  trigger,
+}: {
+  formId: string;
+  trigger?: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [campaigns, setCampaigns] = useState<SmsCampaign[]>([]);
   const [campaignId, setCampaignId] = useState("");
@@ -79,10 +86,12 @@ export function AttachToCampaignDialog({ formId }: { formId: string }) {
     >
       <DialogTrigger
         render={
-          <Button type="button" variant="outline">
-            <Send className="size-4" />
-            Send via Campaign
-          </Button>
+          trigger ?? (
+            <Button type="button" variant="outline">
+              <Send className="size-4" />
+              Send via Campaign
+            </Button>
+          )
         }
       />
 

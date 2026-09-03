@@ -1,8 +1,9 @@
 "use client";
 
-import { Eye, FileText, MoreVertical, Pencil, Repeat2, Trash2 } from "lucide-react";
+import { Check, Copy, Eye, FileText, MoreVertical, Pencil, Repeat2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { FormStatusBadge } from "@/components/dashboard/forms/form-status-badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,36 @@ function formatUpdatedAt(iso: string): string {
   if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
 
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function CopyUrlButton({ slug }: { slug: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy(event: React.MouseEvent) {
+    event.stopPropagation();
+    const url = `${window.location.origin}/${slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleCopy}
+      aria-label="Copy public URL"
+      className="gap-1.5"
+    >
+      {copied ? (
+        <Check className="size-3.5 text-emerald-500" aria-hidden="true" />
+      ) : (
+        <Copy className="size-3.5" aria-hidden="true" />
+      )}
+      {copied ? "Copied" : "Copy URL"}
+    </Button>
+  );
 }
 
 export function FormsTable({
@@ -93,31 +124,38 @@ export function FormsTable({
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">{formatUpdatedAt(form.updatedAt)}</TableCell>
               <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${form.name}`} />}
-                  >
-                    <MoreVertical className="size-4" aria-hidden="true" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem render={<Link href={`/dashboard/forms/${form.id}/builder`} />}>
-                      <Pencil /> {canManage ? "Edit" : "View"}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onPreviewRequest(form)}>
-                      <Eye /> Preview
-                    </DropdownMenuItem>
-                    {canManage && (
-                      <>
-                        <DropdownMenuItem onClick={() => onDuplicate(form)}>
-                          <Repeat2 /> Duplicate
-                        </DropdownMenuItem>
-                        <DropdownMenuItem variant="destructive" onClick={() => onDeleteRequest(form)}>
-                          <Trash2 /> Delete
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center justify-end gap-2">
+                  {/* Copy public URL — only when the form has a published slug */}
+                  {form.slug && form.published && (
+                    <CopyUrlButton slug={form.slug} />
+                  )}
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${form.name}`} />}
+                    >
+                      <MoreVertical className="size-4" aria-hidden="true" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem render={<Link href={`/dashboard/forms/${form.id}/builder`} />}>
+                        <Pencil /> {canManage ? "Edit" : "View"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onPreviewRequest(form)}>
+                        <Eye /> Preview
+                      </DropdownMenuItem>
+                      {canManage && (
+                        <>
+                          <DropdownMenuItem onClick={() => onDuplicate(form)}>
+                            <Repeat2 /> Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem variant="destructive" onClick={() => onDeleteRequest(form)}>
+                            <Trash2 /> Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </TableCell>
             </TableRow>
           ))}
@@ -126,3 +164,4 @@ export function FormsTable({
     </div>
   );
 }
+

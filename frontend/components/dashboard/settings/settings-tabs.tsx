@@ -87,7 +87,7 @@ export function SettingsTabs() {
       orientation="vertical"
       className="items-start"
     >
-      <TabsList className="w-48 shrink-0">
+      <TabsList className="w-48 shrink-0 gap-1">
         {SECTIONS.map((section) => (
           <TabsTrigger key={section.value} value={section.value}>
             <section.icon />

@@ -4,7 +4,6 @@ import { FileWarning } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { AttachToCampaignDialog } from "@/components/dashboard/forms/attach-to-campaign-dialog";
 import { PublishOpenFormDialog } from "@/components/dashboard/forms/publish-open-form-dialog";
 import { FormCanvas } from "@/components/form-builder/FormCanvas";
 import { FormPreview } from "@/components/form-builder/FormPreview";
@@ -209,7 +208,6 @@ export function FormBuilder({ formId }: { formId: string }) {
         canManage={canManage}
         liveUrl={liveUrl}
         extraAction={
-          <>
             <PublishOpenFormDialog
               formId={formId}
               formName={name}
@@ -217,8 +215,6 @@ export function FormBuilder({ formId }: { formId: string }) {
               initialPublished={form.published}
               onSaved={({ slug, published }) => setForm((prev) => (prev ? { ...prev, slug, published } : prev))}
             />
-            <AttachToCampaignDialog formId={formId} />
-          </>
         }
       />
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
