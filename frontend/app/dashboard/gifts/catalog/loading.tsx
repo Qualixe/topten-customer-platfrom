@@ -3,74 +3,26 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
-const SKELETON_ROWS = 8;
+const SKELETON_CARDS = 10;
 
-function GiftsTableSkeleton() {
+function GiftsGridSkeleton() {
   return (
-    <div className="rounded-lg border">
-      <div className="max-h-[640px] overflow-y-auto">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-card">
-            <TableRow>
-              <TableHead className="w-10">
-                <Skeleton className="size-4 rounded-[4px]" />
-              </TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Inventory</TableHead>
-              <TableHead>Redeemed</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Array.from({ length: SKELETON_ROWS }, (_, index) => (
-              <TableRow key={index}>
-                <TableCell>
-                  <Skeleton className="size-4 rounded-[4px]" />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="size-10 shrink-0 rounded-md" />
-                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                      <Skeleton className="h-3.5 w-32" />
-                      <Skeleton className="h-3 w-40" />
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-3.5 w-20" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-16 rounded-full" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-3.5 w-16" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-3.5 w-10" />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Skeleton className="ml-auto h-3.5 w-14" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="size-7 rounded-md" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {Array.from({ length: SKELETON_CARDS }, (_, index) => (
+        <div key={index} className="flex flex-col overflow-hidden rounded-lg border bg-card">
+          <Skeleton className="aspect-square w-full rounded-none" />
+          <div className="flex flex-col gap-1.5 p-3">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-full" />
+            <div className="flex items-center justify-between pt-2">
+              <Skeleton className="h-4 w-14" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -98,7 +50,7 @@ export default function GiftCatalogLoading() {
             <Skeleton className="h-8 w-full sm:w-44" />
             <Skeleton className="h-8 w-full sm:w-36" />
           </div>
-          <GiftsTableSkeleton />
+          <GiftsGridSkeleton />
         </CardContent>
       </Card>
     </div>

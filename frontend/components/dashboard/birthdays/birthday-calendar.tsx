@@ -60,7 +60,7 @@ export function BirthdayCalendar({
             vipBirthday:
               "relative after:absolute after:bottom-1 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-amber-500",
           }}
-          className="rounded-lg border p-2"
+          className="w-full rounded-lg border p-2"
         />
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">

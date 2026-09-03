@@ -7,16 +7,18 @@ import { StatsGrid, type StatDefinition } from "@/components/dashboard/stats-gri
 export function StatsSectionCard({
   title,
   stats,
+  show_title = true,
 }: {
   title: string;
   stats: StatDefinition[];
-  
+  /** Set to false to render just the tiles, with no heading above them. */
+  show_title?: boolean;
 }) {
   const columns = stats.length as 3 | 4 | 5 | 6 | 7;
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm font-semibold text-foreground">{title}</p>
+      {show_title && <p className="text-sm font-semibold text-foreground">{title}</p>}
       <StatsGrid stats={stats} columns={columns} />
     </div>
   );

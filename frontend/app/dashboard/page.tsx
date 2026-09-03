@@ -152,9 +152,9 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-6">
       <PageHeader />
 
-      <StatsSectionCard title="Customers" stats={customerStats} />
-      <StatsSectionCard title="Campaigns & Gifts" stats={campaignsAndGifts} />
-      <StatsSectionCard title="Birthdays" stats={birthdayStatDefs} />
+      <StatsSectionCard title="Customers" stats={customerStats} show_title={false} />
+      <StatsSectionCard title="Campaigns & Gifts" stats={campaignsAndGifts} show_title={false} />
+      <StatsSectionCard title="Birthdays" stats={birthdayStatDefs} show_title={false} />
 
       <div className="grid gap-4 lg:grid-cols-3 items-stretch">
         <div className="lg:col-span-2 flex flex-col">

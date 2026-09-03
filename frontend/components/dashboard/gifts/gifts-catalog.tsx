@@ -9,7 +9,7 @@ import {
   type CategoryFilter,
   type StockFilter,
 } from "@/components/dashboard/gifts/gifts-toolbar";
-import { GiftsTable } from "@/components/dashboard/gifts/gifts-table";
+import { GiftsGrid } from "@/components/dashboard/gifts/gifts-grid";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -137,7 +137,7 @@ export function GiftsCatalog({ gifts }: { gifts: GiftItem[] }) {
           />
         )}
 
-        <GiftsTable
+        <GiftsGrid
           gifts={filteredGifts}
           canManage={canManage}
           selectedIds={selectedIds}

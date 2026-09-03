@@ -50,8 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
     permission: "customers.view",
     children: [
       { title: "POS Customers", href: "/dashboard/customers/pos" },
-      { title: "Verified Customers", href: "/dashboard/customers/verified" },
-      { title: "VIP Customers", href: "/dashboard/vip-customers" },
+      { title: "Verified Customers", href: "/dashboard/customers/verified" }
     ],
   },
   {
@@ -75,8 +74,7 @@ export const NAV_ITEMS: NavItem[] = [
     permission: "gifts.view",
     children: [
       { title: "Gift Catalog", href: "/dashboard/gifts/catalog" },
-      { title: "Send Gift", href: "/dashboard/gifts/send", permission: "gifts.manage" },
-      { title: "Add Gift", href: "/dashboard/gifts/new", permission: "gifts.manage" },
+      { title: "Send Gift", href: "/dashboard/gifts/send", permission: "gifts.manage" }
     ],
   },
   { title: "Imports", href: "/dashboard/imports", icon: Upload, section: "Workspace", permission: "imports.manage" },

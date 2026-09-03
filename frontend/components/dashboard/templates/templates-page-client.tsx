@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { DeleteTemplateDialog } from "@/components/dashboard/templates/delete-template-dialog";
 import { TemplateFormDialog } from "@/components/dashboard/templates/template-form-dialog";
+import { TemplatesGrid } from "@/components/dashboard/templates/templates-grid";
 import { TemplatesPagination } from "@/components/dashboard/templates/templates-pagination";
-import { TemplatesTable } from "@/components/dashboard/templates/templates-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -170,7 +170,7 @@ export function TemplatesPageClient({
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <TemplatesTable
+      <TemplatesGrid
         templates={templates}
         loading={loading}
         canManage={canManage}
