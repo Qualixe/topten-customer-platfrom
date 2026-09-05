@@ -78,7 +78,7 @@ export const NAV_ITEMS: NavItem[] = [
     ],
   },
   { title: "Imports", href: "/dashboard/imports", icon: Upload, section: "Workspace", permission: "imports.manage" },
-  { title: "Couriers", href: "/dashboard/couriers", icon: Truck, section: "Workspace" },
+  { title: "Delivery", href: "/dashboard/couriers", icon: Truck, section: "Workspace" },
   { title: "Notifications", href: "/dashboard/notifications", icon: Bell, section: "Workspace" },
   { title: "Settings", href: "/dashboard/settings", icon: Settings, section: "Workspace" },
 ];
