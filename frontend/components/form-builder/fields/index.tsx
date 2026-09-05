@@ -1,4 +1,5 @@
 import { AddressField } from "@/components/form-builder/fields/AddressField";
+import { CityField } from "@/components/form-builder/fields/CityField";
 import { DateOfBirthField } from "@/components/form-builder/fields/DateOfBirthField";
 import { DividerField } from "@/components/form-builder/fields/DividerField";
 import { EmailField } from "@/components/form-builder/fields/EmailField";
@@ -9,10 +10,10 @@ import { PhoneField } from "@/components/form-builder/fields/PhoneField";
 import { SubmitButtonField } from "@/components/form-builder/fields/SubmitButtonField";
 import type { FormField } from "@/lib/form-builder/types";
 
-export type GenericFormFieldName = "name" | "phone" | "email" | "dateOfBirth" | "address";
+export type GenericFormFieldName = "name" | "phone" | "email" | "dateOfBirth" | "address" | "city";
 
 /** Values for a real submission — only present on the public, tokenless
- * /form/[slug] page, where name/phone/email/date_of_birth/address turn
+ * /form/[slug] page, where name/phone/email/date_of_birth/address/city turn
  * from disabled previews into real controlled inputs. */
 export interface GenericFormValues {
   name: string;
@@ -20,6 +21,7 @@ export interface GenericFormValues {
   email: string;
   dateOfBirth: string;
   address: string;
+  city: string;
 }
 
 /** Picks the right component for a field's type. Used identically by the
@@ -92,6 +94,15 @@ export function FieldRenderer({
           preview={preview}
           value={formValues?.address}
           onChange={onFormFieldChange ? (value) => onFormFieldChange("address", value) : undefined}
+        />
+      );
+    case "city":
+      return (
+        <CityField
+          field={field}
+          preview={preview}
+          value={formValues?.city}
+          onChange={onFormFieldChange ? (value) => onFormFieldChange("city", value) : undefined}
         />
       );
     case "divider":

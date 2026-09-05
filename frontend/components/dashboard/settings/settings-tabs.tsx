@@ -8,6 +8,7 @@ import {
   Cake,
   Crown,
   KeyRound,
+  Mail,
   MessageSquare,
   ShoppingBag,
   SlidersHorizontal,
@@ -23,6 +24,7 @@ import { CustomerSettingsForm } from "@/components/dashboard/settings/customer-s
 import { CustomerTypesSettings } from "@/components/dashboard/settings/customer-types-settings";
 import { DatabaseResetCard } from "@/components/dashboard/settings/database-reset-card";
 import { GeneralSettingsForm } from "@/components/dashboard/settings/general-settings-form";
+import { MailchimpCredentialsForm } from "@/components/dashboard/settings/mailchimp-credentials-form";
 import { NotificationSettingsForm } from "@/components/dashboard/settings/notification-settings-form";
 import { PathaoCredentialsForm } from "@/components/dashboard/settings/pathao-credentials-form";
 import { SendGridMarketingCredentialsForm } from "@/components/dashboard/settings/sendgrid-marketing-credentials-form";
@@ -36,6 +38,7 @@ import { cn } from "@/lib/utils";
 const CREDENTIAL_TABS = [
   { value: "sms", label: "SMS Gateway", icon: MessageSquare },
   { value: "marketing", label: "Marketing", icon: ShoppingBag },
+  { value: "mailchimp", label: "Email (Mailchimp)", icon: Mail },
 ] as const;
 
 const SECTIONS = [
@@ -70,7 +73,7 @@ export function SettingsTabs() {
       ? requestedTab
       : "general";
 
-  const [credentialTab, setCredentialTab] = useState<"sms" | "marketing">("sms");
+  const [credentialTab, setCredentialTab] = useState<"sms" | "marketing" | "mailchimp">("sms");
 
   function setTab(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -141,7 +144,9 @@ export function SettingsTabs() {
             </button>
           ))}
         </div>
-        {credentialTab === "sms" ? <SmsGatewayCredentialsForm /> : <SendGridMarketingCredentialsForm />}
+        {credentialTab === "sms" && <SmsGatewayCredentialsForm />}
+        {credentialTab === "marketing" && <SendGridMarketingCredentialsForm />}
+        {credentialTab === "mailchimp" && <MailchimpCredentialsForm />}
       </TabsContent>
       <TabsContent value="users" keepMounted>
         <UsersSettings />

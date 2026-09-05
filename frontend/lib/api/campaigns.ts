@@ -13,13 +13,16 @@ export type SmsCampaignStatus =
  * the NEVER_RECEIVED_TYPE / RECEIVED_TYPE_BEFORE_DATE audience rules to
  * look back at campaign history by category. */
 export type CampaignType =
+
   | "PROMOTIONAL"
-  | "GENERAL";
+  | "BIRTHDAY"
+
 
 export const CAMPAIGN_TYPE_LABELS: Record<CampaignType, string> = {
 
   PROMOTIONAL: "Promotional",
-  GENERAL: "General",
+  BIRTHDAY: "Birthday",
+
 };
 
 export type AudienceRuleType =

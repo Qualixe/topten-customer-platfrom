@@ -6,6 +6,7 @@ export type FieldType =
   | "phone"
   | "date_of_birth"
   | "address"
+  | "city"
   | "divider"
   | "submit_button";
 

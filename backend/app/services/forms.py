@@ -183,13 +183,14 @@ async def get_published_form_by_slug(db: AsyncSession, slug: str) -> Form | None
 
 
 def _required_field_types(form: Form) -> set[str]:
-    """Which of email/date_of_birth/address this specific form's own
+    """Which of email/date_of_birth/address/city this specific form's own
     config marks required — name/phone are always required regardless (see
     GenericFormSubmission), since a Customer can't exist without them."""
     return {
         field["type"]
         for field in form.builder_data.get("fields", [])
-        if field.get("type") in {"email", "date_of_birth", "address"} and field.get("required")
+        if field.get("type") in {"email", "date_of_birth", "address", "city"}
+        and field.get("required")
     }
 
 
@@ -198,8 +199,8 @@ async def submit_generic_form(
 ) -> Customer:
     """Tokenless public submission — finds or creates a Customer by phone
     (matching the same identity rule POS imports use), rather than updating
-    one already identified by a token. Existing date_of_birth/address/email
-    are only overwritten with a new, non-blank value — the same "never
+    one already identified by a token. Existing date_of_birth/address/email/
+    city are only overwritten with a new, non-blank value — the same "never
     blank out real data" rule imports and the token-based profile form both
     already follow (see Customer's docstring)."""
     required = _required_field_types(form)
@@ -209,6 +210,7 @@ async def submit_generic_form(
             ("email", "Email"),
             ("date_of_birth", "Date of birth"),
             ("address", "Address"),
+            ("city", "City"),
         )
         if field_type in required and not getattr(submission, field_type)
     ]
@@ -250,6 +252,8 @@ async def submit_generic_form(
         customer.date_of_birth = submission.date_of_birth
     if submission.address:
         customer.address = submission.address
+    if submission.city:
+        customer.city = submission.city
 
     await db.commit()
     await db.refresh(customer)

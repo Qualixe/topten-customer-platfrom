@@ -9,7 +9,14 @@ import { submitGenericForm } from "@/lib/api/forms";
 import type { FormField } from "@/lib/form-builder/types";
 
 const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
-const EMPTY_VALUES: GenericFormValues = { name: "", phone: "", email: "", dateOfBirth: "", address: "" };
+const EMPTY_VALUES: GenericFormValues = {
+  name: "",
+  phone: "",
+  email: "",
+  dateOfBirth: "",
+  address: "",
+  city: "",
+};
 // Matches Pathao's own minimum for a shippable address (see
 // app/services/pathao.py) — checked whenever an address is given, not just
 // when the form marks it required.
@@ -44,6 +51,7 @@ export function PublicGenericForm({ slug, fields }: { slug: string; fields: Form
         errors.push(`${field.label} is required.`);
       }
       if (field.type === "address" && !values.address.trim()) errors.push(`${field.label} is required.`);
+      if (field.type === "city" && !values.city.trim()) errors.push(`${field.label} is required.`);
     }
 
     if (values.address.trim() && values.address.trim().length < MIN_ADDRESS_LENGTH) {
@@ -72,6 +80,7 @@ export function PublicGenericForm({ slug, fields }: { slug: string; fields: Form
         email: values.email || undefined,
         dateOfBirth: values.dateOfBirth || undefined,
         address: values.address || undefined,
+        city: values.city || undefined,
       });
       setSubmitted(true);
     } catch {

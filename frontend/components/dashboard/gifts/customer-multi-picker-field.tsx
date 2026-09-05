@@ -16,6 +16,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 import { listCustomers, type Customer } from "@/lib/api/customers";
@@ -61,11 +68,16 @@ export function CustomerMultiPickerField({
 
   const selectedIds = new Set(selected.map((c) => c.id));
 
-  // Load customer types when dialog opens
+  // Load customer types when dialog opens, defaulting to "General" so the
+  // dropdown isn't blank on first open.
   useEffect(() => {
     if (!open) return;
     listCustomerTypes()
-      .then((all) => setTypes(all.filter((t) => t.isActive)))
+      .then((all) => {
+        const active = all.filter((t) => t.isActive);
+        setTypes(active);
+        setSelectedTypeId((prev) => prev ?? active.find((t) => t.name === "General")?.id ?? null);
+      })
       .catch(() => {});
   }, [open]);
 
@@ -90,6 +102,7 @@ export function CustomerMultiPickerField({
         for (;;) {
           const result = await listCustomers({
             customerTypeId: selectedTypeId,
+            verified: true,
             page,
             pageSize: TYPE_FETCH_PAGE_SIZE,
           });
@@ -247,33 +260,24 @@ export function CustomerMultiPickerField({
         {/* ── By Customer Type ── */}
         {mode === "type" && (
           <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {types.map((type) => {
-                const isSelected = selectedTypeId === type.id;
-                return (
-                  <button
-                    key={type.id}
-                    type="button"
-                    onClick={() => setSelectedTypeId(isSelected ? null : type.id)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors",
-                      isSelected
-                        ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                        : "border-border hover:border-primary/40 hover:bg-muted/50"
-                    )}
-                  >
-                    <Tag
-                      className={cn(
-                        "size-4 shrink-0",
-                        isSelected ? "text-primary" : "text-muted-foreground"
-                      )}
-                      aria-hidden="true"
-                    />
-                    <span className="truncate font-medium">{type.name}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <Select
+              value={selectedTypeId ?? ""}
+              onValueChange={(value) => setSelectedTypeId(value || null)}
+            >
+              <SelectTrigger className="w-full" aria-label="Customer type">
+                <Tag className="size-4 text-muted-foreground" aria-hidden="true" />
+                <SelectValue placeholder="Choose a customer type">
+                  {(value: string) => types.find((type) => type.id === value)?.name}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {types.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {selectedTypeId && (
               <div className="flex flex-col gap-2 rounded-lg border p-3">

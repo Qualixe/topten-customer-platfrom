@@ -51,14 +51,7 @@ export default async function BirthdaysPage() {
       caption: "Celebrating today",
       icon: PartyPopper,
     },
-    {
-      key: "this-month",
-      label: "This Month",
-      value: birthdayStats.thisMonthCount,
-      caption: `Birthdays in ${currentMonthName}`,
-      icon: Cake,
-    },
-    {
+       {
       key: "upcoming",
       label: "This Week",
       value: birthdayStats.upcomingCount,
@@ -66,12 +59,13 @@ export default async function BirthdaysPage() {
       icon: CalendarDays,
     },
     {
-      key: "vip",
-      label: "VIP Birthdays",
-      value: birthdayStats.vipThisMonthCount,
-      caption: "VIP customers this month",
-      icon: Crown,
+      key: "this-month",
+      label: "This Month",
+      value: birthdayStats.thisMonthCount,
+      caption: `Birthdays in ${currentMonthName}`,
+      icon: Cake,
     },
+ 
     {
       key: "next-3-months",
       label: "Next 3 Months",

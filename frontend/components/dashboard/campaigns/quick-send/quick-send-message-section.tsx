@@ -103,7 +103,7 @@ export function QuickSendMessageSection({
               </CardDescription> */}
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex gap-4 sm:grid-cols-2 ">
                 {/* Import template — always shown; disabled with a hint when
                  * no templates exist yet. */}
                 <FormField htmlFor="quick-send-start-from-template" label="Import from template">
@@ -167,8 +167,7 @@ export function QuickSendMessageSection({
                   </Select>
                   {usesFormLink && !formId ? (
                     <p className="text-xs text-amber-600 dark:text-amber-500">
-                      Your message uses {"{{form_link}}"} but no form is attached — it will be sent
-                      literally as {"{{form_link}}"} instead of a real link.
+                      Your message uses {"{{form_link}}"} but no form is attached
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
@@ -202,7 +201,7 @@ export function QuickSendMessageSection({
         <div className="hidden lg:col-span-2 lg:block">
           <Card className="h-full">
             <CardHeader>
-              <CardTitle>Live Preview</CardTitle>
+              <CardTitle>Live Preview(Mobile view)</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 items-center justify-center py-2">
               <MessagePreview message={message} channel="SMS" subject="" hideLabel />

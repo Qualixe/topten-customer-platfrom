@@ -1,4 +1,5 @@
 import {
+  Building2,
   Calendar,
   Heading as HeadingIcon,
   Mail,
@@ -60,6 +61,11 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
     label: "Address",
     icon: MapPin,
     defaultField: { type: "address", label: "Address", placeholder: "Street, city, postcode", required: false },
+  },
+  city: {
+    label: "City",
+    icon: Building2,
+    defaultField: { type: "city", label: "City", placeholder: "e.g. Dhaka", required: false },
   },
   divider: {
     label: "Divider",

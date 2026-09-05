@@ -31,6 +31,7 @@ class FormFieldType(str, Enum):
     phone = "phone"
     date_of_birth = "date_of_birth"
     address = "address"
+    city = "city"
     divider = "divider"
     submit_button = "submit_button"
 
@@ -180,7 +181,7 @@ class GenericFormSubmission(BaseModel):
     identified by a token), this creates or finds a Customer by phone — so
     name and phone are always required here regardless of whether the
     admin's form marked them required; a Customer record can't exist
-    without them. Which of email/date_of_birth/address are actually
+    without them. Which of email/date_of_birth/address/city are actually
     mandatory depends on that specific form's own field config — enforced
     in app.services.forms.submit_generic_form, not here, since it varies
     per form."""
@@ -192,6 +193,7 @@ class GenericFormSubmission(BaseModel):
     email: str | None = None
     date_of_birth: date | None = None
     address: str | None = None
+    city: str | None = None
 
     @field_validator("name", "phone")
     @classmethod

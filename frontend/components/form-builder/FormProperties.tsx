@@ -13,13 +13,14 @@ import { FIELD_DEFINITIONS } from "@/lib/form-builder/field-config";
 import type { FormField } from "@/lib/form-builder/types";
 
 const TEXT_ONLY_TYPES: FormField["type"][] = ["heading", "paragraph", "submit_button"];
-const PLACEHOLDER_TYPES: FormField["type"][] = ["name", "email", "phone", "address"];
+const PLACEHOLDER_TYPES: FormField["type"][] = ["name", "email", "phone", "address", "city"];
 const REQUIRED_TYPES: FormField["type"][] = [
   "name",
   "email",
   "phone",
   "date_of_birth",
   "address",
+  "city",
 ];
 
 /** Right column — editable properties for whichever field is selected.
