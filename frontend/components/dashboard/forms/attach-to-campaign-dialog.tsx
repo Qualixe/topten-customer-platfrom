@@ -3,7 +3,7 @@
 import { CheckCircle2, Send } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +30,7 @@ export function AttachToCampaignDialog({
   trigger,
 }: {
   formId: string;
-  trigger?: ReactNode;
+  trigger?: ReactElement;
 }) {
   const [open, setOpen] = useState(false);
   const [campaigns, setCampaigns] = useState<SmsCampaign[]>([]);
