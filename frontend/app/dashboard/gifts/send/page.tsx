@@ -56,9 +56,7 @@ export default async function SendGiftPage() {
   return (
     <div className="flex flex-col gap-6">
       <SendGiftHeader />
-      <div className="max-w-4xl">
-        <SendGiftForm catalog={catalog} />
-      </div>
+      <SendGiftForm catalog={catalog} />
     </div>
   );
 }

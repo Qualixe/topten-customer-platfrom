@@ -17,18 +17,10 @@ import { FormField } from "@/components/dashboard/form-field";
 import { CustomerMultiPickerField } from "@/components/dashboard/gifts/customer-multi-picker-field";
 import { GiftPickerField } from "@/components/dashboard/gifts/gift-picker-field";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,7 +29,6 @@ import type { CourierProvider } from "@/lib/api/deliveries";
 import {
   createGiftOrdersBulk,
   formatCurrency,
-  GIFT_OCCASION_LABELS,
   resolveGiftImageUrl,
   type GiftItem,
   type GiftOccasion,
@@ -180,18 +171,21 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
-      <Card>
+    <form onSubmit={handleSubmit} className="grid max-w-4.5xl items-stretch gap-6 lg:grid-cols-2">
+      <Card className="h-full">
         <CardHeader>
-          <CardTitle>Gift details</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <GiftIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+            Gift details
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          <FormField htmlFor="send-gift-customers" label="Customers">
-            <CustomerMultiPickerField
-              selected={selectedCustomers}
-              onChange={handleCustomersChange}
-            />
-          </FormField>
+            <FormField htmlFor="send-gift-customers" label="Customers">
+              <CustomerMultiPickerField
+                selected={selectedCustomers}
+                onChange={handleCustomersChange}
+              />
+            </FormField>
 
           {selectedCustomers.length > 0 && (
             <div className="flex flex-col gap-3">
@@ -390,38 +384,18 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
             <GiftPickerField catalog={catalog} value={catalogItemId} onChange={setCatalogItemId} />
           </FormField>
 
-          <FormField htmlFor="send-gift-occasion" label="Occasion">
-            <Select
-              value={occasion}
-              onValueChange={(value) => setOccasion((value as GiftOccasion) ?? "BIRTHDAY")}
-            >
-              <SelectTrigger id="send-gift-occasion">
-                <SelectValue>{(value: GiftOccasion) => GIFT_OCCASION_LABELS[value]}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.entries(GIFT_OCCASION_LABELS) as [GiftOccasion, string][]).map(
-                  ([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  )
-                )}
-              </SelectContent>
-            </Select>
-          </FormField>
-
           {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>
       </Card>
 
-      <Card className="lg:sticky lg:top-6">
+      <Card className="h-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="size-4 text-muted-foreground" aria-hidden="true" />
             Summary
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex flex-1 flex-col gap-4">
           {selectedCustomers.length > 0 ? (
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">
@@ -491,18 +465,13 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
 
           <Separator />
 
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Occasion</span>
-            <Badge variant="outline">{GIFT_OCCASION_LABELS[occasion]}</Badge>
-          </div>
-
           <p className="text-xs text-muted-foreground">
             This queues one order per customer — nothing is sent until you schedule or send it
             from the Gifts page. Recipients with courier shipping checked also get their
             delivery created right away.
           </p>
 
-          <div className="flex flex-col gap-2 pt-1">
+          <div className="mt-auto flex flex-col gap-2 pt-1">
             <Button type="submit" disabled={submitting || !canSubmit}>
               {submitting ? (
                 "Queuing…"
