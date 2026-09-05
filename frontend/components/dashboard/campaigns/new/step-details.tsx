@@ -63,13 +63,13 @@ export function StepDetails({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <Card>
-        <CardHeader>
+        {/* <CardHeader>
           <CardTitle>Campaign details</CardTitle>
           <CardDescription>
             Give your campaign a descriptive name, choose what kind of
             campaign it is and which channel it sends through.
           </CardDescription>
-        </CardHeader>
+        </CardHeader> */}
         <CardContent className="flex flex-col gap-4">
           <FormField htmlFor="campaign-name" label="Campaign name">
             <Input

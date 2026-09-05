@@ -49,6 +49,7 @@ interface VipCustomerDto {
   email: string | null;
   phone: string;
   address: string | null;
+  city: string | null;
   customerType: CustomerTypeOption;
   status: "ACTIVE" | "AT_RISK" | "INACTIVE";
   totalSpent: string | number;
@@ -116,7 +117,7 @@ function mapDtoToVipCustomer(dto: VipCustomerDto): VipCustomer {
     initials: getInitials(dto.name),
     email: dto.email,
     phone: dto.phone,
-    city: dto.address ?? "—",
+    city: dto.city ?? "—",
     segment: dto.customerType.name,
     status: STATUS_FROM_BACKEND[dto.status],
     totalSpent: Number(dto.totalSpent),

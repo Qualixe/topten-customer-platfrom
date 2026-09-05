@@ -84,15 +84,19 @@ export function MessagePreview({
   senderName = "TopTen",
   channel = "SMS",
   subject = "",
+  hideLabel = false,
 }: {
   message: string;
   senderName?: string;
   channel?: "SMS" | "EMAIL";
   /** Only rendered when channel is EMAIL. */
   subject?: string;
+  /** Skip the internal "Live preview" label — for callers that already
+   * show their own heading (e.g. a Card title) around this component. */
+  hideLabel?: boolean;
 }) {
   if (channel === "EMAIL") {
-    return <EmailPreview subject={subject} body={message} fromName={senderName} />;
+    return <EmailPreview subject={subject} body={message} fromName={senderName} hideLabel={hideLabel} />;
   }
 
   const resolved = resolveTokens(message);
@@ -100,36 +104,53 @@ export function MessagePreview({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Live preview
-      </p>
+      {!hideLabel && (
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Live preview
+        </p>
+      )}
 
       {/* Phone frame */}
-      <div className="relative mx-auto w-56 rounded-[2rem] border-4 border-foreground/20 bg-background shadow-xl">
+      <div className="relative mx-auto w-72 rounded-[2.5rem] border-4 border-foreground/20 bg-background shadow-xl">
+        {/* Status bar */}
+        <div className="flex items-center justify-between px-6 pt-3 text-[10px] font-medium text-muted-foreground">
+          <span>9:41</span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
+            <span className="h-1.5 w-3 rounded-sm bg-foreground/40" />
+          </span>
+        </div>
+
         {/* Speaker notch */}
-        <div className="flex justify-center pt-3 pb-1">
+        <div className="flex justify-center pt-2 pb-1">
           <div className="h-1 w-10 rounded-full bg-foreground/20" />
         </div>
 
         {/* Screen */}
-        <div className="bg-muted/30 px-3 pb-6 pt-2 min-h-[14rem]">
+        <div className="bg-muted/30 px-4 pb-8 pt-2 min-h-[18rem]">
           {/* Sender name */}
-          <p className="mb-3 text-center text-[10px] font-semibold text-muted-foreground">
-            {senderName}
-          </p>
+          <div className="mb-4 flex flex-col items-center gap-1">
+            <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              {senderName.slice(0, 1).toUpperCase()}
+            </span>
+            <p className="text-[11px] font-semibold text-muted-foreground">{senderName}</p>
+          </div>
 
           {/* Message bubble */}
-          <div className="flex justify-start">
+          <div className="flex flex-col items-start gap-1">
             <div
               className={cn(
-                "max-w-[90%] rounded-2xl rounded-tl-sm px-3 py-2 text-[11px] leading-relaxed break-words whitespace-pre-wrap",
+                "max-w-[85%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[12px] leading-relaxed break-words whitespace-pre-wrap shadow-sm",
                 isEmpty
-                  ? "border border-dashed border-border text-muted-foreground italic"
+                  ? "border border-dashed border-border text-muted-foreground italic shadow-none"
                   : "bg-card ring-1 ring-foreground/10 text-card-foreground"
               )}
             >
               {isEmpty ? "Your message will appear here…" : resolved}
             </div>
+            {!isEmpty && (
+              <span className="px-1 text-[10px] text-muted-foreground">Delivered · just now</span>
+            )}
           </div>
         </div>
 
@@ -153,10 +174,12 @@ function EmailPreview({
   subject,
   body,
   fromName,
+  hideLabel = false,
 }: {
   subject: string;
   body: string;
   fromName: string;
+  hideLabel?: boolean;
 }) {
   const resolvedSubject = resolveTokens(subject);
   const resolvedBody = resolveTokens(body);
@@ -164,9 +187,11 @@ function EmailPreview({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Live preview
-      </p>
+      {!hideLabel && (
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Live preview
+        </p>
+      )}
 
       <div className="mx-auto w-72 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
         <div className="border-b border-border px-4 py-3">

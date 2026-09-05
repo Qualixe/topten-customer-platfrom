@@ -100,7 +100,7 @@ export function QuickSendComposer({
     message.trim().length > 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
       <QuickSendDetailsSection
         name={campaignName}
         onNameChange={setCampaignName}

@@ -43,6 +43,7 @@ interface CustomerDto {
   phone: string;
   email: string | null;
   address: string | null;
+  city: string | null;
   dateOfBirth: string | null;
   isVip: boolean;
   marketingOptIn: boolean;
@@ -107,8 +108,8 @@ function mapDtoToCustomer(dto: CustomerDto): Customer {
     initials: getInitials(dto.name),
     email: dto.email ?? "No email on file",
     phone: dto.phone,
-    city: dto.address ?? "—",
     address: dto.address,
+    city: dto.city,
     tier: dto.isVip ? "VIP" : "Regular",
     status: toStatus(dto.status),
     totalOrders: 0,
@@ -464,6 +465,7 @@ export interface CreateCustomerInput {
   phone: string;
   email?: string;
   address?: string;
+  city?: string;
   /** "YYYY-MM-DD", e.g. straight from an `<input type="date">`. */
   dateOfBirth?: string;
   isVip?: boolean;
@@ -480,6 +482,7 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Custom
     phone: input.phone,
     email: input.email,
     address: input.address,
+    city: input.city,
     date_of_birth: input.dateOfBirth,
     is_vip: input.isVip ?? false,
     marketing_opt_in: input.marketingOptIn ?? false,
@@ -495,6 +498,7 @@ export interface UpdateCustomerInput {
   /** `null` clears the field; `undefined` leaves it unchanged. */
   email?: string | null;
   address?: string | null;
+  city?: string | null;
   dateOfBirth?: string | null;
   isVip?: boolean;
   marketingOptIn?: boolean;
@@ -512,6 +516,7 @@ export async function updateCustomer(id: string, input: UpdateCustomerInput): Pr
   if (input.phone !== undefined) body.phone = input.phone;
   if (input.email !== undefined) body.email = input.email;
   if (input.address !== undefined) body.address = input.address;
+  if (input.city !== undefined) body.city = input.city;
   if (input.dateOfBirth !== undefined) body.date_of_birth = input.dateOfBirth;
   if (input.isVip !== undefined) body.is_vip = input.isVip;
   if (input.marketingOptIn !== undefined) body.marketing_opt_in = input.marketingOptIn;

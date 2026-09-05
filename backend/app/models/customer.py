@@ -22,11 +22,11 @@ class Customer(Base):
     Customer master record. `normalized_phone` (E.164, via app.common.phone)
     is the sole identity key for matching against POS imports — never `name`.
 
-    `date_of_birth`, `address`, and `email` are customer-submitted fields
-    (e.g. a future promotional SMS profile form). POS imports must never
-    overwrite them with blank values; see
+    `date_of_birth`, `address`, `city`, and `email` are customer-submitted
+    fields (e.g. a future promotional SMS profile form). POS imports must
+    never overwrite them with blank values; see
     app.services.imports.upsert_customers, whose upsert `SET` clause
-    deliberately excludes these three columns.
+    deliberately excludes these columns.
     """
 
     __tablename__ = "customers"
@@ -45,21 +45,30 @@ class Customer(Base):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     is_vip: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
     # Marketing consent — off by default, never set implicitly. Only a
-    # customer with this True is eligible to be synced into the configured
-    # marketing provider's audience (see app.services.sendgrid_sync);
-    # nothing in this app infers consent from being an existing customer.
+    # customer with this True is eligible to be synced into a configured
+    # marketing provider's audience (see app.services.sendgrid_sync and
+    # app.services.mailchimp_sync); nothing in this app infers consent from
+    # being an existing customer.
     marketing_opt_in: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
     marketing_opt_in_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # SendGrid-specific: also gates SendGrid campaign eligibility (see
+    # create_campaign_draft), which Mailchimp has no equivalent of — kept
+    # separate from mailchimp_synced_at below rather than shared, so syncing
+    # to one provider never looks like sync status for the other.
     marketing_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    mailchimp_synced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     customer_type_id: Mapped[int] = mapped_column(

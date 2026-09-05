@@ -10,6 +10,7 @@ from app.controllers import (
     gifts,
     health,
     imports,
+    mailchimp_marketing,
     message_templates,
     notification_log,
     notifications,
@@ -32,6 +33,9 @@ api_router.include_router(site_settings.public_router, prefix="/public", tags=["
 
 api_router.include_router(
     sendgrid_marketing.router, prefix="/sendgrid", tags=["sendgrid"], dependencies=_protected
+)
+api_router.include_router(
+    mailchimp_marketing.router, prefix="/mailchimp", tags=["mailchimp"], dependencies=_protected
 )
 api_router.include_router(
     customers.router, prefix="/customers", tags=["customers"], dependencies=_protected

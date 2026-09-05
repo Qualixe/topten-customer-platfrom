@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarClock, History, ShieldQuestion, Tag, UserPlus, UserX, X } from "lucide-react";
+import {
+  CalendarClock,
+  ChevronDown,
+  ChevronUp,
+  History,
+  ShieldQuestion,
+  Tag,
+  UserPlus,
+  UserX,
+  X,
+} from "lucide-react";
 
 import { CustomerPickerDialog } from "@/components/dashboard/campaigns/new/customer-picker-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -75,14 +85,7 @@ const STATIC_OPTIONS: {
     description: "Customers who have never completed a campaign profile form",
     countKey: "neverVerified",
     icon: ShieldQuestion,
-  },
-  {
-    ruleType: "TARGETED_NOT_VERIFIED",
-    label: "Targeted, not verified",
-    description: "Sent at least one campaign but never completed a profile form",
-    countKey: "targetedNotVerified",
-    icon: ShieldQuestion,
-  },
+  }
 ];
 
 type AdvancedRuleType =
@@ -212,6 +215,8 @@ export function QuickSendAudienceSection({
   const isAdvanced = ADVANCED_OPTIONS.some((o) => o.ruleType === selectedType);
   const customerIds = pickedCustomers.map((c) => c.id);
 
+  const [show,setShow] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     listCustomerTypes()
@@ -333,14 +338,14 @@ export function QuickSendAudienceSection({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
       <Card>
         <CardHeader>
           <CardTitle>Choose your audience</CardTitle>
-          <CardDescription>
+          {/* <CardDescription>
             Select which customer type will receive this campaign. Recipient
             counts are calculated live from your customer database.
-          </CardDescription>
+          </CardDescription> */}
         </CardHeader>
         <CardContent>
           {typeCountsLoading && customerTypes.length === 0 && (
@@ -351,7 +356,7 @@ export function QuickSendAudienceSection({
               No customer types yet — add one from Settings → Customers.
             </p>
           )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {customerTypes.map((type) => {
               const isSelected = customerTypeSelected && selectedCustomerTypeId === type.id;
               const count = typeCounts[type.id];
@@ -397,12 +402,27 @@ export function QuickSendAudienceSection({
             })}
           </div>
         </CardContent>
+        <div className="px-(--card-spacing) pt-1">
+          <button
+            type="button"
+            onClick={() => setShow((prev) => !prev)}
+            aria-expanded={show}
+            className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
+          >
+            {show ? "Hide audiences" : "More audiences"}
+            {show ? (
+              <ChevronUp className="size-4" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="size-4" aria-hidden="true" />
+            )}
+          </button>
+        </div>
       </Card>
-
-      <div className="grid grid-cols-2 items-start gap-6">
+      {show && (
+      <div className="grid grid-cols-1 md:grid-cols-2 items-start gap-3">
       <Card>
         <CardHeader>
-          <CardTitle>Other audiences</CardTitle>
+          <CardTitle>Other </CardTitle>
           <CardDescription>
             Target customers based on missing data or profile verification status.
           </CardDescription>
@@ -614,7 +634,7 @@ export function QuickSendAudienceSection({
         </CardContent>
       </Card>
       </div>
-
+     )}
       <CustomerPickerDialog
         open={pickerOpen}
         onOpenChange={setPickerOpen}

@@ -63,15 +63,11 @@ export default async function SimpleSendPage() {
   const smsAccount = smsAccountResult!;
 
   return (
-    <div className="flex flex-col gap-6">
-      <SimpleSendHeader />
-
-      <SimpleSendComposer
-        audienceCounts={audienceCounts}
-        defaultSenderId={credentials.senderId.value ?? ""}
-        ratePerSegmentBdt={Number(credentials.ratePerSegmentBdt.value)}
-        smsAccount={smsAccount}
-      />
-    </div>
+    <SimpleSendComposer
+      audienceCounts={audienceCounts}
+      defaultSenderId={credentials.senderId.value ?? ""}
+      ratePerSegmentBdt={Number(credentials.ratePerSegmentBdt.value)}
+      smsAccount={smsAccount}
+    />
   );
 }

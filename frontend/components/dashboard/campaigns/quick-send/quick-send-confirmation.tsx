@@ -33,7 +33,7 @@ export function QuickSendConfirmation({
 
   return (
     <Card className="mx-auto max-w-md">
-      <CardContent className="flex flex-col items-center gap-6 py-10 text-center">
+      <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
         <span className="flex size-16 items-center justify-center rounded-full bg-muted">
           <Icon className={`size-8 ${iconColor}`} aria-hidden="true" />
         </span>

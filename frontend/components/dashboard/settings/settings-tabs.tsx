@@ -89,13 +89,13 @@ export function SettingsTabs() {
     >
       <TabsList className="w-48 shrink-0 gap-1">
         {SECTIONS.map((section) => (
-          <TabsTrigger key={section.value} value={section.value}>
+          <TabsTrigger key={section.value} value={section.value} className="h-auto py-1.5">
             <section.icon />
             {section.label}
           </TabsTrigger>
         ))}
         {canResetDatabase && (
-          <TabsTrigger value="danger-zone" className="text-destructive">
+          <TabsTrigger value="danger-zone" className="h-auto py-1.5 text-destructive">
             <AlertTriangle />
             Danger Zone
           </TabsTrigger>

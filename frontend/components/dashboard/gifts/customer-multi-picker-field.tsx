@@ -18,11 +18,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
-import { listCustomers, listPosCustomers, type Customer } from "@/lib/api/customers";
+import { listCustomers, type Customer } from "@/lib/api/customers";
 import { cn } from "@/lib/utils";
 
 const SEARCH_DEBOUNCE_MS = 300;
 const PAGE_SIZE = 20;
+// The backend caps page_size at 100 (GET /customers), so a type with more
+// customers than fit on one page needs a few follow-up requests — capped
+// here at 500 total so selecting a huge type (e.g. "General") can't balloon
+// into thousands of gift orders from one click.
+const TYPE_FETCH_PAGE_SIZE = 100;
+const TYPE_FETCH_MAX_CUSTOMERS = 500;
 
 type SelectionMode = "type" | "specific";
 
@@ -43,6 +49,7 @@ export function CustomerMultiPickerField({
   const [types, setTypes] = useState<CustomerTypeOption[]>([]);
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [typeCustomers, setTypeCustomers] = useState<Customer[]>([]);
+  const [typeCustomersTotal, setTypeCustomersTotal] = useState(0);
   const [typeLoading, setTypeLoading] = useState(false);
 
   // ── Specific Customers state ──────────────────────────────────────────
@@ -62,53 +69,56 @@ export function CustomerMultiPickerField({
       .catch(() => {});
   }, [open]);
 
-  // Fetch all customers for the selected type
+  // Fetch all customers for the selected type. The backend caps page_size
+  // at 100, so this pages through as many requests as needed to reach
+  // either the real total or TYPE_FETCH_MAX_CUSTOMERS, whichever is first.
   useEffect(() => {
-    if (!open || mode !== "type" || !selectedTypeId) {
-      setTypeCustomers([]);
-      return;
-    }
     let cancelled = false;
 
-    setTypeLoading(true);
-    listPosCustomers({ customerTypeId: selectedTypeId, pageSize: 500 })
-      .then((result) => {
-        if (cancelled) return;
-        // Map PosCustomerRow → Customer shape (minimal fields needed for gift sending)
-        setTypeCustomers(
-          result.items.map((row) => ({
-            id: row.id,
-            name: row.name,
-            initials: row.name
-              .split(" ")
-              .filter(Boolean)
-              .map((p) => p[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase() || "?",
-            email: "No email on file",
-            phone: row.phone,
-            city: row.address ?? "—",
-            address: row.address,
-            tier: row.customerType.name === "VIP" || row.customerType.name === "VVIP" ? "VIP" : "Regular",
-            status: "Active" as const,
-            totalOrders: 0,
-            totalSpent: row.totalSpent,
-            joinedAt: "—",
-            lastPurchaseAt: "—",
-            notes: "",
-            dateOfBirth: row.dateOfBirth,
-            customerType: row.customerType,
-            marketingOptIn: false,
-          }))
-        );
+    Promise.resolve()
+      .then(async () => {
+        if (!open || mode !== "type" || !selectedTypeId) {
+          setTypeCustomers([]);
+          setTypeCustomersTotal(0);
+          return;
+        }
+
+        setTypeLoading(true);
+        const collected: Customer[] = [];
+        let total = 0;
+        let page = 1;
+        for (;;) {
+          const result = await listCustomers({
+            customerTypeId: selectedTypeId,
+            page,
+            pageSize: TYPE_FETCH_PAGE_SIZE,
+          });
+          total = result.total;
+          collected.push(...result.items);
+          if (
+            collected.length >= total ||
+            collected.length >= TYPE_FETCH_MAX_CUSTOMERS ||
+            result.items.length === 0
+          ) {
+            break;
+          }
+          page += 1;
+        }
+        if (!cancelled) {
+          setTypeCustomers(collected);
+          setTypeCustomersTotal(total);
+        }
       })
       .catch(() => {
-        if (!cancelled) setTypeCustomers([]);
+        if (!cancelled) {
+          setTypeCustomers([]);
+          setTypeCustomersTotal(0);
+        }
       })
       .finally(() => {
         if (!cancelled) setTypeLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
@@ -273,6 +283,13 @@ export function CustomerMultiPickerField({
                   <>
                     <p className="text-sm font-medium">
                       {typeCustomers.length} customer{typeCustomers.length === 1 ? "" : "s"} in this type
+                      {typeCustomersTotal > typeCustomers.length && (
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          (of {typeCustomersTotal.toLocaleString("en-US")} — capped at{" "}
+                          {TYPE_FETCH_MAX_CUSTOMERS})
+                        </span>
+                      )}
                     </p>
                     <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
                       {typeCustomers.slice(0, 10).map((c) => (

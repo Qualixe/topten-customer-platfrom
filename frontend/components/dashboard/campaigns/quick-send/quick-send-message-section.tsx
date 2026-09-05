@@ -90,56 +90,93 @@ export function QuickSendMessageSection({
   const usesFormLink = message.includes("{{form_link}}");
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
+    <div className="flex flex-col gap-3">
+      <div className="grid gap-3 lg:grid-cols-5">
         {/* Left: editor */}
-        <div className="flex flex-col gap-4">
-          <Card>
+        <div className="flex flex-col gap-4 lg:col-span-3">
+          <Card className="h-full">
             <CardHeader>
               <CardTitle>Write your message</CardTitle>
-              <CardDescription>
+              {/* <CardDescription>
                 Compose the SMS that will be sent to your audience. Use personalisation tokens to
                 address each customer by name.
-              </CardDescription>
+              </CardDescription> */}
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {/* Import template — always shown; disabled with a hint when
-               * no templates exist yet. */}
-              <FormField htmlFor="quick-send-start-from-template" label="Import from template">
-                <Select
-                  value={importedTemplateId}
-                  onValueChange={applyTemplate}
-                  disabled={templates.length === 0}
-                >
-                  <SelectTrigger id="quick-send-start-from-template" aria-label="Import from template">
-                    <SelectValue placeholder={templateSelectPlaceholder}>
-                      {(value: string) =>
-                        templates.find((template) => template.id === value)?.name ??
-                        templateSelectPlaceholder
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {templates.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Save reusable messages in{" "}
-                    <Link
-                      href="/dashboard/templates"
-                      className="underline underline-offset-2 hover:text-foreground"
-                    >
-                      Templates
-                    </Link>{" "}
-                    to import them here.
-                  </p>
-                )}
-              </FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Import template — always shown; disabled with a hint when
+                 * no templates exist yet. */}
+                <FormField htmlFor="quick-send-start-from-template" label="Import from template">
+                  <Select
+                    value={importedTemplateId}
+                    onValueChange={applyTemplate}
+                    disabled={templates.length === 0}
+                  >
+                    <SelectTrigger id="quick-send-start-from-template" aria-label="Import from template">
+                      <SelectValue placeholder={templateSelectPlaceholder}>
+                        {(value: string) =>
+                          templates.find((template) => template.id === value)?.name ??
+                          templateSelectPlaceholder
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {templates.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Save reusable messages in{" "}
+                      <Link
+                        href="/dashboard/templates"
+                        className="underline underline-offset-2 hover:text-foreground"
+                      >
+                        Templates
+                      </Link>{" "}
+                      to import them here.
+                    </p>
+                  )}
+                </FormField>
+
+                <FormField htmlFor="quick-send-form" label="Form">
+                  <Select
+                    value={formId || "none"}
+                    onValueChange={(value) => onFormIdChange(value === "none" || !value ? "" : value)}
+                  >
+                    <SelectTrigger id="quick-send-form" aria-label="Choose a form">
+                      <SelectValue placeholder="No form">
+                        {(value: string) =>
+                          value === "none" || !value
+                            ? "No form"
+                            : (forms.find((form) => form.id === value)?.name ?? "No form")
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No form</SelectItem>
+                      {forms.map((form) => (
+                        <SelectItem key={form.id} value={form.id}>
+                          {form.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {usesFormLink && !formId ? (
+                    <p className="text-xs text-amber-600 dark:text-amber-500">
+                      Your message uses {"{{form_link}}"} but no form is attached — it will be sent
+                      literally as {"{{form_link}}"} instead of a real link.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Attach a saved form so {"{{form_link}}"} becomes a real, working link.
+                    </p>
+                  )}
+                </FormField>
+              </div>
 
               <TokenToolbar value={message} onChange={onMessageChange} textareaRef={textareaRef} />
 
@@ -159,51 +196,18 @@ export function QuickSendMessageSection({
               <MessageAnalysisBar analysis={analysis} />
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Form</CardTitle>
-              <CardDescription>
-                Attach a saved form so {"{{form_link}}"} becomes a real, working link once this
-                campaign sends. Optional — skip this if the message doesn&apos;t need a link.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <Select
-                value={formId || "none"}
-                onValueChange={(value) => onFormIdChange(value === "none" || !value ? "" : value)}
-              >
-                <SelectTrigger aria-label="Choose a form">
-                  <SelectValue placeholder="No form">
-                    {(value: string) =>
-                      value === "none" || !value
-                        ? "No form"
-                        : (forms.find((form) => form.id === value)?.name ?? "No form")
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No form</SelectItem>
-                  {forms.map((form) => (
-                    <SelectItem key={form.id} value={form.id}>
-                      {form.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {usesFormLink && !formId && (
-                <p className="text-xs text-amber-600 dark:text-amber-500">
-                  Your message uses {"{{form_link}}"} but no form is attached — it will be sent
-                  literally as {"{{form_link}}"} instead of a real link.
-                </p>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right: preview */}
-        <div className="hidden lg:flex lg:items-start">
-          <MessagePreview message={message} channel="SMS" subject="" />
+        <div className="hidden lg:col-span-2 lg:block">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Live Preview</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-1 items-center justify-center py-2">
+              <MessagePreview message={message} channel="SMS" subject="" hideLabel />
+            </CardContent>
+          </Card>
         </div>
       </div>
 

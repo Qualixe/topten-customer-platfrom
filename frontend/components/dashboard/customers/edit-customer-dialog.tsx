@@ -72,7 +72,8 @@ function EditCustomerForm({
   const [email, setEmail] = useState(
     customer.email === "No email on file" ? "" : customer.email
   );
-  const [address, setAddress] = useState(customer.city === "—" ? "" : customer.city);
+  const [address, setAddress] = useState(customer.address ?? "");
+  const [city, setCity] = useState(customer.city ?? "");
   const [dateOfBirth, setDateOfBirth] = useState((customer.dateOfBirth ?? "").slice(0, 10));
   const [statusValue, setStatusValue] = useState<CustomerStatus>(customer.status);
   const [isVip, setIsVip] = useState(customer.tier === "VIP");
@@ -107,6 +108,7 @@ function EditCustomerForm({
         phone,
         email: email.trim() || null,
         address: address.trim() || null,
+        city: city.trim() || null,
         dateOfBirth: dateOfBirth || null,
         isVip,
         marketingOptIn,
@@ -164,6 +166,15 @@ function EditCustomerForm({
           value={address}
           onChange={(event) => setAddress(event.target.value)}
           className="min-h-16 resize-none"
+        />
+      </FormField>
+
+      <FormField htmlFor="edit-customer-city" label="City (optional)">
+        <Input
+          id="edit-customer-city"
+          value={city}
+          onChange={(event) => setCity(event.target.value)}
+          placeholder="e.g. Dhaka"
         />
       </FormField>
 

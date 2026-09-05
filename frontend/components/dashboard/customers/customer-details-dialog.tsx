@@ -73,7 +73,8 @@ export function CustomerDetailsDialog({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <DetailRow icon={Mail} label="Email" value={customer.email} />
               <DetailRow icon={Phone} label="Phone" value={customer.phone} />
-              <DetailRow icon={MapPin} label="Address" value={customer.city} />
+              <DetailRow icon={MapPin} label="City" value={customer.city ?? "—"} />
+              <DetailRow icon={MapPin} label="Address" value={customer.address ?? "—"} />
               <DetailRow icon={Calendar} label="Joined" value={customer.joinedAt} />
             </div>
 

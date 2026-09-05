@@ -39,12 +39,6 @@ export function QuickSendDetailsSection({
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Campaign details</CardTitle>
-        <CardDescription>
-          Give your campaign a descriptive name and choose what kind it is.
-        </CardDescription>
-      </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <FormField htmlFor="quick-send-name" label="Campaign name">
           <Input
@@ -63,9 +57,8 @@ export function QuickSendDetailsSection({
         >
           <Select
             value={campaignType}
-            onValueChange={(value) => onCampaignTypeChange(value as CampaignType)}
-          >
-            <SelectTrigger id="quick-send-type">
+            onValueChange={(value) => onCampaignTypeChange(value as CampaignType)}>
+            <SelectTrigger id="quick-send-type" className={'w-full'}>
               <SelectValue placeholder="Select a type" />
             </SelectTrigger>
             <SelectContent>

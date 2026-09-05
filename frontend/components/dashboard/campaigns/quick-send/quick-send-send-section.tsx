@@ -133,7 +133,7 @@ export function QuickSendSendSection({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -58,6 +58,7 @@ async def test_export_returns_csv_with_header_and_rows(
         "Phone",
         "Email",
         "Address",
+        "City",
         "Date of Birth",
         "Customer Type",
         "VIP",
@@ -69,8 +70,8 @@ async def test_export_returns_csv_with_header_and_rows(
     assert len(rows) == 2
     assert rows[1][0] == str(customer.public_id)
     assert rows[1][1] == "Rahim Uddin"
-    assert rows[1][7] == "Yes"
-    assert rows[1][8] == "150.50"
+    assert rows[1][8] == "Yes"
+    assert rows[1][9] == "150.50"
 
 
 async def test_export_has_only_header_when_no_customers(client: AsyncClient) -> None:

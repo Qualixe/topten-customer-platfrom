@@ -9,7 +9,6 @@ export interface Customer {
   initials: string;
   email: string;
   phone: string;
-  city: string;
   tier: CustomerTier;
   status: CustomerStatus;
   totalOrders: number;
@@ -22,10 +21,11 @@ export interface Customer {
   dateOfBirth?: string | null;
   /** Absent (undefined) on mock-generated customers, same as dateOfBirth. */
   customerType?: CustomerTypeOption;
-  /** Raw saved address (or null), same availability caveat as dateOfBirth —
-   * `city` above is a display-friendly "—"-on-null fallback derived from
-   * this same backend field, not a separate value. */
+  /** Raw saved address (or null), same availability caveat as dateOfBirth. */
   address?: string | null;
+  /** A distinct field from `address` — not derived from it. Same
+   * availability caveat as dateOfBirth. */
+  city?: string | null;
   /** Explicit marketing-email consent — gates whether this customer is
    * eligible to sync into the SendGrid Marketing List (see
    * lib/api/sendgrid.ts). Absent on mock-generated customers, same

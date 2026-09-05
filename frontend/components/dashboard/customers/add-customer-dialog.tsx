@@ -69,6 +69,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [types, setTypes] = useState<CustomerTypeOption[]>([]);
   // "" (not undefined) from the first render — a Base UI Select is
@@ -104,6 +105,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
         phone,
         email: email.trim() || undefined,
         address: address.trim() || undefined,
+        city: city.trim() || undefined,
         dateOfBirth: dateOfBirth || undefined,
         customerTypeId: customerTypeId || undefined,
       });
@@ -161,6 +163,15 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
           onChange={(event) => setAddress(event.target.value)}
           className="min-h-16 resize-none"
           placeholder="e.g. Dhanmondi, Dhaka"
+        />
+      </FormField>
+
+      <FormField htmlFor="add-customer-city" label="City (optional)">
+        <Input
+          id="add-customer-city"
+          value={city}
+          onChange={(event) => setCity(event.target.value)}
+          placeholder="e.g. Dhaka"
         />
       </FormField>
 

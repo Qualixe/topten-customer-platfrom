@@ -88,6 +88,7 @@ export function CustomersTable({
                 onSort={onSort}
               />
               <TableHead>Customer Type</TableHead>
+              <TableHead>City</TableHead>
               <TableHead>Status</TableHead>
               <SortableHead
                 column="totalOrders"
@@ -110,7 +111,7 @@ export function CustomersTable({
           <TableBody>
             {customers.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="p-0">
+                <TableCell colSpan={8} className="p-0">
                   <EmptyState
                     icon={Users}
                     title="No customers found"
@@ -147,6 +148,9 @@ export function CustomersTable({
                       }
                     }
                   />
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {customer.city ?? "—"}
                 </TableCell>
                 <TableCell>
                   <CustomerStatusBadge status={customer.status} />

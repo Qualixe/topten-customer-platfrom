@@ -1,5 +1,7 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { QuickSendAudienceSection } from "@/components/dashboard/campaigns/quick-send/quick-send-audience-section";
@@ -10,7 +12,7 @@ import { QuickSendSendSection } from "@/components/dashboard/campaigns/quick-sen
 import { SimpleSendStepIndicator, type SimpleSendStepId } from "@/components/dashboard/campaigns/simple-send/simple-send-step-indicator";
 import { SimpleSendSummary } from "@/components/dashboard/campaigns/simple-send/simple-send-summary";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Card } from "@/components/ui/card";
 import {
   CAMPAIGN_TYPE_LABELS,
   createCampaign,
@@ -141,15 +143,42 @@ export function SimpleSendComposer({
   const canSend = canContinue;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-center">
-        <SimpleSendStepIndicator current={step} />
-      </div>
+    <div className="flex flex-col gap-3">
+      <Card className="p-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              nativeButton={false}
+              render={<Link href="/dashboard/campaigns" aria-label="Back to campaigns" />}
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">New Campaign</h2>
+              <p className="text-sm text-muted-foreground">
+                Fill in your campaign, then review and send — two steps, start to finish.
+              </p>
+            </div>
+          </div>
 
-      <Separator />
+          <div className="flex justify-center">
+            <SimpleSendStepIndicator current={step} />
+          </div>
+
+          <div className="flex flex-1 justify-center sm:justify-end">
+            {step === 1 && (
+              <Button className="max-sm:w-full" onClick={() => setStep(2)} disabled={!canContinue}>
+                Continue to Review
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {step === 1 && (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
           <QuickSendDetailsSection
             name={campaignName}
             onNameChange={setCampaignName}
@@ -184,7 +213,7 @@ export function SimpleSendComposer({
       )}
 
       {step === 2 && campaignType && audienceRule && (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
           <SimpleSendSummary
             campaignName={campaignName}
             campaignTypeLabel={CAMPAIGN_TYPE_LABELS[campaignType]}

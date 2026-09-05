@@ -73,6 +73,7 @@ class CustomerCreate(BaseModel):
     phone: str = Field(min_length=1)
     email: str | None = None
     address: str | None = None
+    city: str | None = None
     date_of_birth: date | None = None
     is_vip: bool = False
     marketing_opt_in: bool = False
@@ -89,7 +90,7 @@ class CustomerCreate(BaseModel):
             raise ValueError("Name cannot be blank")
         return stripped
 
-    @field_validator("email", "address")
+    @field_validator("email", "address", "city")
     @classmethod
     def _blank_to_none(cls, value: str | None) -> str | None:
         if value is None:
@@ -109,6 +110,7 @@ class CustomerRead(BaseModel):
     phone: str
     email: str | None
     address: str | None
+    city: str | None
     date_of_birth: date | None
     is_vip: bool
     marketing_opt_in: bool
@@ -131,6 +133,7 @@ class CustomerUpdate(BaseModel):
     phone: str | None = Field(default=None, min_length=1)
     email: str | None = None
     address: str | None = None
+    city: str | None = None
     date_of_birth: date | None = None
     is_vip: bool | None = None
     marketing_opt_in: bool | None = None
@@ -147,7 +150,7 @@ class CustomerUpdate(BaseModel):
             raise ValueError("Name cannot be blank")
         return stripped
 
-    @field_validator("email", "address")
+    @field_validator("email", "address", "city")
     @classmethod
     def _blank_to_none(cls, value: str | None) -> str | None:
         if value is None:
@@ -205,8 +208,9 @@ class CustomerSegments(BaseModel):
     """Breakdowns the data actually supports today. `by_customer_type`
     groups by the admin-manageable customer type (see
     app.models.customer_type) — the dimension campaigns, gifts, and the
-    customer list all filter by. `by_city`, `by_gender`, `by_group`, and
-    `by_tag` aren't in the schema yet, so the frontend shows those as "No
+    customer list all filter by. `Customer.city` exists in the schema now
+    but has no breakdown here yet; `by_gender`, `by_group`, and `by_tag`
+    aren't in the schema at all — the frontend shows all of those as "No
     data yet" rather than this endpoint returning empty lists for them."""
 
     by_status: list[SegmentBucket]
@@ -268,6 +272,7 @@ class VipCustomerRead(BaseModel):
     email: str | None
     phone: str
     address: str | None
+    city: str | None
     customer_type: CustomerTypeRead
     status: Literal["ACTIVE", "AT_RISK", "INACTIVE"]
     total_spent: Decimal
