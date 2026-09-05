@@ -40,7 +40,7 @@ export function BirthdayCalendar({
   }
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Calendar View</CardTitle>
         <CardDescription>

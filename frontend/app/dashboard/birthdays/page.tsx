@@ -9,6 +9,7 @@ import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
 import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { getBirthdaysOverview } from "@/lib/api/birthdays";
+import { listCustomerTypes } from "@/lib/api/customer-types";
 import { settleOk } from "@/lib/api/settle";
 
 // Real, per-request data (today's date, live customer birthdays) — must
@@ -18,9 +19,10 @@ export const dynamic = "force-dynamic";
 export default async function BirthdaysPage() {
   // Fired alongside the permission check instead of after it — halves the
   // number of sequential round trips this page needs before it can render.
-  const [user, overviewResult] = await Promise.all([
+  const [user, overviewResult, customerTypesResult] = await Promise.all([
     getCurrentUserSafeCached(),
     settleOk(getBirthdaysOverview()),
+    settleOk(listCustomerTypes()),
   ]);
   if (!user?.permissions.includes("customers.view")) {
     return (
@@ -34,6 +36,7 @@ export default async function BirthdaysPage() {
   // Guaranteed defined here — the backend enforces the same permission
   // just checked above, so an authorized user's fetch cannot have failed.
   const { all: birthdays, today, upcoming, stats: birthdayStats } = overviewResult!;
+  const customerTypes = customerTypesResult!;
   const currentMonthName = new Date().toLocaleDateString("en-US", { month: "long" });
   // `birthdays` (the "all" list) already covers a full year out
   // (within_days=365 server-side), sorted by proximity — no extra fetch
@@ -86,7 +89,10 @@ export default async function BirthdaysPage() {
         <TodayBirthdays customers={today} />
         <UpcomingBirthdaysList customers={upcoming} />
       </div>
-      <BirthdaysExplorer customers={birthdays} />
+      <BirthdaysExplorer
+        customers={birthdays}
+        customerTypes={customerTypes.filter((type) => type.isActive)}
+      />
     </div>
   );
 }

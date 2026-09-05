@@ -9,6 +9,8 @@ export interface BirthdayCustomer {
   initials: string;
   email: string | null;
   tier: CustomerTier;
+  customerTypeId: string;
+  customerTypeName: string;
   birthMonth: number;
   birthDay: number;
   turningAge: number;
@@ -39,6 +41,7 @@ interface UpcomingBirthdayDto {
   name: string;
   email: string | null;
   isVip: boolean;
+  customerType: { id: string; name: string };
   /** Full date of birth, "YYYY-MM-DD" (year included). */
   date: string;
   daysAway: number;
@@ -73,6 +76,8 @@ function enrich(dto: UpcomingBirthdayDto, today: Date): BirthdayCustomer {
     initials: getInitials(dto.name),
     email: dto.email,
     tier: dto.isVip ? "VIP" : "Regular",
+    customerTypeId: dto.customerType.id,
+    customerTypeName: dto.customerType.name,
     birthMonth: nextOccurrence.getMonth() + 1,
     birthDay: nextOccurrence.getDate(),
     turningAge: nextOccurrence.getFullYear() - birthYear,

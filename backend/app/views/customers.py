@@ -228,6 +228,7 @@ class UpcomingBirthday(BaseModel):
     name: str
     email: str | None
     is_vip: bool
+    customer_type: CustomerTypeRead
     date: date
     days_away: int
 

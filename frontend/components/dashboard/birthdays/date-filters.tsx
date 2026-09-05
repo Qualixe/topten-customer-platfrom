@@ -8,37 +8,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { CustomerTypeOption } from "@/lib/api/customer-types";
 import { MONTH_OPTIONS } from "@/lib/api/birthdays";
 
 export type MonthFilter = string | "all";
-export type TierFilter = "all" | "VIP" | "Regular";
+export type CustomerTypeFilter = string | "all";
 
 const MONTH_LABELS: Record<string, string> = {
   all: "All Months",
   ...Object.fromEntries(MONTH_OPTIONS.map((m) => [m.value, m.label])),
 };
 
-const TIER_LABELS: Record<TierFilter, string> = {
-  all: "All Tiers",
-  VIP: "VIP",
-  Regular: "Regular",
-};
-
 export function DateFilters({
   month,
   onMonthChange,
-  tier,
-  onTierChange,
+  customerType,
+  onCustomerTypeChange,
+  customerTypes,
   selectedDateLabel,
   onClearSelectedDate,
 }: {
   month: MonthFilter;
   onMonthChange: (value: MonthFilter) => void;
-  tier: TierFilter;
-  onTierChange: (value: TierFilter) => void;
+  customerType: CustomerTypeFilter;
+  onCustomerTypeChange: (value: CustomerTypeFilter) => void;
+  customerTypes: CustomerTypeOption[];
   selectedDateLabel?: string;
   onClearSelectedDate: () => void;
 }) {
+  const customerTypeLabels: Record<string, string> = {
+    all: "All Types",
+    ...Object.fromEntries(customerTypes.map((t) => [t.id, t.name])),
+  };
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div className="flex flex-1 items-center gap-2">
@@ -62,18 +64,21 @@ export function DateFilters({
         </Select>
 
         <Select
-          value={tier}
-          onValueChange={(value) => onTierChange(value as TierFilter)}
+          value={customerType}
+          onValueChange={(value) => onCustomerTypeChange(value as CustomerTypeFilter)}
         >
-          <SelectTrigger className="w-full sm:w-36" aria-label="Filter by tier">
+          <SelectTrigger className="w-full sm:w-36" aria-label="Filter by customer type">
             <SelectValue>
-              {(value: TierFilter) => TIER_LABELS[value]}
+              {(value: string) => customerTypeLabels[value] ?? "All Types"}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Tiers</SelectItem>
-            <SelectItem value="VIP">VIP</SelectItem>
-            <SelectItem value="Regular">Regular</SelectItem>
+            <SelectItem value="all">All Types</SelectItem>
+            {customerTypes.map((type) => (
+              <SelectItem key={type.id} value={type.id}>
+                {type.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

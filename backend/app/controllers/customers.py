@@ -556,6 +556,7 @@ async def list_upcoming_birthdays(
                 name=customer.name,
                 email=customer.email,
                 is_vip=customer.is_vip,
+                customer_type=_customer_type_to_read(customer.customer_type),
                 date=customer.date_of_birth,
                 days_away=days_away,
             )
