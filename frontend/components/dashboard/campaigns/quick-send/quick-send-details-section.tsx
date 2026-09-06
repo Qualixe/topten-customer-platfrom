@@ -32,6 +32,11 @@ export function QuickSendDetailsSection({
   onCampaignTypeChange,
   senderId,
   onSenderIdChange,
+  /** Disables the Campaign type select — set once a campaign already
+   * exists, since the backend freezes it at creation (the recipient
+   * snapshot is resolved from it) and rejects any change. Name and Sender
+   * ID stay editable either way. */
+  campaignTypeLocked = false,
 }: {
   name: string;
   onNameChange: (value: string) => void;
@@ -39,6 +44,7 @@ export function QuickSendDetailsSection({
   onCampaignTypeChange: (value: CampaignType) => void;
   senderId: string;
   onSenderIdChange: (value: string) => void;
+  campaignTypeLocked?: boolean;
 }) {
   return (
     <Card>
@@ -57,10 +63,13 @@ export function QuickSendDetailsSection({
         <FormField
           htmlFor="quick-send-type"
           label="Campaign type"
+          description={campaignTypeLocked ? "Locked — can't change after a campaign is created." : undefined}
         >
           <Select
             value={campaignType}
-            onValueChange={(value) => onCampaignTypeChange(value as CampaignType)}>
+            onValueChange={(value) => onCampaignTypeChange(value as CampaignType)}
+            disabled={campaignTypeLocked}
+          >
             <SelectTrigger id="quick-send-type" className={'w-full'}>
               <SelectValue placeholder="Select a type" />
             </SelectTrigger>

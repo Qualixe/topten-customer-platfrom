@@ -4,6 +4,7 @@ import {
   Eye,
   LayoutTemplate,
   MousePointerClick,
+  Pencil,
   Send,
   ShieldCheck,
   TrendingUp,
@@ -113,13 +114,25 @@ export default async function CampaignDetailPage({
           </div>
         </div>
         {canManage && (
-          <Button
-            nativeButton={false}
-            render={<Link href={`/dashboard/campaigns/${campaignId}/builder`} />}
-          >
-            <LayoutTemplate className="size-4" />
-            Landing Page Builder
-          </Button>
+          <div className="flex items-center gap-2">
+            {(campaign.status === "DRAFT" || campaign.status === "SCHEDULED") && (
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={<Link href={`/dashboard/campaigns/${campaignId}/edit`} />}
+              >
+                <Pencil className="size-4" />
+                Edit
+              </Button>
+            )}
+            <Button
+              nativeButton={false}
+              render={<Link href={`/dashboard/campaigns/${campaignId}/builder`} />}
+            >
+              <LayoutTemplate className="size-4" />
+              Landing Page Builder
+            </Button>
+          </div>
         )}
       </div>
 

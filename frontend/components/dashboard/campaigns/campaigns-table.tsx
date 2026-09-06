@@ -1,6 +1,7 @@
 "use client";
 
-import { Megaphone } from "lucide-react";
+import { Megaphone, Pencil } from "lucide-react";
+import Link from "next/link";
 
 import { CampaignStatusBadge } from "@/components/dashboard/campaigns/campaign-status-badge";
 import {
@@ -8,7 +9,9 @@ import {
   describeAudience,
   useCustomerTypeNames,
 } from "@/components/dashboard/campaigns/campaign-export";
+import { usePermissions } from "@/components/providers/permissions-provider";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -34,6 +37,8 @@ export function CampaignsTable({
   onToggleSelectAll: (checked: boolean) => void;
 }) {
   const typeNames = useCustomerTypeNames();
+  const { hasPermission } = usePermissions();
+  const canManage = hasPermission("campaigns.manage");
   const allSelected = campaigns.length > 0 && campaigns.every((c) => selectedIds.has(c.id));
   const someSelected = !allSelected && campaigns.some((c) => selectedIds.has(c.id));
 
@@ -61,12 +66,13 @@ export function CampaignsTable({
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Cost</TableHead>
+              {canManage && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {campaigns.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="p-0">
+                <TableCell colSpan={canManage ? 11 : 10} className="p-0">
                   <EmptyState
                     icon={Megaphone}
                     title="No campaigns found"
@@ -127,6 +133,27 @@ export function CampaignsTable({
                   <TableCell className="text-right font-medium">
                     {formatCurrency(campaign.estimatedCost)}
                   </TableCell>
+                  {canManage && (
+                    <TableCell className="text-right">
+                      {/* Editing only makes sense before a campaign has
+                       * started sending — its frozen audience snapshot and
+                       * campaign type are never editable, sent/processing
+                       * campaigns aren't either. */}
+                      {(campaign.status === "DRAFT" || campaign.status === "SCHEDULED") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          nativeButton={false}
+                          render={<Link href={`/dashboard/campaigns/${campaign.id}/edit`} />}
+                          aria-label={`Edit ${campaign.name}`}
+                          className="gap-1.5"
+                        >
+                          <Pencil className="size-3.5" aria-hidden="true" />
+                          Edit
+                        </Button>
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

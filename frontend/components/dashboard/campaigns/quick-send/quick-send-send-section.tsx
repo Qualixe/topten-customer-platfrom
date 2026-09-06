@@ -87,6 +87,10 @@ interface QuickSendSendSectionProps {
    * alongside Send. Quick Send itself never passes this, since every
    * section is already visible on its single page. */
   onBack?: () => void;
+  /** Pre-fills the send mode/time from an existing campaign being edited,
+   * instead of always starting from "now" with nothing picked. */
+  initialSendMode?: SendMode;
+  initialScheduledAt?: string;
 }
 
 /** Send section of the single-page Quick Send composer — the cost/balance
@@ -101,9 +105,11 @@ export function QuickSendSendSection({
   canSend,
   onSubmit,
   onBack,
+  initialSendMode,
+  initialScheduledAt,
 }: QuickSendSendSectionProps) {
-  const [sendMode, setSendMode] = useState<SendMode>("now");
-  const [scheduledAt, setScheduledAt] = useState("");
+  const [sendMode, setSendMode] = useState<SendMode>(initialSendMode ?? "now");
+  const [scheduledAt, setScheduledAt] = useState(initialScheduledAt ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 

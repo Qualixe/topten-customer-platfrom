@@ -1,9 +1,13 @@
+
 "use client";
 
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { describeAudience, useCustomerTypeNames } from "@/components/dashboard/campaigns/campaign-export";
+import { QuickSendAudienceLocked } from "@/components/dashboard/campaigns/quick-send/quick-send-audience-locked";
 import { QuickSendAudienceSection } from "@/components/dashboard/campaigns/quick-send/quick-send-audience-section";
 import { QuickSendConfirmation } from "@/components/dashboard/campaigns/quick-send/quick-send-confirmation";
 import { QuickSendDetailsSection } from "@/components/dashboard/campaigns/quick-send/quick-send-details-section";
@@ -16,9 +20,11 @@ import { Card } from "@/components/ui/card";
 import {
   CAMPAIGN_TYPE_LABELS,
   createCampaign,
+  updateCampaign,
   type AudienceCounts,
   type AudienceRule,
   type CampaignType,
+  type SmsCampaign,
 } from "@/lib/api/campaigns";
 import type { Customer } from "@/lib/api/customers";
 import type { SmsAccount } from "@/lib/api/sms-account";
@@ -30,6 +36,11 @@ interface SimpleSendComposerProps {
    * from settings, always a real (never mock) value. */
   ratePerSegmentBdt: number;
   smsAccount: SmsAccount;
+  /** When set, this composer edits that existing campaign instead of
+   * creating a new one — same two steps, but the campaign type is locked
+   * and the audience is shown read-only, since both are frozen
+   * server-side once a campaign exists. */
+  editCampaign?: SmsCampaign;
 }
 
 interface ConfirmationState {
@@ -71,34 +82,72 @@ function describeAudienceRule(rule: AudienceRule): string {
   return base;
 }
 
+/** Converts an ISO datetime string to the "YYYY-MM-DDTHH:mm" local format
+ * DateTimePicker expects — never a plain slice of the ISO string, which is
+ * UTC and would shift the displayed day/time by the viewer's timezone
+ * offset. */
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 /** The middle-ground campaign flow between the full 4-step builder
  * (/dashboard/campaigns/new) and the single-page Quick Send composer
  * (/dashboard/campaigns/quick-send): one step to fill in everything
  * (details, audience, message — the exact same sections Quick Send uses),
- * one step to review and send. See app/dashboard/campaigns/send. */
+ * one step to review and send. See app/dashboard/campaigns/send. Also
+ * doubles as the edit flow for an existing campaign (see `editCampaign`),
+ * since it's the primary "New Campaign" entry point. */
 export function SimpleSendComposer({
   audienceCounts,
   defaultSenderId,
   ratePerSegmentBdt,
   smsAccount,
+  editCampaign,
 }: SimpleSendComposerProps) {
+  const router = useRouter();
+  const isEditing = editCampaign !== undefined;
+  const typeNames = useCustomerTypeNames();
+
   const [step, setStep] = useState<SimpleSendStepId>(1);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
 
-  const [campaignName, setCampaignName] = useState("");
-  const [campaignType, setCampaignType] = useState<CampaignType | "">("");
-  const [senderId, setSenderId] = useState(defaultSenderId);
+  const [campaignName, setCampaignName] = useState(editCampaign?.name ?? "");
+  const [campaignType, setCampaignType] = useState<CampaignType | "">(
+    editCampaign?.campaignType ?? ""
+  );
+  const [senderId, setSenderId] = useState(editCampaign?.senderId ?? defaultSenderId);
   const [audienceRule, setAudienceRule] = useState<AudienceRule | null>(null);
   const [pickedCustomers, setPickedCustomers] = useState<Customer[]>([]);
-  const [recipientCount, setRecipientCount] = useState<number | null>(null);
-  const [message, setMessage] = useState("");
+  const [recipientCount, setRecipientCount] = useState<number | null>(
+    editCampaign?.totalRecipients ?? null
+  );
+  const [message, setMessage] = useState(editCampaign?.message ?? "");
   const [formId, setFormId] = useState("");
 
   async function handleSubmit(mode: "now" | "schedule", scheduledAt?: string) {
-    if (!audienceRule || !campaignType) return;
+    if (!campaignType) return;
 
     const scheduledAtIso =
       mode === "now" ? new Date().toISOString() : new Date(scheduledAt!).toISOString();
+
+    if (isEditing && editCampaign) {
+      const updated = await updateCampaign(editCampaign.id, {
+        name: campaignName,
+        message,
+        senderId,
+        scheduledAt: scheduledAtIso,
+        status: "SCHEDULED",
+      });
+      router.push(`/dashboard/campaigns/${updated.id}`);
+      router.refresh();
+      return;
+    }
+
+    if (!audienceRule) return;
 
     const { campaign, skippedFieldLabels } = await createCampaign({
       name: campaignName,
@@ -137,10 +186,18 @@ export function SimpleSendComposer({
     campaignName.trim().length > 0 &&
     campaignType.length > 0 &&
     senderId.trim().length > 0 &&
-    audienceRule !== null &&
+    (isEditing || audienceRule !== null) &&
     message.trim().length > 0;
 
   const canSend = canContinue;
+
+  const audienceLabel = isEditing
+    ? describeAudience(editCampaign, typeNames)
+    : audienceRule
+      ? describeAudienceRule(audienceRule)
+      : "";
+
+  const backHref = isEditing ? `/dashboard/campaigns/${editCampaign.id}` : "/dashboard/campaigns";
 
   return (
     <div className="flex flex-col gap-3">
@@ -151,14 +208,18 @@ export function SimpleSendComposer({
               variant="ghost"
               size="icon-sm"
               nativeButton={false}
-              render={<Link href="/dashboard/campaigns" aria-label="Back to campaigns" />}
+              render={<Link href={backHref} aria-label="Back" />}
             >
               <ArrowLeft className="size-4" />
             </Button>
             <div>
-              <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">New Campaign</h2>
+              <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+                {isEditing ? "Edit Campaign" : "New Campaign"}
+              </h2>
               <p className="text-sm text-muted-foreground">
-                Fill in your campaign, then review and send — two steps, start to finish.
+                {isEditing
+                  ? "Update the details, message, and schedule for this campaign."
+                  : "Fill in your campaign, then review and send — two steps, start to finish."}
               </p>
             </div>
           </div>
@@ -186,16 +247,24 @@ export function SimpleSendComposer({
             onCampaignTypeChange={setCampaignType}
             senderId={senderId}
             onSenderIdChange={setSenderId}
+            campaignTypeLocked={isEditing}
           />
 
-          <QuickSendAudienceSection
-            counts={audienceCounts}
-            rule={audienceRule}
-            onRuleChange={setAudienceRule}
-            pickedCustomers={pickedCustomers}
-            onPickedCustomersChange={setPickedCustomers}
-            onRecipientCountChange={setRecipientCount}
-          />
+          {isEditing && editCampaign ? (
+            <QuickSendAudienceLocked
+              audienceLabel={audienceLabel}
+              recipientCount={editCampaign.totalRecipients}
+            />
+          ) : (
+            <QuickSendAudienceSection
+              counts={audienceCounts}
+              rule={audienceRule}
+              onRuleChange={setAudienceRule}
+              pickedCustomers={pickedCustomers}
+              onPickedCustomersChange={setPickedCustomers}
+              onRecipientCountChange={setRecipientCount}
+            />
+          )}
 
           <QuickSendMessageSection
             message={message}
@@ -212,12 +281,12 @@ export function SimpleSendComposer({
         </div>
       )}
 
-      {step === 2 && campaignType && audienceRule && (
+      {step === 2 && campaignType && (isEditing || audienceRule) && (
         <div className="flex flex-col gap-3">
           <SimpleSendSummary
             campaignName={campaignName}
             campaignTypeLabel={CAMPAIGN_TYPE_LABELS[campaignType]}
-            audienceLabel={describeAudienceRule(audienceRule)}
+            audienceLabel={audienceLabel}
             senderId={senderId}
           />
 
@@ -229,6 +298,8 @@ export function SimpleSendComposer({
             canSend={canSend}
             onSubmit={handleSubmit}
             onBack={() => setStep(1)}
+            initialSendMode={isEditing && editCampaign?.scheduledAt ? "schedule" : "now"}
+            initialScheduledAt={isEditing ? isoToLocalInput(editCampaign!.scheduledAt) : undefined}
           />
         </div>
       )}
