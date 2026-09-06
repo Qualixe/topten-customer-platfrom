@@ -81,6 +81,27 @@ class UpsertResult:
     message: str
 
 
+@dataclass(frozen=True, slots=True)
+class SegmentResult:
+    success: bool
+    message: str
+    segment_id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CampaignResult:
+    success: bool
+    message: str
+    campaign_id: str | None = None
+    web_id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ActionResult:
+    success: bool
+    message: str
+
+
 async def verify_api_key(*, api_key: str) -> PingResult:
     """A cheap, side-effect-free call to confirm the key (and its embedded
     datacenter) actually authenticates."""
@@ -156,3 +177,122 @@ async def upsert_member(
     if response.status_code >= 400:
         return UpsertResult(success=False, message=_error_message(response))
     return UpsertResult(success=True, message="synced")
+
+
+async def create_static_segment(
+    *, api_key: str, list_id: str, name: str, emails: list[str]
+) -> SegmentResult:
+    """Creates a one-off static segment scoped to exactly `emails` — the
+    Mailchimp equivalent of a per-campaign recipient list. Every address
+    must already be a list member (see `upsert_member`) before it can be
+    added to a segment."""
+    base_url = _base_url(api_key)
+    if base_url is None:
+        return SegmentResult(
+            success=False,
+            message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
+        )
+    async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
+        response = await client.post(
+            f"{base_url}/lists/{list_id}/segments",
+            auth=_auth(api_key),
+            json={"name": name, "static_segment": emails},
+        )
+    if response.status_code >= 400:
+        return SegmentResult(success=False, message=_error_message(response))
+    body = response.json()
+    return SegmentResult(success=True, message="created", segment_id=body.get("id"))
+
+
+async def create_campaign(
+    *,
+    api_key: str,
+    list_id: str,
+    segment_id: int,
+    subject: str,
+    from_name: str,
+    reply_to: str,
+) -> CampaignResult:
+    """Creates a "regular" campaign as a draft, targeted at the given
+    static segment. `from_name`/`reply_to` are this app's configured
+    campaign defaults (see Settings) — the actual from-email address comes
+    from the Audience's own Campaign Defaults, configured in Mailchimp
+    directly, same as the Audience itself (see `verify_list`)."""
+    base_url = _base_url(api_key)
+    if base_url is None:
+        return CampaignResult(
+            success=False,
+            message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
+        )
+    async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
+        response = await client.post(
+            f"{base_url}/campaigns",
+            auth=_auth(api_key),
+            json={
+                "type": "regular",
+                "recipients": {
+                    "list_id": list_id,
+                    "segment_opts": {"saved_segment_id": segment_id},
+                },
+                "settings": {
+                    "subject_line": subject,
+                    "title": subject,
+                    "from_name": from_name,
+                    "reply_to": reply_to,
+                },
+            },
+        )
+    if response.status_code >= 400:
+        return CampaignResult(success=False, message=_error_message(response))
+    body = response.json()
+    return CampaignResult(
+        success=True, message="created", campaign_id=body.get("id"), web_id=body.get("web_id")
+    )
+
+
+async def set_campaign_content(*, api_key: str, campaign_id: str, html: str) -> ActionResult:
+    base_url = _base_url(api_key)
+    if base_url is None:
+        return ActionResult(
+            success=False,
+            message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
+        )
+    async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
+        response = await client.put(
+            f"{base_url}/campaigns/{campaign_id}/content",
+            auth=_auth(api_key),
+            json={"html": html},
+        )
+    if response.status_code >= 400:
+        return ActionResult(success=False, message=_error_message(response))
+    return ActionResult(success=True, message="ok")
+
+
+async def send_campaign(*, api_key: str, campaign_id: str) -> ActionResult:
+    """Sends immediately — irreversible, so the caller (see
+    app.services.mailchimp_sync.create_and_send_campaign) only calls this
+    after content has been set and everything else has succeeded."""
+    base_url = _base_url(api_key)
+    if base_url is None:
+        return ActionResult(
+            success=False,
+            message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
+        )
+    async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
+        response = await client.post(
+            f"{base_url}/campaigns/{campaign_id}/actions/send",
+            auth=_auth(api_key),
+        )
+    if response.status_code >= 400:
+        return ActionResult(success=False, message=_error_message(response))
+    return ActionResult(success=True, message="sent")
+
+
+def campaign_web_url(*, api_key: str, web_id: int) -> str | None:
+    """Mailchimp's own dashboard URL for viewing a campaign's report —
+    `web_id` (a short numeric id, distinct from the string `campaign_id`)
+    is what its dashboard URLs are keyed on."""
+    datacenter = _datacenter(api_key)
+    if not datacenter:
+        return None
+    return f"https://{datacenter}.admin.mailchimp.com/campaigns/show/?id={web_id}"

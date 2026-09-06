@@ -27,6 +27,8 @@ export function MailchimpCredentialsForm() {
   const [status, setStatus] = useState<MailchimpCredentials | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [listId, setListId] = useState("");
+  const [fromName, setFromName] = useState("");
+  const [replyToEmail, setReplyToEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,8 @@ export function MailchimpCredentialsForm() {
         if (cancelled) return;
         setStatus(data);
         setListId(data.listId.value ?? "");
+        setFromName(data.fromName.value ?? "");
+        setReplyToEmail(data.replyToEmail.value ?? "");
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(getErrorMessage(err, "Unable to load saved credentials."));
@@ -63,6 +67,8 @@ export function MailchimpCredentialsForm() {
       const updated = await updateMailchimpCredentials({
         apiKey: apiKey || undefined,
         listId,
+        fromName,
+        replyToEmail,
       });
       setStatus(updated);
       setApiKey("");
@@ -79,8 +85,9 @@ export function MailchimpCredentialsForm() {
       <CardHeader>
         <CardTitle>Email (Mailchimp)</CardTitle>
         <CardDescription>
-          Syncs opted-in customers to a Mailchimp Audience. Create the Audience in Mailchimp first,
-          then paste its id below — this app never creates one via the API.
+          Syncs opted-in customers to a Mailchimp Audience and sends campaigns to them. Create the
+          Audience in Mailchimp first, then paste its id below — this app never creates one via
+          the API.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -116,6 +123,37 @@ export function MailchimpCredentialsForm() {
               value={listId}
               onChange={(event) => setListId(event.target.value)}
               placeholder="e.g. a1b2c3d4e5"
+              disabled={loading}
+              required
+            />
+          </FormField>
+
+          <FormField
+            htmlFor="mailchimp-from-name"
+            label="From Name"
+            description="Shown as the sender name on campaigns sent from this app. The from-email address itself comes from the Audience's Campaign Defaults in Mailchimp."
+          >
+            <Input
+              id="mailchimp-from-name"
+              value={fromName}
+              onChange={(event) => setFromName(event.target.value)}
+              placeholder="e.g. TopTen Supermarket"
+              disabled={loading}
+              required
+            />
+          </FormField>
+
+          <FormField
+            htmlFor="mailchimp-reply-to"
+            label="Reply-To Email"
+            description="Where customer replies to your campaigns should go."
+          >
+            <Input
+              id="mailchimp-reply-to"
+              type="email"
+              value={replyToEmail}
+              onChange={(event) => setReplyToEmail(event.target.value)}
+              placeholder="e.g. support@topten.com.bd"
               disabled={loading}
               required
             />

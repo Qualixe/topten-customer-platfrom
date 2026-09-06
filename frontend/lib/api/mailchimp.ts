@@ -2,23 +2,30 @@ import { apiGet, apiPost, apiPut } from "@/lib/api/client";
 import type { PlainField, SecretField } from "@/lib/api/integration-credentials";
 import type { ApiEnvelope } from "@/lib/api/types";
 
-/** Mailchimp Marketing (Audience sync) — see app.common.mailchimp_client on
- * the backend. Deliberately minimal: this app never creates an Audience via
- * the API (Mailchimp requires company/address/permission-reminder fields
- * this app doesn't collect) — the admin creates one in Mailchimp and pastes
- * its id here. `listValid`/`listName` are live-checked at read time (best
- * effort — never throws) so Settings can confirm the id actually resolves
- * rather than assuming it. */
+/** Mailchimp Marketing (Audience sync + campaign send) — see
+ * app.common.mailchimp_client on the backend. Deliberately minimal: this
+ * app never creates an Audience via the API (Mailchimp requires
+ * company/address/permission-reminder fields this app doesn't collect) —
+ * the admin creates one in Mailchimp and pastes its id here.
+ * `listValid`/`listName` are live-checked at read time (best effort —
+ * never throws) so Settings can confirm the id actually resolves rather
+ * than assuming it. `fromName`/`replyToEmail` are only needed to send a
+ * campaign, not to sync — the from-email address itself comes from the
+ * Audience's own Campaign Defaults, set in Mailchimp directly. */
 export interface MailchimpCredentials {
   apiKey: SecretField;
   listId: PlainField;
   listValid: boolean;
   listName: string | null;
+  fromName: PlainField;
+  replyToEmail: PlainField;
 }
 
 export interface MailchimpCredentialsInput {
   apiKey?: string;
   listId?: string;
+  fromName?: string;
+  replyToEmail?: string;
 }
 
 export async function getMailchimpCredentials(): Promise<MailchimpCredentials> {
@@ -32,6 +39,8 @@ export async function updateMailchimpCredentials(
   const envelope = await apiPut<ApiEnvelope<MailchimpCredentials>>("/mailchimp/credentials", {
     api_key: input.apiKey,
     list_id: input.listId,
+    from_name: input.fromName,
+    reply_to_email: input.replyToEmail,
   });
   return envelope.data;
 }
@@ -54,6 +63,35 @@ export interface MailchimpSyncReport {
 export async function syncCustomersToMailchimp(customerIds: string[]): Promise<MailchimpSyncReport> {
   const envelope = await apiPost<ApiEnvelope<MailchimpSyncReport>>("/mailchimp/sync", {
     customer_ids: customerIds,
+  });
+  return envelope.data;
+}
+
+export interface MailchimpSendReport {
+  total: number;
+  sent: number;
+  failed: number;
+  items: MailchimpSyncItemResult[];
+  /** Link to view the sent campaign in Mailchimp's own dashboard — null
+   * only if sending failed before Mailchimp assigned a campaign at all
+   * (e.g. no eligible recipients). */
+  campaignUrl: string | null;
+}
+
+/** Sends a real Mailchimp campaign to exactly the given customers, in one
+ * step: upserts each as a list member, scopes a fresh static segment to
+ * just them, and sends against it. Irreversible — there's no draft/review
+ * step on the backend, so the caller's own review UI is the only chance
+ * to catch a mistake before this fires. */
+export async function sendMailchimpCampaign(input: {
+  customerIds: string[];
+  subject: string;
+  htmlBody: string;
+}): Promise<MailchimpSendReport> {
+  const envelope = await apiPost<ApiEnvelope<MailchimpSendReport>>("/mailchimp/send", {
+    customer_ids: input.customerIds,
+    subject: input.subject,
+    html_body: input.htmlBody,
   });
   return envelope.data;
 }

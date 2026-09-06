@@ -11,12 +11,15 @@ from app.common.dependencies import get_db, require_permission
 from app.services.mailchimp_sync import (
     MAILCHIMP_PROVIDER,
     check_list_status,
+    create_and_send_campaign,
     sync_customers,
 )
 from app.views.mailchimp_marketing import (
     MailchimpCredentialsResponse,
     MailchimpCredentialsStatus,
     MailchimpCredentialsUpdate,
+    SendCampaignRequest,
+    SendCampaignResponse,
     SyncRequest,
     SyncResponse,
 )
@@ -33,6 +36,8 @@ async def _to_status(data: dict[str, str | None]) -> MailchimpCredentialsStatus:
         list_id=PlainFieldStatus(value=data.get("list_id")),
         list_valid=is_valid,
         list_name=list_name,
+        from_name=PlainFieldStatus(value=data.get("from_name")),
+        reply_to_email=PlainFieldStatus(value=data.get("reply_to_email")),
     )
 
 
@@ -55,3 +60,16 @@ async def update_credentials(
 async def sync(payload: SyncRequest, db: AsyncSession = Depends(get_db)) -> SyncResponse:
     report = await sync_customers(db, customer_ids=payload.customer_ids)
     return SyncResponse(data=report)
+
+
+@router.post("/send", response_model=SendCampaignResponse, dependencies=_manage)
+async def send(
+    payload: SendCampaignRequest, db: AsyncSession = Depends(get_db)
+) -> SendCampaignResponse:
+    report = await create_and_send_campaign(
+        db,
+        customer_ids=payload.customer_ids,
+        subject=payload.subject,
+        html_body=payload.html_body,
+    )
+    return SendCampaignResponse(data=report)
