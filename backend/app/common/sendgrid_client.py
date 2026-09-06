@@ -1,6 +1,6 @@
-"""SendGrid Marketing Campaigns API client — Lists, Contacts, Sender
-Identities, Suppression (unsubscribe) Groups, and Single Sends (SendGrid's
-name for a marketing campaign). https://www.twilio.com/docs/sendgrid/api-reference.
+"""SendGrid Marketing Campaigns API client — Lists, Contacts, and Sender
+Identities, for syncing customers into a SendGrid List.
+https://www.twilio.com/docs/sendgrid/api-reference.
 
 Every function returns a small result dataclass with `success`/`message`
 (and whatever id the operation produced) rather than raising on an
@@ -69,30 +69,10 @@ class SenderResult:
 
 
 @dataclass(frozen=True, slots=True)
-class SuppressionResult:
-    success: bool
-    message: str
-    group_id: int | None = None
-
-
-@dataclass(frozen=True, slots=True)
 class UpsertResult:
     success: bool
     message: str
     job_id: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class CampaignResult:
-    success: bool
-    message: str
-    campaign_id: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class ActionResult:
-    success: bool
-    message: str = ""
 
 
 async def find_or_create_list(*, api_key: str, name: str) -> ListResult:
@@ -145,32 +125,6 @@ async def find_verified_sender(*, api_key: str, from_email: str) -> SenderResult
                 verified=bool(existing.get("verified")),
             )
     return SenderResult(success=True, message="not found", sender_id=None, verified=False)
-
-
-async def find_or_create_suppression_group(
-    *, api_key: str, name: str, description: str
-) -> SuppressionResult:
-    async with httpx.AsyncClient(timeout=SENDGRID_API_TIMEOUT) as client:
-        list_response = await client.get(
-            f"{SENDGRID_API_BASE}/asm/groups", headers=_auth_header(api_key)
-        )
-        if list_response.status_code >= 400:
-            return SuppressionResult(success=False, message=_error_message(list_response))
-
-        for existing in list_response.json():
-            if existing.get("name") == name:
-                return SuppressionResult(success=True, message="found", group_id=existing["id"])
-
-        create_response = await client.post(
-            f"{SENDGRID_API_BASE}/asm/groups",
-            headers=_auth_header(api_key),
-            json={"name": name, "description": description, "is_default": False},
-        )
-    if create_response.status_code >= 400:
-        return SuppressionResult(success=False, message=_error_message(create_response))
-    return SuppressionResult(
-        success=True, message="created", group_id=create_response.json()["id"]
-    )
 
 
 async def upsert_contact(
@@ -246,47 +200,3 @@ async def upsert_contact(
     return UpsertResult(
         success=False, message="Still processing — check back shortly", job_id=job_id
     )
-
-
-async def create_single_send(
-    *,
-    api_key: str,
-    list_id: str,
-    sender_id: int,
-    suppression_group_id: int,
-    name: str,
-    subject: str,
-    html: str,
-) -> CampaignResult:
-    """Creates the campaign as a draft with its content fully set — unlike
-    Mailchimp, SendGrid has no separate "set content" call."""
-    async with httpx.AsyncClient(timeout=SENDGRID_API_TIMEOUT) as client:
-        response = await client.post(
-            f"{SENDGRID_API_BASE}/marketing/singlesends",
-            headers=_auth_header(api_key),
-            json={
-                "name": name,
-                "send_to": {"list_ids": [list_id]},
-                "email_config": {
-                    "subject": subject,
-                    "html_content": html,
-                    "sender_id": sender_id,
-                    "suppression_group_id": suppression_group_id,
-                },
-            },
-        )
-    if response.status_code >= 400:
-        return CampaignResult(success=False, message=_error_message(response))
-    return CampaignResult(success=True, message="created", campaign_id=response.json()["id"])
-
-
-async def schedule_single_send_now(*, api_key: str, campaign_id: str) -> ActionResult:
-    async with httpx.AsyncClient(timeout=SENDGRID_API_TIMEOUT) as client:
-        response = await client.put(
-            f"{SENDGRID_API_BASE}/marketing/singlesends/{campaign_id}/schedule",
-            headers=_auth_header(api_key),
-            json={"send_at": "now"},
-        )
-    if response.status_code >= 400:
-        return ActionResult(success=False, message=_error_message(response))
-    return ActionResult(success=True, message="sent")

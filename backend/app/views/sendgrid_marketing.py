@@ -1,7 +1,6 @@
-from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.common.credentials import PlainFieldStatus, SecretFieldStatus
 
@@ -82,39 +81,4 @@ class SyncReport(BaseModel):
 class SyncResponse(BaseModel):
     success: bool = True
     data: SyncReport
-    meta: dict = {}
-
-
-class CreateCampaignRequest(BaseModel):
-    customer_ids: list[UUID] = Field(min_length=1)
-    subject: str = Field(min_length=1, max_length=255)
-    html_body: str = Field(min_length=1)
-    from_name: str | None = None
-    from_email: str | None = None
-
-
-class SendGridCampaignRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
-
-    id: UUID = Field(validation_alias="public_id")
-    sendgrid_campaign_id: str
-    subject: str
-    from_name: str | None
-    from_email: str | None
-    recipient_count: int
-    status: str
-    error_message: str | None
-    created_at: datetime
-    sent_at: datetime | None
-
-
-class SendGridCampaignResponse(BaseModel):
-    success: bool = True
-    data: SendGridCampaignRead
-    meta: dict = {}
-
-
-class SendGridCampaignListResponse(BaseModel):
-    success: bool = True
-    data: list[SendGridCampaignRead]
     meta: dict = {}

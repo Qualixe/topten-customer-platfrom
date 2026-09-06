@@ -6,14 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 
-from app.common.sendgrid_client import (
-    create_single_send,
-    find_or_create_list,
-    find_or_create_suppression_group,
-    find_verified_sender,
-    schedule_single_send_now,
-    upsert_contact,
-)
+from app.common.sendgrid_client import find_or_create_list, find_verified_sender, upsert_contact
 
 API_KEY = "SG.fake-key"
 
@@ -118,24 +111,6 @@ async def test_find_verified_sender_api_error() -> None:
     assert "Unauthorized" in result.message
 
 
-# --- Suppression group ---------------------------------------------------------
-
-
-async def test_find_or_create_suppression_group_creates_when_missing() -> None:
-    list_response = _response(200, [])
-    create_response = _response(201, {"id": 42, "name": "TopTen Marketing"})
-    with (
-        patch("httpx.AsyncClient.get", new=AsyncMock(return_value=list_response)),
-        patch("httpx.AsyncClient.post", new=AsyncMock(return_value=create_response)),
-    ):
-        result = await find_or_create_suppression_group(
-            api_key=API_KEY, name="TopTen Marketing", description="Unsubscribe group"
-        )
-
-    assert result.success is True
-    assert result.group_id == 42
-
-
 # --- Contact upsert (async job polling) -----------------------------------------
 
 
@@ -218,49 +193,6 @@ async def test_upsert_contact_submit_rejected() -> None:
 
     assert result.success is False
     assert "Invalid email" in result.message
-
-
-# --- Single Send (campaign) ------------------------------------------------------
-
-
-async def test_create_single_send_success() -> None:
-    response = _response(201, {"id": "campaign-1", "status": "draft"})
-    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=response)) as mock_post:
-        result = await create_single_send(
-            api_key=API_KEY,
-            list_id="list-1",
-            sender_id=5,
-            suppression_group_id=42,
-            name="Promo",
-            subject="Hello",
-            html="<p>Hi</p>",
-        )
-
-    assert result.success is True
-    assert result.campaign_id == "campaign-1"
-    _, kwargs = mock_post.call_args
-    assert kwargs["json"]["email_config"]["html_content"] == "<p>Hi</p>"
-    assert kwargs["json"]["email_config"]["sender_id"] == 5
-    assert kwargs["json"]["email_config"]["suppression_group_id"] == 42
-
-
-async def test_schedule_single_send_now_success() -> None:
-    response = _response(200, {"send_at": "now", "status": "Scheduled"})
-    with patch("httpx.AsyncClient.put", new=AsyncMock(return_value=response)) as mock_put:
-        result = await schedule_single_send_now(api_key=API_KEY, campaign_id="campaign-1")
-
-    assert result.success is True
-    _, kwargs = mock_put.call_args
-    assert kwargs["json"] == {"send_at": "now"}
-
-
-async def test_schedule_single_send_now_failure() -> None:
-    response = _response(400, {"errors": [{"message": "Sender identity not verified"}]})
-    with patch("httpx.AsyncClient.put", new=AsyncMock(return_value=response)):
-        result = await schedule_single_send_now(api_key=API_KEY, campaign_id="campaign-1")
-
-    assert result.success is False
-    assert "not verified" in result.message
 
 
 async def test_malformed_response_is_a_failure() -> None:

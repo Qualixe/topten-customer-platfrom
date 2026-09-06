@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,20 +8,8 @@ from app.common.credentials import (
     merge_credential_data,
 )
 from app.common.dependencies import get_db, require_permission
-from app.services.sendgrid_sync import (
-    SENDGRID_PROVIDER,
-    check_sender_verified,
-    create_campaign_draft,
-    get_campaign_by_public_id,
-    list_campaigns,
-    send_campaign_draft,
-    sync_customers,
-)
+from app.services.sendgrid_sync import SENDGRID_PROVIDER, check_sender_verified, sync_customers
 from app.views.sendgrid_marketing import (
-    CreateCampaignRequest,
-    SendGridCampaignListResponse,
-    SendGridCampaignRead,
-    SendGridCampaignResponse,
     SendGridCredentialsResponse,
     SendGridCredentialsStatus,
     SendGridCredentialsUpdate,
@@ -33,7 +19,6 @@ from app.views.sendgrid_marketing import (
 
 router = APIRouter()
 
-_view = [Depends(require_permission("marketing.view"))]
 _manage = [Depends(require_permission("marketing.manage"))]
 
 
@@ -67,39 +52,3 @@ async def update_credentials(
 async def sync(payload: SyncRequest, db: AsyncSession = Depends(get_db)) -> SyncResponse:
     report = await sync_customers(db, customer_ids=payload.customer_ids)
     return SyncResponse(data=report)
-
-
-@router.post("/campaigns", response_model=SendGridCampaignResponse, dependencies=_manage)
-async def create_campaign(
-    payload: CreateCampaignRequest, db: AsyncSession = Depends(get_db)
-) -> SendGridCampaignResponse:
-    row = await create_campaign_draft(
-        db,
-        customer_ids=payload.customer_ids,
-        subject=payload.subject,
-        html_body=payload.html_body,
-        from_name=payload.from_name,
-        from_email=payload.from_email,
-    )
-    return SendGridCampaignResponse(data=SendGridCampaignRead.model_validate(row))
-
-
-@router.post(
-    "/campaigns/{campaign_id}/send",
-    response_model=SendGridCampaignResponse,
-    dependencies=_manage,
-)
-async def send_campaign(
-    campaign_id: UUID, db: AsyncSession = Depends(get_db)
-) -> SendGridCampaignResponse:
-    campaign = await get_campaign_by_public_id(db, campaign_id)
-    sent = await send_campaign_draft(db, campaign)
-    return SendGridCampaignResponse(data=SendGridCampaignRead.model_validate(sent))
-
-
-@router.get("/campaigns", response_model=SendGridCampaignListResponse, dependencies=_view)
-async def list_all_campaigns(db: AsyncSession = Depends(get_db)) -> SendGridCampaignListResponse:
-    rows = await list_campaigns(db)
-    return SendGridCampaignListResponse(
-        data=[SendGridCampaignRead.model_validate(row) for row in rows]
-    )

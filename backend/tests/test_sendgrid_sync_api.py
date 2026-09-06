@@ -1,6 +1,6 @@
-"""SendGrid Marketing sync/campaign endpoints: consent gating, per-customer
-success/failure reporting, the draft-then-send two-step, and permission
-enforcement for marketing.view/marketing.manage."""
+"""SendGrid Marketing sync endpoint: consent gating, per-customer
+success/failure reporting, and permission enforcement for
+marketing.view/marketing.manage."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -9,18 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.credentials import merge_credential_data
-from app.common.sendgrid_client import (
-    ActionResult,
-    CampaignResult,
-    ListResult,
-    SenderResult,
-    SuppressionResult,
-    UpsertResult,
-)
+from app.common.sendgrid_client import ListResult, SenderResult, UpsertResult
 from app.core.security import create_access_token, hash_password
 from app.models.customer import Customer
 from app.models.role import Role
-from app.models.sendgrid_campaign import SendGridCampaign
 from app.models.user import User
 from app.services.sendgrid_sync import SENDGRID_PROVIDER
 from scripts.seed_auth import seed_auth
@@ -62,24 +54,6 @@ def _patch_list():
     return patch(
         "app.services.sendgrid_sync.find_or_create_list",
         new=AsyncMock(return_value=ListResult(success=True, message="found", list_id="list-1")),
-    )
-
-
-def _patch_sender():
-    return patch(
-        "app.services.sendgrid_sync.find_verified_sender",
-        new=AsyncMock(
-            return_value=SenderResult(success=True, message="found", sender_id=5, verified=True)
-        ),
-    )
-
-
-def _patch_suppression_group():
-    return patch(
-        "app.services.sendgrid_sync.find_or_create_suppression_group",
-        new=AsyncMock(
-            return_value=SuppressionResult(success=True, message="found", group_id=42)
-        ),
     )
 
 
@@ -165,139 +139,6 @@ async def test_sync_without_credentials_is_a_clean_error(
     assert response.status_code == 422
 
 
-# --- Draft-then-send two-step -----------------------------------------------
-
-
-async def test_create_campaign_draft_then_send(
-    client: AsyncClient, db_session: AsyncSession
-) -> None:
-    await _set_credentials()
-    customer = await _add_customer(
-        db_session, name="Rahim", phone="+8801711000106", email="rahim@example.com", opted_in=True
-    )
-    customer.marketing_synced_at = customer.created_at
-    await db_session.commit()
-
-    with (
-        _patch_list(),
-        _patch_sender(),
-        _patch_suppression_group(),
-        patch(
-            "app.services.sendgrid_sync.upsert_contact",
-            new=AsyncMock(return_value=UpsertResult(success=True, message="synced")),
-        ),
-        patch(
-            "app.services.sendgrid_sync.create_single_send",
-            new=AsyncMock(
-                return_value=CampaignResult(success=True, message="created", campaign_id="camp-1")
-            ),
-        ),
-    ):
-        create_response = await client.post(
-            "/api/v1/sendgrid/campaigns",
-            json={
-                "customer_ids": [str(customer.public_id)],
-                "subject": "This month's promo",
-                "html_body": "<p>Hello!</p>",
-            },
-        )
-
-    assert create_response.status_code == 200
-    created = create_response.json()["data"]
-    assert created["status"] == "DRAFT"
-    assert created["recipient_count"] == 1
-    campaign_id = created["id"]
-
-    row = (
-        await db_session.execute(
-            select(SendGridCampaign).where(SendGridCampaign.public_id == campaign_id)
-        )
-    ).scalar_one()
-    assert row.sendgrid_campaign_id == "camp-1"
-
-    with patch(
-        "app.services.sendgrid_sync.sendgrid_schedule_now",
-        new=AsyncMock(return_value=ActionResult(success=True, message="sent")),
-    ):
-        send_response = await client.post(f"/api/v1/sendgrid/campaigns/{campaign_id}/send")
-
-    assert send_response.status_code == 200
-    assert send_response.json()["data"]["status"] == "SENT"
-
-
-async def test_cannot_send_an_already_sent_campaign_twice(
-    client: AsyncClient, db_session: AsyncSession
-) -> None:
-    await _set_credentials()
-    row = SendGridCampaign(
-        sendgrid_campaign_id="camp-2",
-        subject="Already sent",
-        html_body="<p>hi</p>",
-        recipient_count=1,
-        status="SENT",
-    )
-    db_session.add(row)
-    await db_session.commit()
-    await db_session.refresh(row)
-
-    response = await client.post(f"/api/v1/sendgrid/campaigns/{row.public_id}/send")
-    assert response.status_code == 422
-
-
-async def test_campaign_draft_requires_synced_customers(
-    client: AsyncClient, db_session: AsyncSession
-) -> None:
-    await _set_credentials()
-    # Opted in but never synced yet.
-    customer = await _add_customer(
-        db_session, name="Rahim", phone="+8801711000107", email="rahim@example.com", opted_in=True
-    )
-
-    with _patch_sender(), _patch_suppression_group():
-        response = await client.post(
-            "/api/v1/sendgrid/campaigns",
-            json={
-                "customer_ids": [str(customer.public_id)],
-                "subject": "Promo",
-                "html_body": "<p>hi</p>",
-            },
-        )
-
-    assert response.status_code == 422
-
-
-async def test_campaign_draft_requires_a_verified_sender(
-    client: AsyncClient, db_session: AsyncSession
-) -> None:
-    """Sender verification is an external SendGrid-side step now (no
-    address/nickname collected here) — if nothing in the account matches
-    the configured from_email yet, that's a clear, actionable error."""
-    await _set_credentials()
-    customer = await _add_customer(
-        db_session, name="Rahim", phone="+8801711000109", email="rahim@example.com", opted_in=True
-    )
-    customer.marketing_synced_at = customer.created_at
-    await db_session.commit()
-
-    with patch(
-        "app.services.sendgrid_sync.find_verified_sender",
-        new=AsyncMock(
-            return_value=SenderResult(success=True, message="not found", sender_id=None)
-        ),
-    ):
-        response = await client.post(
-            "/api/v1/sendgrid/campaigns",
-            json={
-                "customer_ids": [str(customer.public_id)],
-                "subject": "Promo",
-                "html_body": "<p>hi</p>",
-            },
-        )
-
-    assert response.status_code == 422
-    assert "verified sender" in response.json()["detail"].lower()
-
-
 # --- Credentials status --------------------------------------------------------
 
 
@@ -349,14 +190,6 @@ async def _staff_headers(db_session: AsyncSession) -> dict:
     await db_session.refresh(user)
     token = create_access_token(user_public_id=str(user.public_id))
     return {"Authorization": f"Bearer {token}"}
-
-
-async def test_staff_can_view_campaigns(
-    unauthenticated_client: AsyncClient, db_session: AsyncSession
-) -> None:
-    headers = await _staff_headers(db_session)
-    response = await unauthenticated_client.get("/api/v1/sendgrid/campaigns", headers=headers)
-    assert response.status_code == 200
 
 
 async def test_staff_cannot_trigger_sync(
