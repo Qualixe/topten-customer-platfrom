@@ -224,7 +224,7 @@ export function FormBuilder({ formId }: { formId: string }) {
       ) : canManage ? (
         <>
           {/* Desktop: all three columns side by side. */}
-          <div className="hidden gap-4 lg:grid lg:grid-cols-[240px_1fr_300px]">
+          <div className="hidden gap-4 lg:grid lg:grid-cols-[300px_1fr_300px]">
             {sidebar}
             <div className="max-h-[calc(100vh-320px)] overflow-y-auto">{canvas}</div>
             <div className="max-h-[calc(100vh-320px)] overflow-y-auto">{properties}</div>

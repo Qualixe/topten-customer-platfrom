@@ -125,6 +125,17 @@ export function FormsTable({
               <TableCell className="text-sm text-muted-foreground">{formatUpdatedAt(form.updatedAt)}</TableCell>
               <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                 <div className="flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onPreviewRequest(form)}
+                    aria-label={`Preview ${form.name}`}
+                    className="gap-1.5"
+                  >
+                    <Eye className="size-3.5" aria-hidden="true" />
+                    Preview
+                  </Button>
+
                   {/* Copy public URL — only when the form has a published slug */}
                   {form.slug && form.published && (
                     <CopyUrlButton slug={form.slug} />
@@ -139,9 +150,6 @@ export function FormsTable({
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem render={<Link href={`/dashboard/forms/${form.id}/builder`} />}>
                         <Pencil /> {canManage ? "Edit" : "View"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onPreviewRequest(form)}>
-                        <Eye /> Preview
                       </DropdownMenuItem>
                       {canManage && (
                         <>
