@@ -68,20 +68,13 @@ class CampaignCreate(BaseModel):
 
     @model_validator(mode="after")
     def _channel_fields_present(self) -> "CampaignCreate":
-        # EMAIL campaigns are no longer created through this wizard — bulk
-        # marketing email now goes through the SendGrid Marketing
-        # integration (see app.controllers.sendgrid_marketing), which
-        # syncs to a real List and sends via SendGrid's own Single Send
-        # engine instead of one Mandrill Transactional call per recipient.
-        # Existing EMAIL rows created before this change are left alone —
-        # only new creation is blocked.
-        if self.channel == CampaignChannel.EMAIL:
-            raise ValueError(
-                "Email campaigns are no longer created here — sync customers to "
-                "SendGrid Marketing and send a campaign instead."
-            )
+        # SMS needs a sender_id to show recipients; EMAIL needs a subject
+        # line — see app.tasks.sms_campaigns._send_email_campaign for how
+        # an EMAIL campaign actually sends, via Mailchimp's Campaigns API.
         if self.channel == CampaignChannel.SMS and not self.sender_id:
             raise ValueError("sender_id is required for an SMS campaign")
+        if self.channel == CampaignChannel.EMAIL and not self.subject:
+            raise ValueError("subject is required for an EMAIL campaign")
         return self
 
 

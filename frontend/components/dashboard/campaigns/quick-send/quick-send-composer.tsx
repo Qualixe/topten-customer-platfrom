@@ -5,12 +5,14 @@ import { useState } from "react";
 import { QuickSendAudienceSection } from "@/components/dashboard/campaigns/quick-send/quick-send-audience-section";
 import { QuickSendConfirmation } from "@/components/dashboard/campaigns/quick-send/quick-send-confirmation";
 import { QuickSendDetailsSection } from "@/components/dashboard/campaigns/quick-send/quick-send-details-section";
+import { QuickSendEmailMessageSection } from "@/components/dashboard/campaigns/quick-send/quick-send-email-message-section";
 import { QuickSendMessageSection } from "@/components/dashboard/campaigns/quick-send/quick-send-message-section";
 import { QuickSendSendSection } from "@/components/dashboard/campaigns/quick-send/quick-send-send-section";
 import {
   createCampaign,
   type AudienceCounts,
   type AudienceRule,
+  type CampaignChannel,
   type CampaignType,
 } from "@/lib/api/campaigns";
 import type { Customer } from "@/lib/api/customers";
@@ -34,9 +36,14 @@ interface ConfirmationState {
 
 /** The single-page alternative to CampaignComposer's 4-step wizard: every
  * section (details, audience, message, send) is visible and editable at
- * once instead of behind Back/Continue navigation — same fields, same
- * targeting options, same SMS-only default the wizard already uses, just
- * fewer clicks to get through. See app/dashboard/campaigns/quick-send. */
+ * once instead of behind Back/Continue navigation. Supports both channels
+ * the wizard itself deliberately doesn't (see CampaignComposer's own
+ * docstring) — SMS goes out through the configured SMS Gateway exactly as
+ * before, EMAIL goes out through Mailchimp (see
+ * app.tasks.sms_campaigns._send_email_campaign on the backend); both share
+ * the same audience-rule targeting, and the same create/resolve/send
+ * pipeline decides which path to use based on the campaign's own
+ * `channel`. See app/dashboard/campaigns/quick-send. */
 export function QuickSendComposer({
   audienceCounts,
   defaultSenderId,
@@ -47,12 +54,17 @@ export function QuickSendComposer({
 
   const [campaignName, setCampaignName] = useState("");
   const [campaignType, setCampaignType] = useState<CampaignType | "">("");
+  const [channel, setChannel] = useState<CampaignChannel>("SMS");
   const [senderId, setSenderId] = useState(defaultSenderId);
   const [audienceRule, setAudienceRule] = useState<AudienceRule | null>(null);
   const [pickedCustomers, setPickedCustomers] = useState<Customer[]>([]);
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [formId, setFormId] = useState("");
+  const [subject, setSubject] = useState("");
+  const [htmlBody, setHtmlBody] = useState("");
+
+  const isEmail = channel === "EMAIL";
 
   async function handleSubmit(mode: "now" | "schedule", scheduledAt?: string) {
     if (!audienceRule || !campaignType) return;
@@ -64,12 +76,16 @@ export function QuickSendComposer({
       name: campaignName,
       campaignType,
       audienceRule,
-      channel: "SMS",
-      message,
-      senderId,
+      channel,
+      message: isEmail ? htmlBody : message,
+      senderId: isEmail ? undefined : senderId,
+      subject: isEmail ? subject : undefined,
       scheduledAt: scheduledAtIso,
       status: "SCHEDULED",
-      formId: formId || undefined,
+      // A Form's attached landing page only applies to the SMS
+      // {{form_link}} pipeline — Mailchimp emails have no per-campaign
+      // landing page/token concept.
+      formId: isEmail ? undefined : formId || undefined,
     });
 
     setConfirmation({
@@ -95,9 +111,10 @@ export function QuickSendComposer({
   const canSend =
     campaignName.trim().length > 0 &&
     campaignType.length > 0 &&
-    senderId.trim().length > 0 &&
     audienceRule !== null &&
-    message.trim().length > 0;
+    (isEmail
+      ? subject.trim().length > 0 && htmlBody.trim().length > 0
+      : senderId.trim().length > 0 && message.trim().length > 0);
 
   return (
     <div className="flex flex-col gap-3">
@@ -106,6 +123,8 @@ export function QuickSendComposer({
         onNameChange={setCampaignName}
         campaignType={campaignType}
         onCampaignTypeChange={setCampaignType}
+        channel={channel}
+        onChannelChange={setChannel}
         senderId={senderId}
         onSenderIdChange={setSenderId}
       />
@@ -117,21 +136,32 @@ export function QuickSendComposer({
           pickedCustomers={pickedCustomers}
           onPickedCustomersChange={setPickedCustomers}
           onRecipientCountChange={setRecipientCount}
+          channel={channel}
         />
 
-      <QuickSendMessageSection
-        message={message}
-        onMessageChange={setMessage}
-        formId={formId}
-        onFormIdChange={setFormId}
-      />
+      {isEmail ? (
+        <QuickSendEmailMessageSection
+          subject={subject}
+          onSubjectChange={setSubject}
+          htmlBody={htmlBody}
+          onHtmlBodyChange={setHtmlBody}
+        />
+      ) : (
+        <QuickSendMessageSection
+          message={message}
+          onMessageChange={setMessage}
+          formId={formId}
+          onFormIdChange={setFormId}
+        />
+      )}
 
       <QuickSendSendSection
         recipientCount={recipientCount}
-        message={message}
+        message={isEmail ? htmlBody : message}
         ratePerSegmentBdt={ratePerSegmentBdt}
         smsAccount={smsAccount}
         canSend={canSend}
+        channel={channel}
         onSubmit={handleSubmit}
       />
     </div>

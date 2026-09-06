@@ -175,6 +175,11 @@ interface QuickSendAudienceSectionProps {
   /** Lifted up so the send section doesn't have to re-fetch the same
    * advanced-rule preview count a second time. */
   onRecipientCountChange: (count: number | null) => void;
+  /** EMAIL shows an extra note that this count isn't the actual email
+   * recipient count — Mailchimp sending additionally requires marketing
+   * opt-in and a saved email address (see
+   * app.services.mailchimp_sync.create_and_send_campaign). */
+  channel?: "SMS" | "EMAIL";
 }
 
 /** Audience section of the single-page Quick Send composer — identical
@@ -190,6 +195,7 @@ export function QuickSendAudienceSection({
   pickedCustomers,
   onPickedCustomersChange,
   onRecipientCountChange,
+  channel = "SMS",
 }: QuickSendAudienceSectionProps) {
   const [selectedType, setSelectedType] = useState<AudienceRuleType | "">(rule?.ruleType ?? "");
   const [selectedCustomerTypeId, setSelectedCustomerTypeId] = useState(
@@ -647,7 +653,9 @@ export function QuickSendAudienceSection({
           <span className="font-medium text-foreground">
             {selectedCount.toLocaleString("en-US")} customers
           </span>{" "}
-          will receive this campaign.
+          {channel === "EMAIL"
+            ? "match this audience. Only those who've opted into marketing email and have a saved email address will actually be emailed."
+            : "will receive this campaign."}
         </p>
       )}
     </div>

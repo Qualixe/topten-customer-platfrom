@@ -67,8 +67,8 @@ export function QuickSendConfirmation({
 
         {isScheduled ? (
           <p className="rounded-lg bg-muted px-4 py-2 text-xs text-muted-foreground">
-            Saved as scheduled. Automatic sending at a future date isn&apos;t available yet in
-            this build — this campaign won&apos;t send on its own.
+            Sending is fully automated — this campaign will go out on its own once the scheduled
+            time arrives.
           </p>
         ) : recipientCount > 0 ? (
           <p className="rounded-lg bg-muted px-4 py-2 text-xs text-muted-foreground">

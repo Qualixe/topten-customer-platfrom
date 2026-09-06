@@ -17,38 +17,60 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CAMPAIGN_TYPE_LABELS, type CampaignType } from "@/lib/api/campaigns";
+import {
+  CAMPAIGN_TYPE_LABELS,
+  type CampaignChannel,
+  type CampaignType,
+} from "@/lib/api/campaigns";
+import { cn } from "@/lib/utils";
 
 const CAMPAIGN_TYPE_OPTIONS = Object.entries(CAMPAIGN_TYPE_LABELS) as [CampaignType, string][];
 
+const CHANNEL_LABELS: Record<CampaignChannel, string> = {
+  SMS: "SMS",
+  EMAIL: "Email",
+};
+
 /** Details section of the single-page Quick Send composer — same fields as
- * the wizard's StepDetails, minus the channel picker (this composer is
- * SMS-only, matching StepDetails' own current default) and the
+ * the wizard's StepDetails, plus a channel picker the wizard deliberately
+ * doesn't have (that one's staying SMS-only; Quick Send is where SMS and
+ * Mailchimp-backed email campaigns both live) — and minus the
  * "Continue"-gated form, since every section is visible at once here. */
 export function QuickSendDetailsSection({
   name,
   onNameChange,
   campaignType,
   onCampaignTypeChange,
+  channel = "SMS",
+  onChannelChange,
   senderId,
   onSenderIdChange,
-  /** Disables the Campaign type select — set once a campaign already
-   * exists, since the backend freezes it at creation (the recipient
-   * snapshot is resolved from it) and rejects any change. Name and Sender
-   * ID stay editable either way. */
+  /** Disables the Campaign type/Channel selects — set once a campaign
+   * already exists, since the backend freezes both at creation (the
+   * recipient snapshot is resolved from them) and rejects any change.
+   * Name and Sender ID stay editable either way. */
   campaignTypeLocked = false,
 }: {
   name: string;
   onNameChange: (value: string) => void;
   campaignType: CampaignType | "";
   onCampaignTypeChange: (value: CampaignType) => void;
+  channel?: CampaignChannel;
+  /** Omit to hide the Channel picker entirely and stay SMS-only (e.g. the
+   * 2-step SimpleSendComposer, which deliberately doesn't offer email). */
+  onChannelChange?: (value: CampaignChannel) => void;
   senderId: string;
   onSenderIdChange: (value: string) => void;
   campaignTypeLocked?: boolean;
 }) {
   return (
     <Card>
-      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <CardContent
+        className={cn(
+          "grid grid-cols-1 gap-4 sm:grid-cols-2",
+          onChannelChange ? "lg:grid-cols-4" : "lg:grid-cols-3"
+        )}
+      >
         <FormField htmlFor="quick-send-name" label="Campaign name">
           <Input
             id="quick-send-name"
@@ -83,42 +105,71 @@ export function QuickSendDetailsSection({
           </Select>
         </FormField>
 
-        <FormField
-          htmlFor="quick-send-sender-id"
-          label={
-            <span className="flex items-center gap-1.5">
-              Sender ID
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        type="button"
-                        className="inline-flex text-muted-foreground hover:text-foreground"
-                        aria-label="What is a Sender ID?"
-                      />
-                    }
-                  >
-                    <Info className="size-3.5" aria-hidden="true" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    The name or number recipients see as the sender of this SMS. It must already
-                    be approved with your SMS gateway provider — an unapproved ID may cause the
-                    message to be blocked.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </span>
-          }
-        >
-          <Input
-            id="quick-send-sender-id"
-            value={senderId}
-            onChange={(e) => onSenderIdChange(e.target.value)}
-            placeholder="e.g. TopTen"
-            required
-          />
-        </FormField>
+        {onChannelChange && (
+          <FormField
+            htmlFor="quick-send-channel"
+            label="Channel"
+            description={campaignTypeLocked ? "Locked — can't change after a campaign is created." : undefined}
+          >
+            <Select
+              value={channel}
+              onValueChange={(value) => onChannelChange(value as CampaignChannel)}
+              disabled={campaignTypeLocked}
+            >
+              <SelectTrigger id="quick-send-channel" className="w-full">
+                <SelectValue>{(value: CampaignChannel) => CHANNEL_LABELS[value]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.entries(CHANNEL_LABELS) as [CampaignChannel, string][]).map(
+                  ([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  )
+                )}
+              </SelectContent>
+            </Select>
+          </FormField>
+        )}
+
+        {channel === "SMS" && (
+          <FormField
+            htmlFor="quick-send-sender-id"
+            label={
+              <span className="flex items-center gap-1.5">
+                Sender ID
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          className="inline-flex text-muted-foreground hover:text-foreground"
+                          aria-label="What is a Sender ID?"
+                        />
+                      }
+                    >
+                      <Info className="size-3.5" aria-hidden="true" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      The name or number recipients see as the sender of this SMS. It must already
+                      be approved with your SMS gateway provider — an unapproved ID may cause the
+                      message to be blocked.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </span>
+            }
+          >
+            <Input
+              id="quick-send-sender-id"
+              value={senderId}
+              onChange={(e) => onSenderIdChange(e.target.value)}
+              placeholder="e.g. TopTen"
+              required
+            />
+          </FormField>
+        )}
       </CardContent>
     </Card>
   );

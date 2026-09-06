@@ -34,6 +34,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.common.credentials import get_or_create_credential_row
+from app.common.exceptions import ValidationAppError
 from app.common.sms_gateway_client import RequestStyle
 from app.common.sms_gateway_client import send_sms as gateway_send_sms
 from app.core.celery_app import celery_app
@@ -43,6 +44,7 @@ from app.models.campaign import Campaign, CampaignChannel, CampaignStatus
 from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientStatus
 from app.models.customer import Customer
+from app.services.mailchimp_sync import create_and_send_campaign
 from app.services.sms_campaigns import (
     SMS_GATEWAY_PROVIDER,
     get_or_create_campaign_profile_token,
@@ -194,11 +196,11 @@ async def send_campaign_messages_async(
     tried. Only a missing/incomplete provider configuration is treated as
     fatal for the whole campaign, since no amount of retrying would help.
 
-    EMAIL is no longer a live channel here — bulk marketing email goes
-    through the SendGrid Marketing integration instead (see
-    app.controllers.sendgrid_marketing). A pre-existing EMAIL campaign row
-    (from before that change) can't be sent through this task any more; it
-    fails immediately rather than attempting an unsupported send."""
+    EMAIL campaigns are sent through Mailchimp instead (see
+    _send_email_campaign below and app.services.mailchimp_sync) — the
+    audience rule / recipient-snapshot / scheduling machinery above is
+    shared with SMS, only the actual "how does a message go out" step
+    differs per channel."""
     async with session_factory() as session:
         campaign = await session.get(Campaign, campaign_id)
         if campaign is None or campaign.recipients_resolved_at is None:
@@ -208,8 +210,7 @@ async def send_campaign_messages_async(
             return
 
         if campaign.channel == CampaignChannel.EMAIL.value:
-            campaign.status = CampaignStatus.FAILED.value
-            await session.commit()
+            await _send_email_campaign(session, campaign)
             return
 
         credential_row = await get_or_create_credential_row(session, SMS_GATEWAY_PROVIDER)
@@ -290,6 +291,72 @@ async def send_campaign_messages_async(
 
         campaign.status = CampaignStatus.COMPLETED.value
         await session.commit()
+
+
+async def _send_email_campaign(session: AsyncSession, campaign: Campaign) -> None:
+    """The EMAIL counterpart to the SMS loop above — same PENDING-recipient
+    snapshot, but sent in one shot through Mailchimp's Campaigns API (see
+    app.services.mailchimp_sync.create_and_send_campaign) rather than one
+    request per recipient, since that's how Mailchimp campaigns work: a
+    single campaign object addressed to a segment, not a per-recipient
+    send call. Only a hard failure before Mailchimp actually sends
+    anything (missing credentials, segment/campaign/content-setup errors)
+    fails the whole campaign — once `send_campaign` itself has been called
+    successfully, every recipient's own PENDING/SENT/FAILED status instead
+    reflects whether Mailchimp actually had a deliverable address for
+    them (opted in, has an email on file)."""
+    campaign.status = CampaignStatus.PROCESSING.value
+    await session.commit()
+
+    pending = (
+        await session.execute(
+            select(CampaignRecipient, Customer.public_id)
+            .join(Customer, Customer.id == CampaignRecipient.customer_id)
+            .where(
+                CampaignRecipient.campaign_id == campaign.id,
+                CampaignRecipient.status == CampaignRecipientStatus.PENDING.value,
+            )
+            .with_for_update(of=CampaignRecipient, skip_locked=True)
+        )
+    ).all()
+
+    if not pending:
+        campaign.status = CampaignStatus.COMPLETED.value
+        await session.commit()
+        return
+
+    recipient_by_customer_id = {public_id: recipient for recipient, public_id in pending}
+
+    try:
+        report = await create_and_send_campaign(
+            session,
+            customer_ids=list(recipient_by_customer_id.keys()),
+            subject=campaign.subject or "",
+            html_body=campaign.message,
+        )
+    except ValidationAppError:
+        # Nothing was sent — every PENDING recipient stays exactly that,
+        # so a later manual retry (once credentials/etc. are fixed) has a
+        # clean set to work from rather than a batch already marked FAILED.
+        campaign.status = CampaignStatus.FAILED.value
+        await session.commit()
+        return
+
+    now = datetime.now(UTC)
+    for item in report.items:
+        recipient = recipient_by_customer_id.get(item.customer_id)
+        if recipient is None:
+            continue
+        if item.success:
+            recipient.status = CampaignRecipientStatus.SENT.value
+            recipient.sent_at = now
+        else:
+            recipient.status = CampaignRecipientStatus.FAILED.value
+            recipient.failed_at = now
+            recipient.failure_reason = item.message[:500]
+
+    campaign.status = CampaignStatus.COMPLETED.value
+    await session.commit()
 
 
 async def _run_resolve_and_dispose(campaign_id: int) -> None:

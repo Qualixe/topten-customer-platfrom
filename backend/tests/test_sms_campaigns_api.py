@@ -174,6 +174,45 @@ async def test_create_campaign_rejects_blank_message(client: AsyncClient) -> Non
     assert response.status_code == 422
 
 
+async def test_create_email_campaign(client: AsyncClient) -> None:
+    """EMAIL campaigns are creatable again — see the removed hard block in
+    CampaignCreate._channel_fields_present (they used to be routed through
+    the now-retired SendGrid Marketing integration instead; EMAIL now
+    sends through Mailchimp, see app.tasks.sms_campaigns._send_email_campaign)."""
+    response = await client.post(
+        "/api/v1/sms/campaigns",
+        json=_create_payload(
+            channel="EMAIL",
+            message="<p>Hello there!</p>",
+            subject="A subject line",
+            sender_id=None,
+        ),
+    )
+    assert response.status_code == 201
+
+    data = response.json()["data"]
+    assert data["channel"] == "EMAIL"
+    assert data["subject"] == "A subject line"
+    assert data["sender_id"] is None
+    # No per-segment cost model for EMAIL.
+    assert data["sms_segments"] == 0
+
+
+async def test_create_email_campaign_requires_subject(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/sms/campaigns",
+        json=_create_payload(channel="EMAIL", sender_id=None),
+    )
+    assert response.status_code == 422
+
+
+async def test_create_sms_campaign_requires_sender_id(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/sms/campaigns", json=_create_payload(sender_id=None)
+    )
+    assert response.status_code == 422
+
+
 async def test_get_campaign_by_id(client: AsyncClient) -> None:
     created = (await client.post("/api/v1/sms/campaigns", json=_create_payload())).json()["data"]
     response = await client.get(f"/api/v1/sms/campaigns/{created['id']}")

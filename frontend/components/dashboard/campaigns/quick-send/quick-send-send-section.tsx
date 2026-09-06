@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CalendarClock, MessageSquare, Send, Wallet } from "lucide-react";
+import { AlertTriangle, CalendarClock, Mail, MessageSquare, Send, Users, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -81,6 +81,10 @@ interface QuickSendSendSectionProps {
   ratePerSegmentBdt: number;
   smsAccount: SmsAccount;
   canSend: boolean;
+  /** SMS shows the cost/balance card below; EMAIL shows a simpler
+   * recipients-only summary instead — Mailchimp sending has no per-message
+   * cost model in this app. */
+  channel?: "SMS" | "EMAIL";
   onSubmit: (mode: SendMode, scheduledAt?: string) => Promise<void>;
   /** Present only when this section is reused as a later step of a
    * multi-step flow (see SimpleSendComposer) — renders a "Back" button
@@ -103,6 +107,7 @@ export function QuickSendSendSection({
   ratePerSegmentBdt,
   smsAccount,
   canSend,
+  channel = "SMS",
   onSubmit,
   onBack,
   initialSendMode,
@@ -113,13 +118,14 @@ export function QuickSendSendSection({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const isEmail = channel === "EMAIL";
   const analysis = analyzeSmsMessage(message);
   const { segmentCount } = analysis;
   const count = recipientCount ?? 0;
   const totalSms = segmentCount * count;
   const estimatedCost = estimateSmsCost(segmentCount, count, ratePerSegmentBdt);
   const balanceAfter = smsAccount.balanceCredits - estimatedCost;
-  const insufficientBalance = estimatedCost > smsAccount.balanceCredits;
+  const insufficientBalance = !isEmail && estimatedCost > smsAccount.balanceCredits;
 
   const canSubmit =
     canSend &&
@@ -140,49 +146,69 @@ export function QuickSendSendSection({
 
   return (
     <div className="flex flex-col gap-3">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wallet className="size-4 text-muted-foreground" aria-hidden="true" />
-            Cost &amp; balance
-          </CardTitle>
-          <CardDescription>
-            {recipientCount === null
-              ? "Choose an audience above to see recipients and cost."
-              : `${count.toLocaleString("en-US")} recipients will receive this campaign.`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-0 divide-y">
-          <SummaryRow icon={MessageSquare} label="SMS segments per message" value={segmentCount} />
-          <SummaryRow icon={MessageSquare} label="Total SMS" value={totalSms.toLocaleString("en-US")} />
-          <SummaryRow icon={MessageSquare} label="Estimated cost" value={formatCurrency(estimatedCost)} />
-          <SummaryRow icon={Wallet} label="Current balance" value={formatCurrency(smsAccount.balanceCredits)} />
-          <SummaryRow
-            icon={Wallet}
-            label="Balance after sending"
-            value={formatCurrency(Math.max(0, balanceAfter))}
-            valueClassName={insufficientBalance ? "text-destructive" : undefined}
-          />
-        </CardContent>
+      {isEmail ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="size-4 text-muted-foreground" aria-hidden="true" />
+              Recipients
+            </CardTitle>
+            <CardDescription>
+              {recipientCount === null
+                ? "Choose an audience above to see recipients."
+                : "Sent through Mailchimp — only customers who've opted into marketing email and have a saved email address actually receive it."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-0 divide-y">
+            <SummaryRow icon={Users} label="Matching recipients" value={count.toLocaleString("en-US")} />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="size-4 text-muted-foreground" aria-hidden="true" />
+              Cost &amp; balance
+            </CardTitle>
+            <CardDescription>
+              {recipientCount === null
+                ? "Choose an audience above to see recipients and cost."
+                : `${count.toLocaleString("en-US")} recipients will receive this campaign.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-0 divide-y">
+            <SummaryRow icon={MessageSquare} label="SMS segments per message" value={segmentCount} />
+            <SummaryRow icon={MessageSquare} label="Total SMS" value={totalSms.toLocaleString("en-US")} />
+            <SummaryRow icon={MessageSquare} label="Estimated cost" value={formatCurrency(estimatedCost)} />
+            <SummaryRow icon={Wallet} label="Current balance" value={formatCurrency(smsAccount.balanceCredits)} />
+            <SummaryRow
+              icon={Wallet}
+              label="Balance after sending"
+              value={formatCurrency(Math.max(0, balanceAfter))}
+              valueClassName={insufficientBalance ? "text-destructive" : undefined}
+            />
+          </CardContent>
 
-        {insufficientBalance && (
-          <div className="mx-4 mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            <span>
-              Insufficient balance. You need{" "}
-              <strong>{formatCurrency(estimatedCost - smsAccount.balanceCredits)}</strong> more to
-              send this campaign. Top up your account first.
-            </span>
-          </div>
-        )}
-      </Card>
+          {insufficientBalance && (
+            <div className="mx-4 mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>
+                Insufficient balance. You need{" "}
+                <strong>{formatCurrency(estimatedCost - smsAccount.balanceCredits)}</strong> more to
+                send this campaign. Top up your account first.
+              </span>
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
           <CardTitle>When to send</CardTitle>
           <CardDescription>
-            Send immediately or schedule for a future date and time. Both save the campaign as
-            scheduled — BulkSMS BD sending isn&apos;t connected yet.
+            {isEmail
+              ? "Send immediately or schedule for a future date and time — either way, this goes out through your configured Mailchimp account."
+              : "Send immediately or schedule for a future date and time."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
