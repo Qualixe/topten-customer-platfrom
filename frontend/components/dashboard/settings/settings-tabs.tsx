@@ -4,9 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import {
   AlertTriangle,
-  Bell,
   Cake,
-  Crown,
   KeyRound,
   Mail,
   MessageSquare,
@@ -20,17 +18,14 @@ import {
 
 import { AccountSettingsForm } from "@/components/dashboard/settings/account-settings-form";
 import { BirthdaySettingsForm } from "@/components/dashboard/settings/birthday-settings-form";
-import { CustomerSettingsForm } from "@/components/dashboard/settings/customer-settings-form";
 import { CustomerTypesSettings } from "@/components/dashboard/settings/customer-types-settings";
 import { DatabaseResetCard } from "@/components/dashboard/settings/database-reset-card";
 import { GeneralSettingsForm } from "@/components/dashboard/settings/general-settings-form";
 import { MailchimpCredentialsForm } from "@/components/dashboard/settings/mailchimp-credentials-form";
-import { NotificationSettingsForm } from "@/components/dashboard/settings/notification-settings-form";
 import { PathaoCredentialsForm } from "@/components/dashboard/settings/pathao-credentials-form";
 import { SendGridMarketingCredentialsForm } from "@/components/dashboard/settings/sendgrid-marketing-credentials-form";
 import { SmsGatewayCredentialsForm } from "@/components/dashboard/settings/sms-gateway-credentials-form";
 import { UsersSettings } from "@/components/dashboard/settings/users-settings";
-import { VipSettingsForm } from "@/components/dashboard/settings/vip-settings-form";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -45,8 +40,6 @@ const SECTIONS = [
   { value: "general", label: "General", icon: SlidersHorizontal },
   { value: "customers", label: "Customers", icon: Users },
   { value: "birthdays", label: "Birthdays", icon: Cake },
-  { value: "vip", label: "VIP", icon: Crown },
-  { value: "notifications", label: "Notifications", icon: Bell },
   { value: "couriers", label: "Couriers", icon: Truck },
   { value: "integrations", label: "API Credentials", icon: KeyRound },
   { value: "users", label: "Users", icon: UserCog },
@@ -110,16 +103,9 @@ export function SettingsTabs() {
       </TabsContent>
       <TabsContent value="customers" keepMounted className="flex flex-col gap-6">
         <CustomerTypesSettings />
-        <CustomerSettingsForm />
       </TabsContent>
       <TabsContent value="birthdays" keepMounted>
         <BirthdaySettingsForm />
-      </TabsContent>
-      <TabsContent value="vip" keepMounted>
-        <VipSettingsForm />
-      </TabsContent>
-      <TabsContent value="notifications" keepMounted>
-        <NotificationSettingsForm />
       </TabsContent>
       <TabsContent value="couriers" keepMounted>
         <PathaoCredentialsForm />

@@ -25,16 +25,6 @@ export interface VipSettings {
   autoUpgradeCustomers: boolean;
 }
 
-export interface NotificationSettings {
-  smsEnabled: boolean;
-  emailEnabled: boolean;
-  whatsappEnabled: boolean;
-  defaultSenderName: string;
-  respectQuietHours: boolean;
-  quietHoursStart: string;
-  quietHoursEnd: string;
-}
-
 export interface AccountSettings {
   fullName: string;
   email: string;
@@ -69,16 +59,6 @@ export const defaultVipSettings: VipSettings = {
   platinumThreshold: 150000,
   goldThreshold: 80000,
   autoUpgradeCustomers: false,
-};
-
-export const defaultNotificationSettings: NotificationSettings = {
-  smsEnabled: true,
-  emailEnabled: true,
-  whatsappEnabled: false,
-  defaultSenderName: "TopTen Supermarket",
-  respectQuietHours: true,
-  quietHoursStart: "22:00",
-  quietHoursEnd: "08:00",
 };
 
 export const defaultAccountSettings: AccountSettings = {

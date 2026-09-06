@@ -223,8 +223,13 @@ export function FormBuilder({ formId }: { formId: string }) {
         <FormPreview fields={fields} />
       ) : canManage ? (
         <>
-          {/* Desktop: all three columns side by side. */}
-          <div className="hidden gap-4 lg:grid lg:grid-cols-[300px_1fr_300px]">
+          {/* Desktop: all three columns side by side. Every track is
+           * minmax(0, …) — capped at a max so the three panels sit together
+           * as one centered group on wide screens instead of the canvas
+           * stretching to fill a 1fr track, but also free to shrink below
+           * that max (rather than a rigid px width) so the row compresses
+           * to fit instead of overflowing on narrower desktop widths. */}
+          <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,260px)_minmax(0,40rem)_minmax(0,260px)] lg:justify-center">
             {sidebar}
             <div className="max-h-[calc(100vh-320px)] overflow-y-auto">{canvas}</div>
             <div className="max-h-[calc(100vh-320px)] overflow-y-auto">{properties}</div>
