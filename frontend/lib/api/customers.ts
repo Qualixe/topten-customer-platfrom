@@ -306,8 +306,10 @@ export interface VerifiedCustomerRow {
   id: string;
   name: string;
   phone: string;
-  campaignId: string;
-  campaignName: string;
+  /** Null for a customer verified via the standalone Forms feature — that
+   * flow has no campaign. */
+  campaignId: string | null;
+  campaignName: string | null;
   customerType: CustomerTypeOption;
   verifiedAt: string;
   dateOfBirth: string | null;
@@ -319,8 +321,8 @@ interface VerifiedCustomerDto {
   id: string;
   name: string;
   phone: string;
-  campaignId: string;
-  campaignName: string;
+  campaignId: string | null;
+  campaignName: string | null;
   customerType: CustomerTypeOption;
   verifiedAt: string;
   dateOfBirth: string | null;

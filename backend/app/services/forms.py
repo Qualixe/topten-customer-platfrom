@@ -6,6 +6,7 @@
 """
 
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -254,6 +255,13 @@ async def submit_generic_form(
         customer.address = submission.address
     if submission.city:
         customer.city = submission.city
+
+    # A completed standalone-form submission counts as "verified" for this
+    # customer — see Customer.form_verified_at's docstring. Set once, never
+    # moved by a later resubmission (same idempotency rule
+    # mark_recipient_verified follows for the campaign/token flow).
+    if customer.form_verified_at is None:
+        customer.form_verified_at = datetime.now(UTC)
 
     await db.commit()
     await db.refresh(customer)

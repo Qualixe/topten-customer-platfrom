@@ -171,3 +171,69 @@ async def test_verified_customers_excludes_pending_recipients(
 
     response = await client.get("/api/v1/customers/verified")
     assert response.json()["data"] == []
+
+
+async def test_verified_customers_includes_standalone_form_verifications(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A customer who only ever completed the standalone, tokenless Forms
+    feature (Customer.form_verified_at set, no CampaignRecipient at all)
+    still shows up here — with a null campaign."""
+    await _create_customer(
+        db_session,
+        name="Form Only",
+        phone="+8801711000110",
+        form_verified_at=datetime.now(UTC),
+    )
+
+    response = await client.get("/api/v1/customers/verified")
+    data = response.json()["data"]
+    assert len(data) == 1
+    assert data[0]["name"] == "Form Only"
+    assert data[0]["campaign_id"] is None
+    assert data[0]["campaign_name"] is None
+
+
+async def test_verified_customers_combines_both_sources_sorted_by_verified_at(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    campaign = await _create_campaign(db_session, name="Campaign E")
+    earlier_customer = await _create_customer(
+        db_session, name="Earlier", phone="+8801711000111"
+    )
+    await _add_verified_recipient(db_session, campaign=campaign, customer=earlier_customer)
+
+    later_customer = await _create_customer(
+        db_session,
+        name="Later",
+        phone="+8801711000112",
+        form_verified_at=datetime.now(UTC),
+    )
+
+    response = await client.get("/api/v1/customers/verified")
+    data = response.json()["data"]
+    assert [row["name"] for row in data] == ["Later", "Earlier"]
+    assert data[0]["campaign_id"] is None
+    assert data[1]["campaign_id"] == str(campaign.public_id)
+
+
+async def test_standalone_form_verification_excluded_when_filtering_by_campaign(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    campaign = await _create_campaign(db_session, name="Campaign F")
+    campaign_customer = await _create_customer(
+        db_session, name="Via Campaign", phone="+8801711000113"
+    )
+    await _add_verified_recipient(db_session, campaign=campaign, customer=campaign_customer)
+    await _create_customer(
+        db_session,
+        name="Via Form",
+        phone="+8801711000114",
+        form_verified_at=datetime.now(UTC),
+    )
+
+    response = await client.get(
+        "/api/v1/customers/verified", params={"campaign_id": str(campaign.public_id)}
+    )
+    data = response.json()["data"]
+    assert [row["name"] for row in data] == ["Via Campaign"]

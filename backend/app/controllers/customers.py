@@ -727,57 +727,48 @@ async def list_verified_customers(
     verified_from: date | None = Query(None),
     verified_to: date | None = Query(None),
 ) -> VerifiedCustomersListResponse:
-    """One row per (customer, campaign) VERIFIED pair — a customer who
-    verified through two campaigns appears twice here, never duplicating
-    the underlying Customer row. Reads only `CampaignRecipient.
-    verification_status`, never `status` (SMS delivery is a different
-    thing — see VerificationStatus's docstring)."""
-    filters: list[ColumnElement] = [
+    """One row per (customer, campaign) VERIFIED pair, plus one row per
+    customer verified via the standalone, tokenless Forms feature (which
+    has no campaign — see Customer.form_verified_at) — combined and sorted
+    by verified_at. A customer who verified through two campaigns appears
+    twice; one who *also* completed a standalone form appears once more
+    alongside those. Reads only `CampaignRecipient.verification_status`,
+    never `status` (SMS delivery is a different thing — see
+    VerificationStatus's docstring).
+
+    Both sources are loaded in full (filtered, not yet paginated) and
+    merged/sorted/paginated in Python — the two shapes don't share a
+    query, so there's no single SQL statement that could paginate them
+    together. Fine at this table's expected scale (an admin-only view);
+    revisit if it ever needs to scale past that."""
+    search = (search or "").strip()
+
+    campaign_filters: list[ColumnElement] = [
         CampaignRecipient.verification_status == VerificationStatus.VERIFIED.value
     ]
-
-    search = (search or "").strip()
     if search:
         pattern = f"%{search}%"
-        filters.append(or_(Customer.name.ilike(pattern), Customer.phone.ilike(pattern)))
-
+        campaign_filters.append(or_(Customer.name.ilike(pattern), Customer.phone.ilike(pattern)))
     if campaign_id is not None:
         campaign = await _get_campaign_or_404(db, campaign_id)
-        filters.append(CampaignRecipient.campaign_id == campaign.id)
-
+        campaign_filters.append(CampaignRecipient.campaign_id == campaign.id)
     if customer_type_id is not None:
         resolved_type = await get_customer_type_or_404(db, customer_type_id)
-        filters.append(Customer.customer_type_id == resolved_type.id)
-
+        campaign_filters.append(Customer.customer_type_id == resolved_type.id)
     if verified_from is not None:
-        filters.append(CampaignRecipient.verified_at >= verified_from)
+        campaign_filters.append(CampaignRecipient.verified_at >= verified_from)
     if verified_to is not None:
-        filters.append(CampaignRecipient.verified_at < verified_to + timedelta(days=1))
+        campaign_filters.append(CampaignRecipient.verified_at < verified_to + timedelta(days=1))
 
-    base_query = (
+    campaign_query = (
         select(CampaignRecipient, Customer, Campaign)
         .join(Customer, Customer.id == CampaignRecipient.customer_id)
         .join(Campaign, Campaign.id == CampaignRecipient.campaign_id)
     )
-    count_query = (
-        select(func.count())
-        .select_from(CampaignRecipient)
-        .join(Customer, Customer.id == CampaignRecipient.customer_id)
-        .join(Campaign, Campaign.id == CampaignRecipient.campaign_id)
-    )
-    for condition in filters:
-        base_query = base_query.where(condition)
-        count_query = count_query.where(condition)
+    for condition in campaign_filters:
+        campaign_query = campaign_query.where(condition)
 
-    total = (await db.execute(count_query)).scalar_one()
-
-    list_query = (
-        base_query.order_by(CampaignRecipient.verified_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )
-    rows = (await db.execute(list_query)).all()
-    total_pages = max(1, -(-total // page_size))
+    campaign_rows = (await db.execute(campaign_query)).all()
 
     data = [
         VerifiedCustomerRead(
@@ -792,11 +783,55 @@ async def list_verified_customers(
             address=customer.address,
             email=customer.email,
         )
-        for recipient, customer, campaign in rows
+        for recipient, customer, campaign in campaign_rows
     ]
 
+    # A standalone-form verification has no campaign, so a campaign_id
+    # filter (asking for one specific campaign's verifications) can never
+    # match it — skip this source entirely in that case rather than
+    # returning rows the filter didn't ask for.
+    if campaign_id is None:
+        form_filters: list[ColumnElement] = [Customer.form_verified_at.is_not(None)]
+        if search:
+            pattern = f"%{search}%"
+            form_filters.append(or_(Customer.name.ilike(pattern), Customer.phone.ilike(pattern)))
+        if customer_type_id is not None:
+            resolved_type = await get_customer_type_or_404(db, customer_type_id)
+            form_filters.append(Customer.customer_type_id == resolved_type.id)
+        if verified_from is not None:
+            form_filters.append(Customer.form_verified_at >= verified_from)
+        if verified_to is not None:
+            form_filters.append(Customer.form_verified_at < verified_to + timedelta(days=1))
+
+        form_query = select(Customer)
+        for condition in form_filters:
+            form_query = form_query.where(condition)
+
+        form_customers = (await db.execute(form_query)).scalars().all()
+        data.extend(
+            VerifiedCustomerRead(
+                id=customer.public_id,
+                name=customer.name,
+                phone=customer.phone,
+                campaign_id=None,
+                campaign_name=None,
+                customer_type=_customer_type_to_read(customer.customer_type),
+                verified_at=customer.form_verified_at,
+                date_of_birth=customer.date_of_birth,
+                address=customer.address,
+                email=customer.email,
+            )
+            for customer in form_customers
+        )
+
+    data.sort(key=lambda row: row.verified_at, reverse=True)
+
+    total = len(data)
+    total_pages = max(1, -(-total // page_size))
+    page_data = data[(page - 1) * page_size : page * page_size]
+
     return VerifiedCustomersListResponse(
-        data=data,
+        data=page_data,
         meta=CustomersMeta(page=page, page_size=page_size, total=total, total_pages=total_pages),
     )
 

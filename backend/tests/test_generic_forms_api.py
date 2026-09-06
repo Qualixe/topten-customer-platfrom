@@ -124,6 +124,38 @@ async def test_submit_creates_a_new_customer(
     assert customer.normalized_phone == "+8801711000111"
 
 
+async def test_submit_marks_customer_form_verified(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A completed standalone-form submission counts as verified for that
+    customer — see Customer.form_verified_at and GET /customers/verified."""
+    await _create_and_publish_form(
+        client, slug="verify-signup", builder_data=BUILDER_DATA_NAME_PHONE_ONLY
+    )
+
+    await client.post(
+        "/api/v1/public/forms/verify-signup/submit",
+        json={"name": "Verified Person", "phone": "01711000333"},
+    )
+
+    customer = (
+        await db_session.execute(
+            select(Customer).where(Customer.normalized_phone == "+8801711000333")
+        )
+    ).scalar_one()
+    assert customer.form_verified_at is not None
+    first_verified_at = customer.form_verified_at
+
+    # Resubmitting doesn't move it — same idempotency rule the
+    # campaign/token verification flow follows.
+    await client.post(
+        "/api/v1/public/forms/verify-signup/submit",
+        json={"name": "Verified Person", "phone": "01711000333"},
+    )
+    await db_session.refresh(customer)
+    assert customer.form_verified_at == first_verified_at
+
+
 async def test_submit_twice_with_same_phone_updates_not_duplicates(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:

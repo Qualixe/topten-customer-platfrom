@@ -78,8 +78,8 @@ export default async function VerifiedCustomersPage({
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Verified Customers</h2>
         <p className="text-sm text-muted-foreground">
-          Customers who completed at least one campaign profile form. A customer verified through
-          multiple campaigns appears once per campaign.
+          Customers who completed at least one campaign profile form, or the standalone Forms
+          feature. A customer verified through multiple campaigns appears once per campaign.
         </p>
       </div>
 
@@ -121,10 +121,14 @@ export default async function VerifiedCustomersPage({
                 </TableHeader>
                 <TableBody>
                   {items.map((row) => (
-                    <TableRow key={`${row.id}-${row.campaignId}`}>
+                    <TableRow key={`${row.id}-${row.campaignId ?? "form"}`}>
                       <TableCell className="font-medium">{row.name}</TableCell>
                       <TableCell>{row.phone}</TableCell>
-                      <TableCell>{row.campaignName}</TableCell>
+                      <TableCell>
+                        {row.campaignName ?? (
+                          <span className="text-muted-foreground">Standalone form</span>
+                        )}
+                      </TableCell>
                       <TableCell>{row.customerType.name}</TableCell>
                       <TableCell>{formatDateTime(row.verifiedAt)}</TableCell>
                       <TableCell>{row.dateOfBirth ?? "—"}</TableCell>

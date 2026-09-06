@@ -302,16 +302,18 @@ class VipCustomerStatsResponse(BaseModel):
 
 
 class VerifiedCustomerRead(BaseModel):
-    """One row per (customer, campaign) the customer verified through — see
-    app.controllers.customers.list_verified_customers. A customer who
+    """One row per (customer, campaign) the customer verified through, plus
+    one row per customer who verified via the standalone Forms feature
+    (campaign_id/campaign_name null there — that flow has no campaign) —
+    see app.controllers.customers.list_verified_customers. A customer who
     verified through two campaigns appears here twice, once per campaign;
     the underlying Customer row is never duplicated."""
 
     id: UUID
     name: str
     phone: str
-    campaign_id: UUID
-    campaign_name: str
+    campaign_id: UUID | None
+    campaign_name: str | None
     customer_type: CustomerTypeRead
     verified_at: datetime
     date_of_birth: date | None

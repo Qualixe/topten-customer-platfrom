@@ -46,6 +46,14 @@ class Customer(Base):
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Set the first time this customer submits the standalone, tokenless
+    # Forms feature (app.services.forms.submit_generic_form) — that flow has
+    # no campaign to attach a CampaignRecipient.verification_status to, so
+    # this is the customer-level equivalent for it. Never touched by the
+    # campaign/token verification flow (see CampaignRecipient.verified_at
+    # for that one) and never cleared once set — resubmitting the same or
+    # another standalone form just leaves it as-is.
+    form_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     is_vip: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
