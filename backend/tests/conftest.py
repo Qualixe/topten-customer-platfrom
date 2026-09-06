@@ -22,6 +22,7 @@ from app.common.dependencies import get_db
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.main import app
+from app.models.birthday_settings import BirthdaySettings
 from app.models.campaign import Campaign
 from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.campaign_recipient import CampaignRecipient
@@ -71,6 +72,7 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
     async with test_engine.begin() as conn:
         await conn.execute(role_permissions.delete())
         for table in (
+            BirthdaySettings,
             ImportRowError,
             CustomerMonthlySpending,
             CustomerProfileToken,

@@ -5,6 +5,7 @@ import { BirthdaysPageHeader } from "@/components/dashboard/birthdays/page-heade
 import { TodayBirthdays } from "@/components/dashboard/birthdays/today-birthdays";
 import { UpcomingBirthdaysList } from "@/components/dashboard/birthdays/upcoming-birthdays-list";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
+import { BirthdaySettingsForm } from "@/components/dashboard/settings/birthday-settings-form";
 import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
 import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
@@ -87,6 +88,7 @@ export default async function BirthdaysPage() {
         customers={birthdays}
         customerTypes={customerTypes.filter((type) => type.isActive)}
       />
+      {user.permissions.includes("settings.manage") && <BirthdaySettingsForm />}
     </div>
   );
 }

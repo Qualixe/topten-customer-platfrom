@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -71,6 +71,11 @@ class Customer(Base):
     mailchimp_synced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # The calendar year (not a timestamp) the automatic birthday wish was
+    # last sent — see app.services.birthday_wishes. A year is enough to
+    # guarantee at most one auto-wish per customer per birthday and is
+    # immune to timezone edge cases a timestamp comparison would have.
+    last_birthday_wish_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     customer_type_id: Mapped[int] = mapped_column(
         ForeignKey("customer_types.id", ondelete="RESTRICT"), nullable=False, index=True
     )

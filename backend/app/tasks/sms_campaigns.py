@@ -15,12 +15,14 @@ of `campaign_recipients` afterward rather than incremented — so a
 redelivered/retried task (worker crash, `acks_late`) can safely re-run the
 whole thing from scratch without ever double-inserting or double-counting.
 
-Sending is only triggered automatically for campaigns whose `scheduled_at`
-has already arrived by the time resolution finishes (i.e. "send now" — see
-`resolve_campaign_audience_async`). A campaign scheduled for a future time
-is resolved (so its recipient count/cost show correctly) but not sent —
-there's no periodic scheduler in this codebase yet to poll for campaigns
-whose time has since arrived.
+Sending is triggered one of two ways: immediately for campaigns whose
+`scheduled_at` has already arrived by the time resolution finishes (i.e.
+"send now" — see `resolve_campaign_audience_async`), or later, for a
+genuinely future-scheduled campaign, by `dispatch_due_scheduled_campaigns`
+— a periodic Celery-beat task (see app.core.celery_app's beat_schedule)
+that polls for SCHEDULED campaigns whose time has since arrived. Requires
+`celery beat` actually running alongside the worker (see beat.sh) — the
+worker alone never fires anything on a schedule.
 """
 
 import asyncio
@@ -329,3 +331,45 @@ async def _run_send_and_dispose(campaign_id: int) -> None:
 )
 def send_campaign_messages(self, campaign_id: int) -> None:
     asyncio.run(_run_send_and_dispose(campaign_id))
+
+
+async def dispatch_due_scheduled_campaigns_async(
+    session_factory: async_sessionmaker[AsyncSession] = SessionLocal,
+) -> None:
+    """Finds every resolved, still-SCHEDULED campaign whose `scheduled_at`
+    has now arrived and enqueues it for sending. This is what actually makes
+    "schedule for later" work — resolve_campaign_audience_async only
+    auto-sends a campaign whose time was already in the past *at creation*;
+    a genuinely future-scheduled one needs this separate poller to catch up
+    once its time comes. Only queues campaigns already resolved
+    (recipients_resolved_at is set) — an unresolved one isn't ready to send
+    yet and will pick this up on a later poll once resolution finishes.
+    Safe to enqueue the same campaign more than once across overlapping
+    polls: send_campaign_messages_async locks PENDING recipients with
+    `FOR UPDATE SKIP LOCKED`, so a concurrent duplicate run just finds
+    nothing left to do."""
+    async with session_factory() as session:
+        due_ids = (
+            await session.execute(
+                select(Campaign.id).where(
+                    Campaign.status == CampaignStatus.SCHEDULED.value,
+                    Campaign.recipients_resolved_at.is_not(None),
+                    Campaign.scheduled_at <= datetime.now(UTC),
+                )
+            )
+        ).scalars().all()
+
+    for campaign_id in due_ids:
+        send_campaign_messages.delay(campaign_id)
+
+
+async def _run_dispatch_due_and_dispose() -> None:
+    try:
+        await dispatch_due_scheduled_campaigns_async()
+    finally:
+        await engine.dispose()
+
+
+@celery_app.task(name="sms_campaigns.dispatch_due_scheduled_campaigns")
+def dispatch_due_scheduled_campaigns() -> None:
+    asyncio.run(_run_dispatch_due_and_dispose())

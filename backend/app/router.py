@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from app.common.dependencies import get_current_user
 from app.controllers import (
     auth,
+    birthday_settings,
     couriers,
     customers,
     database_reset,
@@ -78,5 +79,11 @@ api_router.include_router(
     database_reset.router,
     prefix="/settings/database",
     tags=["database-reset"],
+    dependencies=_protected,
+)
+api_router.include_router(
+    birthday_settings.router,
+    prefix="/settings/birthday",
+    tags=["birthday-settings"],
     dependencies=_protected,
 )

@@ -1,6 +1,7 @@
 """Import every model module here so Alembic autogenerate (via
 app.models.base.Base.metadata) can discover all tables."""
 
+from app.models.birthday_settings import BirthdaySettings
 from app.models.campaign import (
     AudienceRuleType,
     Campaign,
@@ -36,6 +37,7 @@ from app.models.user_permission_override import UserPermissionOverride
 
 __all__ = [
     "AudienceRuleType",
+    "BirthdaySettings",
     "Campaign",
     "CampaignChannel",
     "CampaignLandingPage",
