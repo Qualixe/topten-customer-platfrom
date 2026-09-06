@@ -38,5 +38,11 @@ celery_app.conf.update(
             "task": "sms_campaigns.dispatch_due_scheduled_campaigns",
             "schedule": 60.0,
         },
+        # Safety net for a lost initial resolve — see
+        # app.tasks.sms_campaigns.retry_stuck_unresolved_campaigns.
+        "retry-stuck-unresolved-campaigns": {
+            "task": "sms_campaigns.retry_stuck_unresolved_campaigns",
+            "schedule": 60.0,
+        },
     },
 )

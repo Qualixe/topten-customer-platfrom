@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { RefreshCw, X } from "lucide-react";
 
 import { CampaignsTable } from "@/components/dashboard/campaigns/campaigns-table";
 import {
@@ -17,12 +18,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { SmsCampaign } from "@/lib/api/campaigns";
+import { dispatchScheduledCampaigns, type SmsCampaign } from "@/lib/api/campaigns";
+import { getErrorMessage } from "@/lib/api/types";
 
 export function CampaignsDirectory({ campaigns }: { campaigns: SmsCampaign[] }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [retrying, setRetrying] = useState(false);
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
 
   const filteredCampaigns = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -53,6 +58,25 @@ export function CampaignsDirectory({ campaigns }: { campaigns: SmsCampaign[] }) 
 
   function toggleSelectAll(checked: boolean) {
     setSelectedIds(checked ? new Set(filteredCampaigns.map((c) => c.id)) : new Set());
+  }
+
+  async function handleRetryStuck() {
+    setRetrying(true);
+    setRetryMessage(null);
+    try {
+      const report = await dispatchScheduledCampaigns();
+      const total = report.dispatchedDue + report.retriedUnresolved;
+      setRetryMessage(
+        total === 0
+          ? "Nothing stuck — every campaign is up to date."
+          : `Kicked off ${total} campaign${total === 1 ? "" : "s"} (${report.dispatchedDue} due to send, ${report.retriedUnresolved} re-resolving).`
+      );
+      router.refresh();
+    } catch (err) {
+      setRetryMessage(getErrorMessage(err, "Unable to reach the API server. Please try again."));
+    } finally {
+      setRetrying(false);
+    }
   }
 
   return (
@@ -89,9 +113,22 @@ export function CampaignsDirectory({ campaigns }: { campaigns: SmsCampaign[] }) 
                 onStatusFilterChange={setStatusFilter}
               />
             </div>
-            <ExportCampaignsButton campaigns={filteredCampaigns} />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleRetryStuck}
+                disabled={retrying}
+              >
+                <RefreshCw className="size-4" aria-hidden="true" />
+                {retrying ? "Checking…" : "Retry stuck"}
+              </Button>
+              <ExportCampaignsButton campaigns={filteredCampaigns} />
+            </div>
           </div>
         )}
+
+        {retryMessage && <p className="text-sm text-muted-foreground">{retryMessage}</p>}
 
         <CampaignsTable
           campaigns={filteredCampaigns}

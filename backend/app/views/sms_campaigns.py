@@ -262,3 +262,20 @@ class CampaignStatsResponse(BaseModel):
     success: bool = True
     data: CampaignStats
     meta: dict = {}
+
+
+class DispatchScheduledReport(BaseModel):
+    """How many campaigns this manual trigger caught up — see
+    app.tasks.sms_campaigns.dispatch_due_scheduled_campaigns_async and
+    retry_stuck_unresolved_campaigns_async, which run this same check on a
+    schedule; this endpoint runs it once, on demand, without waiting for
+    the next scheduled poll."""
+
+    dispatched_due: int
+    retried_unresolved: int
+
+
+class DispatchScheduledResponse(BaseModel):
+    success: bool = True
+    data: DispatchScheduledReport
+    meta: dict = {}

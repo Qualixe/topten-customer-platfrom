@@ -26,7 +26,7 @@ worker alone never fires anything on a schedule.
 """
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import and_, func, literal, select
@@ -335,7 +335,7 @@ def send_campaign_messages(self, campaign_id: int) -> None:
 
 async def dispatch_due_scheduled_campaigns_async(
     session_factory: async_sessionmaker[AsyncSession] = SessionLocal,
-) -> None:
+) -> int:
     """Finds every resolved, still-SCHEDULED campaign whose `scheduled_at`
     has now arrived and enqueues it for sending. This is what actually makes
     "schedule for later" work — resolve_campaign_audience_async only
@@ -361,6 +361,7 @@ async def dispatch_due_scheduled_campaigns_async(
 
     for campaign_id in due_ids:
         send_campaign_messages.delay(campaign_id)
+    return len(due_ids)
 
 
 async def _run_dispatch_due_and_dispose() -> None:
@@ -373,3 +374,51 @@ async def _run_dispatch_due_and_dispose() -> None:
 @celery_app.task(name="sms_campaigns.dispatch_due_scheduled_campaigns")
 def dispatch_due_scheduled_campaigns() -> None:
     asyncio.run(_run_dispatch_due_and_dispose())
+
+
+# A campaign's very first `resolve_campaign_audience.delay(...)` call (right
+# after creation, see the controller) can be lost — a broker hiccup, a
+# worker that was silently disconnected at that exact moment, etc. — and
+# nothing was ever retrying it, so it sat "Resolving…" forever with no
+# automatic recovery. Anything older than this is assumed lost rather than
+# still legitimately in flight; a real resolve_campaign_audience_async run
+# takes well under a minute even for a large audience.
+_STUCK_UNRESOLVED_AFTER = 5 * 60
+
+
+async def retry_stuck_unresolved_campaigns_async(
+    session_factory: async_sessionmaker[AsyncSession] = SessionLocal,
+) -> int:
+    """Safety net: re-enqueues audience resolution for any campaign that's
+    been sitting unresolved for suspiciously long — seen as "Resolving…"
+    forever in the UI. Safe to re-run: resolve_campaign_audience_async
+    itself is a no-op for a campaign that has since resolved (checked
+    again inside that function), so a duplicate/overlapping retry can't
+    double-resolve one."""
+    cutoff = datetime.now(UTC) - timedelta(seconds=_STUCK_UNRESOLVED_AFTER)
+    async with session_factory() as session:
+        stuck_ids = (
+            await session.execute(
+                select(Campaign.id).where(
+                    Campaign.recipients_resolved_at.is_(None),
+                    Campaign.status == CampaignStatus.SCHEDULED.value,
+                    Campaign.created_at <= cutoff,
+                )
+            )
+        ).scalars().all()
+
+    for campaign_id in stuck_ids:
+        resolve_campaign_audience.delay(campaign_id)
+    return len(stuck_ids)
+
+
+async def _run_retry_stuck_and_dispose() -> None:
+    try:
+        await retry_stuck_unresolved_campaigns_async()
+    finally:
+        await engine.dispose()
+
+
+@celery_app.task(name="sms_campaigns.retry_stuck_unresolved_campaigns")
+def retry_stuck_unresolved_campaigns() -> None:
+    asyncio.run(_run_retry_stuck_and_dispose())

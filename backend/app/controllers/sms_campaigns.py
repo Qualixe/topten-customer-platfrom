@@ -16,7 +16,11 @@ from app.services import forms as forms_service
 from app.services import sms_campaigns as service
 from app.services.sms_campaigns_audience import AudienceRule, resolve_since_campaign
 from app.services.sms_campaigns_sms_utils import estimate_sms_cost
-from app.tasks.sms_campaigns import resolve_campaign_audience
+from app.tasks.sms_campaigns import (
+    dispatch_due_scheduled_campaigns_async,
+    resolve_campaign_audience,
+    retry_stuck_unresolved_campaigns_async,
+)
 from app.views.campaign_landing_pages import (
     CampaignLandingPageCreate,
     CampaignLandingPageRead,
@@ -40,6 +44,8 @@ from app.views.sms_campaigns import (
     CampaignsMeta,
     CampaignStatsResponse,
     CampaignUpdate,
+    DispatchScheduledReport,
+    DispatchScheduledResponse,
 )
 
 router = APIRouter()
@@ -435,4 +441,24 @@ async def attach_form_to_campaign(
     return CampaignLandingPageResponse(
         data=_landing_page_to_read(campaign, landing_page),
         meta={"skipped_field_labels": skipped_labels},
+    )
+
+
+@router.post("/dispatch-scheduled", response_model=DispatchScheduledResponse)
+async def dispatch_scheduled(
+    _: object = Depends(require_permission("campaigns.manage")),
+) -> DispatchScheduledResponse:
+    """Runs the same catch-up checks the periodic Celery-beat tasks run
+    (see app.tasks.sms_campaigns.dispatch_due_scheduled_campaigns_async and
+    retry_stuck_unresolved_campaigns_async) once, immediately — lets an
+    admin unstick scheduled/resolving campaigns right now instead of
+    waiting for the next scheduled poll (or as a stopgap on a deployment
+    where beat isn't running at all yet). Deliberately doesn't take the
+    request's own `db` dependency — both helpers open their own session via
+    the default `session_factory` (the production sessionmaker), same as
+    when Celery beat calls them."""
+    dispatched = await dispatch_due_scheduled_campaigns_async()
+    retried = await retry_stuck_unresolved_campaigns_async()
+    return DispatchScheduledResponse(
+        data=DispatchScheduledReport(dispatched_due=dispatched, retried_unresolved=retried)
     )

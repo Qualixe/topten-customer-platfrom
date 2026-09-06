@@ -465,3 +465,22 @@ export async function getCampaignStats(): Promise<CampaignStats> {
     failed: failed.total,
   };
 }
+
+export interface DispatchScheduledReport {
+  dispatchedDue: number;
+  retriedUnresolved: number;
+}
+
+/** Manually runs the same catch-up checks the periodic Celery-beat tasks
+ * run (see backend app.tasks.sms_campaigns) — sends any SCHEDULED campaign
+ * whose time has arrived, and retries audience resolution for any campaign
+ * that's been stuck "Resolving…" for too long (a lost initial enqueue).
+ * Useful on demand rather than waiting for the next scheduled poll, or as
+ * a stopgap on a deployment where the beat process isn't running yet. */
+export async function dispatchScheduledCampaigns(): Promise<DispatchScheduledReport> {
+  const envelope = await apiPost<ApiEnvelope<DispatchScheduledReport>>(
+    "/sms/campaigns/dispatch-scheduled",
+    {}
+  );
+  return envelope.data;
+}
