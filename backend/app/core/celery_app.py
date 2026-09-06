@@ -14,7 +14,13 @@ celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    timezone="UTC",
+    # This app's whole audience is Bangladesh-based (see the SMS gateway,
+    # phone normalization, etc. elsewhere) — `timezone` here controls how
+    # `crontab(...)` beat schedules below are interpreted, not how
+    # timestamps are stored (those stay UTC in the database regardless;
+    # `enable_utc=True` is about internal message timestamps, unrelated to
+    # this). So `crontab(hour=9)` means 9 AM Dhaka time, not 9 AM UTC.
+    timezone="Asia/Dhaka",
     enable_utc=True,
     # A worker that dies mid-task redelivers it rather than losing it —
     # safe here because every DB write the import task makes is an upsert /
@@ -23,8 +29,6 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     # Requires a `celery beat` process running alongside the worker (see
     # beat.sh) — the worker alone never fires anything on its own schedule.
-    # 09:00 UTC is a placeholder daytime hour for most of this app's likely
-    # audience; revisit once a timezone setting exists to base it on.
     beat_schedule={
         "send-daily-birthday-wishes": {
             "task": "birthday_wishes.send_daily_birthday_wishes",
