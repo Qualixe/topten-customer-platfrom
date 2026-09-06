@@ -1,11 +1,12 @@
-"""Syncs opted-in customers into a Mailchimp Audience (List) — the
-Mailchimp-backed counterpart to app.services.sendgrid_sync, running
-alongside it rather than replacing it (an admin can configure and sync to
-either or both). Deliberately sync-only: unlike SendGrid, this app doesn't
-build a campaign-sending flow on top of Mailchimp — Mailchimp's own
-mandatory compliance fields for creating an Audience via the API (company,
-mailing address, permission reminder) aren't collected here, so the admin
-creates the Audience directly in Mailchimp and pastes its id in Settings.
+"""Mailchimp integration: syncing opted-in customers into a configured
+Audience (List), and sending real campaigns to them (both a one-off send
+from the Marketing page, and per-channel EMAIL campaigns created through
+Quick Send — see app.tasks.sms_campaigns._send_email_campaign). This app
+never creates an Audience itself via the API — Mailchimp's own mandatory
+compliance fields for that (company, mailing address, permission reminder)
+aren't collected here, so the admin creates the Audience directly in
+Mailchimp and pastes its id in Settings; everything from there on
+(members, segments, campaigns, sends) is real.
 """
 
 from datetime import UTC, datetime
@@ -22,12 +23,15 @@ from app.common.mailchimp_client import (
     create_campaign,
     create_static_segment,
     send_campaign,
+    send_test_email,
     set_campaign_content,
     upsert_member,
     verify_list,
 )
 from app.models.customer import Customer
 from app.views.mailchimp_marketing import SendCampaignReport, SyncItemResult, SyncReport
+
+MAX_TEST_EMAILS = 10
 
 MAILCHIMP_PROVIDER = "mailchimp_marketing"
 
@@ -247,3 +251,51 @@ async def create_and_send_campaign(
         items=items,
         campaign_url=campaign_url,
     )
+
+
+async def send_test_campaign(
+    db: AsyncSession, *, test_emails: list[str], subject: str, html_body: str
+) -> None:
+    """For previewing a campaign's real rendered content before committing
+    to a real send — creates a throwaway draft campaign (targeted at the
+    whole Audience, never a real segment; see `create_campaign`'s
+    docstring for why that's still safe), sets its content, and sends a
+    Mailchimp "test send" to exactly `test_emails`. Reaches no real
+    customer regardless of who's in the configured Audience. The draft
+    campaign is left behind in Mailchimp afterward (visible, unsent) —
+    this app doesn't track or clean it up, same as manually testing from
+    Mailchimp's own UI would leave one too."""
+    if not test_emails or len(test_emails) > MAX_TEST_EMAILS:
+        raise ValidationAppError(f"Provide between 1 and {MAX_TEST_EMAILS} test email addresses.")
+
+    data = await _require_campaign_credentials(db)
+    list_result = await verify_list(api_key=data["api_key"], list_id=data["list_id"])
+    if not list_result.success:
+        raise ValidationAppError(f"Unable to reach Mailchimp: {list_result.message}")
+
+    campaign_result = await create_campaign(
+        api_key=data["api_key"],
+        list_id=data["list_id"],
+        segment_id=None,
+        subject=subject,
+        from_name=data["from_name"],
+        reply_to=data["reply_to_email"],
+    )
+    if not campaign_result.success or not campaign_result.campaign_id:
+        raise ValidationAppError(f"Unable to create Mailchimp campaign: {campaign_result.message}")
+
+    content_result = await set_campaign_content(
+        api_key=data["api_key"], campaign_id=campaign_result.campaign_id, html=html_body
+    )
+    if not content_result.success:
+        raise ValidationAppError(
+            f"Unable to set Mailchimp campaign content: {content_result.message}"
+        )
+
+    test_result = await send_test_email(
+        api_key=data["api_key"],
+        campaign_id=campaign_result.campaign_id,
+        test_emails=test_emails,
+    )
+    if not test_result.success:
+        raise ValidationAppError(f"Unable to send test email: {test_result.message}")

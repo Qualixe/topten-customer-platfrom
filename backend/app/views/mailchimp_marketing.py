@@ -95,3 +95,9 @@ class SendCampaignResponse(BaseModel):
     success: bool = True
     data: SendCampaignReport
     meta: dict = {}
+
+
+class SendTestCampaignRequest(BaseModel):
+    test_emails: list[str] = Field(min_length=1)
+    subject: str = Field(min_length=1, max_length=255)
+    html_body: str = Field(min_length=1)

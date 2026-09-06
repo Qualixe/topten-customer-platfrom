@@ -78,6 +78,22 @@ export interface MailchimpSendReport {
   campaignUrl: string | null;
 }
 
+/** Sends a test email to one or more raw addresses — creates a throwaway
+ * Mailchimp draft and uses Mailchimp's own "test send" feature, so the
+ * rendered output matches exactly what a real send would look like.
+ * No customer records are touched. */
+export async function sendMailchimpTestEmail(input: {
+  testEmails: string[];
+  subject: string;
+  htmlBody: string;
+}): Promise<void> {
+  await apiPost<void>("/mailchimp/send-test", {
+    test_emails: input.testEmails,
+    subject: input.subject,
+    html_body: input.htmlBody,
+  });
+}
+
 /** Sends a real Mailchimp campaign to exactly the given customers, in one
  * step: upserts each as a list member, scopes a fresh static segment to
  * just them, and sends against it. Irreversible — there's no draft/review

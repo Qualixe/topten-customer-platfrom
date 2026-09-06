@@ -208,32 +208,38 @@ async def create_campaign(
     *,
     api_key: str,
     list_id: str,
-    segment_id: int,
+    segment_id: int | None,
     subject: str,
     from_name: str,
     reply_to: str,
 ) -> CampaignResult:
     """Creates a "regular" campaign as a draft, targeted at the given
-    static segment. `from_name`/`reply_to` are this app's configured
-    campaign defaults (see Settings) — the actual from-email address comes
-    from the Audience's own Campaign Defaults, configured in Mailchimp
-    directly, same as the Audience itself (see `verify_list`)."""
+    static segment — or, with `segment_id=None`, at the whole Audience.
+    The latter is only ever safe for a campaign nothing will call
+    `send_campaign` on (see `send_test_campaign`): a Mailchimp "test send"
+    goes only to the addresses passed to `send_test_email`, never to
+    anyone actually in the targeted list/segment, so an unscoped test
+    campaign can't leak to real subscribers. `from_name`/`reply_to` are
+    this app's configured campaign defaults (see Settings) — the actual
+    from-email address comes from the Audience's own Campaign Defaults,
+    configured in Mailchimp directly, same as the Audience itself (see
+    `verify_list`)."""
     base_url = _base_url(api_key)
     if base_url is None:
         return CampaignResult(
             success=False,
             message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
         )
+    recipients: dict = {"list_id": list_id}
+    if segment_id is not None:
+        recipients["segment_opts"] = {"saved_segment_id": segment_id}
     async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
         response = await client.post(
             f"{base_url}/campaigns",
             auth=_auth(api_key),
             json={
                 "type": "regular",
-                "recipients": {
-                    "list_id": list_id,
-                    "segment_opts": {"saved_segment_id": segment_id},
-                },
+                "recipients": recipients,
                 "settings": {
                     "subject_line": subject,
                     "title": subject,
@@ -282,6 +288,31 @@ async def send_campaign(*, api_key: str, campaign_id: str) -> ActionResult:
         response = await client.post(
             f"{base_url}/campaigns/{campaign_id}/actions/send",
             auth=_auth(api_key),
+        )
+    if response.status_code >= 400:
+        return ActionResult(success=False, message=_error_message(response))
+    return ActionResult(success=True, message="sent")
+
+
+async def send_test_email(
+    *, api_key: str, campaign_id: str, test_emails: list[str]
+) -> ActionResult:
+    """Sends the campaign's already-set content to up to 10 arbitrary
+    addresses for a preview — distinct from `send_campaign`: this never
+    reaches the campaign's actual list/segment members, doesn't count as
+    "sent" (the campaign stays a draft, sendable for real afterward), and
+    can be called repeatedly."""
+    base_url = _base_url(api_key)
+    if base_url is None:
+        return ActionResult(
+            success=False,
+            message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
+        )
+    async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
+        response = await client.post(
+            f"{base_url}/campaigns/{campaign_id}/actions/test",
+            auth=_auth(api_key),
+            json={"test_emails": test_emails, "send_type": "html"},
         )
     if response.status_code >= 400:
         return ActionResult(success=False, message=_error_message(response))

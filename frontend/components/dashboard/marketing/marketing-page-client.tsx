@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@/lib/api/customers";
 import {
   sendMailchimpCampaign,
+  sendMailchimpTestEmail,
   syncCustomersToMailchimp,
   type MailchimpSendReport,
   type MailchimpSyncItemResult,
@@ -143,7 +144,33 @@ function SendCard() {
   const [report, setReport] = useState<MailchimpSendReport | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Test email state
+  const [testEmail, setTestEmail] = useState("");
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState<"sent" | "error" | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+
   const canReview = recipients.length > 0 && subject.trim().length > 0 && htmlBody.trim().length > 0;
+  const canTest = subject.trim().length > 0 && htmlBody.trim().length > 0 && testEmail.trim().length > 0;
+
+  async function handleTestSend() {
+    setTestSending(true);
+    setTestResult(null);
+    setTestError(null);
+    try {
+      await sendMailchimpTestEmail({
+        testEmails: [testEmail.trim()],
+        subject,
+        htmlBody,
+      });
+      setTestResult("sent");
+    } catch (err) {
+      setTestResult("error");
+      setTestError(getErrorMessage(err, "Unable to send test email."));
+    } finally {
+      setTestSending(false);
+    }
+  }
 
   async function handleSend() {
     setSending(true);
@@ -245,6 +272,40 @@ function SendCard() {
                 className="min-h-48 font-mono text-sm"
               />
             </FormField>
+
+            {/* Test send */}
+            <div className="flex flex-col gap-2 rounded-lg border border-dashed p-3">
+              <p className="text-xs font-medium text-muted-foreground">Send a test email</p>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => { setTestEmail(e.target.value); setTestResult(null); }}
+                  placeholder="test@example.com"
+                  className="h-8 text-sm"
+                  aria-label="Test email address"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!canTest || testSending}
+                  onClick={handleTestSend}
+                  className="shrink-0"
+                >
+                  <Mail className="size-3.5" aria-hidden="true" />
+                  {testSending ? "Sending…" : "Send Test"}
+                </Button>
+              </div>
+              {testResult === "sent" && (
+                <p className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                  <Check className="size-3.5" aria-hidden="true" /> Test email sent to {testEmail}
+                </p>
+              )}
+              {testResult === "error" && (
+                <p className="text-xs text-destructive">{testError}</p>
+              )}
+            </div>
           </>
         ) : (
           <>

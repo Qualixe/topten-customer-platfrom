@@ -12,6 +12,7 @@ from app.services.mailchimp_sync import (
     MAILCHIMP_PROVIDER,
     check_list_status,
     create_and_send_campaign,
+    send_test_campaign,
     sync_customers,
 )
 from app.views.mailchimp_marketing import (
@@ -20,6 +21,7 @@ from app.views.mailchimp_marketing import (
     MailchimpCredentialsUpdate,
     SendCampaignRequest,
     SendCampaignResponse,
+    SendTestCampaignRequest,
     SyncRequest,
     SyncResponse,
 )
@@ -73,3 +75,15 @@ async def send(
         html_body=payload.html_body,
     )
     return SendCampaignResponse(data=report)
+
+
+@router.post("/send-test", status_code=204, dependencies=_manage)
+async def send_test(
+    payload: SendTestCampaignRequest, db: AsyncSession = Depends(get_db)
+) -> None:
+    await send_test_campaign(
+        db,
+        test_emails=payload.test_emails,
+        subject=payload.subject,
+        html_body=payload.html_body,
+    )
