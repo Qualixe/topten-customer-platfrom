@@ -234,7 +234,7 @@ function EditCustomerForm({
         <div className="min-w-0">
           <Label htmlFor="edit-customer-marketing-opt-in">Marketing email opt-in</Label>
           <p className="text-xs text-muted-foreground">
-            Required before this customer can be synced to SendGrid Marketing.
+            Required before this customer can be emailed via a Mailchimp campaign.
           </p>
         </div>
         <Switch
