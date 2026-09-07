@@ -13,6 +13,8 @@ from app.services.mailchimp_sync import (
     check_list_status,
     create_and_send_campaign,
     get_email_overview_stats,
+    get_mailchimp_template_sections,
+    list_mailchimp_templates,
     send_test_campaign,
     sync_customers,
 )
@@ -26,6 +28,8 @@ from app.views.mailchimp_marketing import (
     SendTestCampaignRequest,
     SyncRequest,
     SyncResponse,
+    TemplateListResponse,
+    TemplateSectionsResponse,
 )
 
 router = APIRouter()
@@ -76,6 +80,8 @@ async def send(
         customer_ids=payload.customer_ids,
         subject=payload.subject,
         html_body=payload.html_body,
+        template_id=payload.template_id,
+        template_sections=payload.template_sections,
     )
     return SendCampaignResponse(data=report)
 
@@ -89,6 +95,8 @@ async def send_test(
         test_emails=payload.test_emails,
         subject=payload.subject,
         html_body=payload.html_body,
+        template_id=payload.template_id,
+        template_sections=payload.template_sections,
     )
 
 
@@ -96,3 +104,17 @@ async def send_test(
 async def email_stats(db: AsyncSession = Depends(get_db)) -> EmailStatsResponse:
     stats = await get_email_overview_stats(db)
     return EmailStatsResponse(data=stats)
+
+
+@router.get("/templates", response_model=TemplateListResponse, dependencies=_view)
+async def templates(db: AsyncSession = Depends(get_db)) -> TemplateListResponse:
+    return TemplateListResponse(data=await list_mailchimp_templates(db))
+
+
+@router.get(
+    "/templates/{template_id}/sections", response_model=TemplateSectionsResponse, dependencies=_view
+)
+async def template_sections(
+    template_id: int, db: AsyncSession = Depends(get_db)
+) -> TemplateSectionsResponse:
+    return TemplateSectionsResponse(data=await get_mailchimp_template_sections(db, template_id))

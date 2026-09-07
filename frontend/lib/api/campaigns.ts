@@ -91,11 +91,19 @@ export interface SmsCampaign {
   /** Camelized params for the rule above — e.g. { sinceDate: "2026-08-19" }
    * or { campaignType: "PROFILE_COMPLETION", beforeDate: "2026-08-19" }. */
   audienceRuleParams: Record<string, string>;
+  /** For a Mailchimp-template-attached EMAIL campaign, this is a
+   * synthesized, display-only join of the section content — not what
+   * actually sends (see `mailchimpTemplateId`/`mailchimpTemplateSections`
+   * below, which the real send reads instead). */
   message: string;
   /** Only set for an SMS campaign. */
   senderId: string | null;
   /** Only set for an EMAIL campaign. */
   subject: string | null;
+  /** EMAIL-only — set when this campaign is attached to a saved Mailchimp
+   * template instead of sending raw HTML (see `message`'s own note). */
+  mailchimpTemplateId: number | null;
+  mailchimpTemplateSections: Record<string, string> | null;
   /** Always server-computed — never trust a client-supplied value for this. */
   totalRecipients: number;
   /** No per-segment cost model for EMAIL — always 0 for that channel. */
@@ -121,6 +129,8 @@ interface SmsCampaignDto {
   message: string;
   senderId: string | null;
   subject: string | null;
+  mailchimpTemplateId: number | null;
+  mailchimpTemplateSections: Record<string, string> | null;
   totalRecipients: number;
   smsSegments: number;
   estimatedCost: string | number;
@@ -142,6 +152,8 @@ function mapDtoToCampaign(dto: SmsCampaignDto): SmsCampaign {
     message: dto.message,
     senderId: dto.senderId,
     subject: dto.subject,
+    mailchimpTemplateId: dto.mailchimpTemplateId,
+    mailchimpTemplateSections: dto.mailchimpTemplateSections,
     totalRecipients: dto.totalRecipients,
     smsSegments: dto.smsSegments,
     estimatedCost: Number(dto.estimatedCost),
@@ -201,11 +213,17 @@ export interface CreateCampaignInput {
   campaignType: CampaignType;
   audienceRule: AudienceRule;
   channel: CampaignChannel;
-  message: string;
+  /** Required for SMS. For EMAIL, provide this *or* `mailchimpTemplateId`
+   * (+ `mailchimpTemplateSections`), never both. */
+  message?: string;
   /** Required for SMS, ignored for EMAIL. */
   senderId?: string;
   /** Required for EMAIL, ignored for SMS. */
   subject?: string;
+  /** EMAIL-only alternative to `message` — attaches a saved Mailchimp
+   * template instead of sending raw HTML. */
+  mailchimpTemplateId?: number;
+  mailchimpTemplateSections?: Record<string, string>;
   /** ISO datetime string. Omit for an unscheduled draft. */
   scheduledAt?: string;
   status?: SmsCampaignStatus;
@@ -253,6 +271,8 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Create
     message: input.message,
     sender_id: input.senderId,
     subject: input.subject,
+    mailchimp_template_id: input.mailchimpTemplateId,
+    mailchimp_template_sections: input.mailchimpTemplateSections,
     scheduled_at: input.scheduledAt,
     status: input.status,
     form_id: input.formId,
@@ -272,6 +292,10 @@ export interface UpdateCampaignInput {
   message?: string;
   senderId?: string;
   subject?: string;
+  /** Only meaningful for an EMAIL campaign already attached to a Mailchimp
+   * template — edits that template's section content without switching
+   * templates (the template itself is frozen once a campaign exists). */
+  mailchimpTemplateSections?: Record<string, string>;
   scheduledAt?: string | null;
   status?: SmsCampaignStatus;
 }
@@ -285,6 +309,9 @@ export async function updateCampaign(
   if (input.message !== undefined) body.message = input.message;
   if (input.senderId !== undefined) body.sender_id = input.senderId;
   if (input.subject !== undefined) body.subject = input.subject;
+  if (input.mailchimpTemplateSections !== undefined) {
+    body.mailchimp_template_sections = input.mailchimpTemplateSections;
+  }
   if (input.scheduledAt !== undefined) body.scheduled_at = input.scheduledAt;
   if (input.status !== undefined) body.status = input.status;
 

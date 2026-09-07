@@ -82,6 +82,29 @@ class UpsertResult:
 
 
 @dataclass(frozen=True, slots=True)
+class TemplateSummary:
+    id: int
+    name: str
+    thumbnail: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class TemplatesResult:
+    success: bool
+    message: str
+    templates: tuple[TemplateSummary, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class TemplateContentResult:
+    success: bool
+    message: str
+    # section name -> its default HTML content, as authored in the
+    # template's own `mc:edit="..."` regions.
+    sections: dict[str, str] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SegmentResult:
     success: bool
     message: str
@@ -138,6 +161,57 @@ async def verify_list(*, api_key: str, list_id: str) -> ListResult:
         return ListResult(success=False, message=_error_message(response))
     body = response.json()
     return ListResult(success=True, message="found", list_id=list_id, list_name=body.get("name"))
+
+
+_TEMPLATES_PAGE_SIZE = 100
+
+
+async def list_templates(*, api_key: str) -> TemplatesResult:
+    """The account's saved templates — designed visually in Mailchimp's own
+    editor, each with zero or more named `mc:edit="..."` editable regions
+    (see `get_template_default_content`). Not filtered by `type` — includes
+    the account's own custom (`user`) templates alongside Mailchimp's stock
+    `base`/`gallery` ones, since either is a valid pick."""
+    base_url = _base_url(api_key)
+    if base_url is None:
+        return TemplatesResult(
+            success=False,
+            message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
+        )
+    async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
+        response = await client.get(
+            f"{base_url}/templates",
+            auth=_auth(api_key),
+            params={"count": _TEMPLATES_PAGE_SIZE, "sort_field": "name", "sort_dir": "ASC"},
+        )
+    if response.status_code >= 400:
+        return TemplatesResult(success=False, message=_error_message(response))
+    body = response.json()
+    templates = tuple(
+        TemplateSummary(id=item["id"], name=item["name"], thumbnail=item.get("thumbnail") or None)
+        for item in body.get("templates", [])
+    )
+    return TemplatesResult(success=True, message="ok", templates=templates)
+
+
+async def get_template_default_content(*, api_key: str, template_id: int) -> TemplateContentResult:
+    """The template's editable section names and their default/starting
+    content — what to show the admin to fill in before attaching this
+    template to a campaign (see `set_campaign_template_content`)."""
+    base_url = _base_url(api_key)
+    if base_url is None:
+        return TemplateContentResult(
+            success=False,
+            message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
+        )
+    async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
+        response = await client.get(
+            f"{base_url}/templates/{template_id}/default-content", auth=_auth(api_key)
+        )
+    if response.status_code >= 400:
+        return TemplateContentResult(success=False, message=_error_message(response))
+    body = response.json()
+    return TemplateContentResult(success=True, message="ok", sections=body.get("sections", {}))
 
 
 async def upsert_member(
@@ -212,6 +286,7 @@ async def create_campaign(
     subject: str,
     from_name: str,
     reply_to: str,
+    template_id: int | None = None,
 ) -> CampaignResult:
     """Creates a "regular" campaign as a draft, targeted at the given
     static segment — or, with `segment_id=None`, at the whole Audience.
@@ -223,7 +298,11 @@ async def create_campaign(
     this app's configured campaign defaults (see Settings) — the actual
     from-email address comes from the Audience's own Campaign Defaults,
     configured in Mailchimp directly, same as the Audience itself (see
-    `verify_list`)."""
+    `verify_list`). `template_id` (see `list_templates`) attaches one of
+    the account's saved Mailchimp templates — pair with
+    `set_campaign_template_content` (not `set_campaign_content`) to fill
+    in just its named editable section(s) rather than replacing the whole
+    design with raw HTML."""
     base_url = _base_url(api_key)
     if base_url is None:
         return CampaignResult(
@@ -233,20 +312,19 @@ async def create_campaign(
     recipients: dict = {"list_id": list_id}
     if segment_id is not None:
         recipients["segment_opts"] = {"saved_segment_id": segment_id}
+    settings: dict = {
+        "subject_line": subject,
+        "title": subject,
+        "from_name": from_name,
+        "reply_to": reply_to,
+    }
+    if template_id is not None:
+        settings["template_id"] = template_id
     async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
         response = await client.post(
             f"{base_url}/campaigns",
             auth=_auth(api_key),
-            json={
-                "type": "regular",
-                "recipients": recipients,
-                "settings": {
-                    "subject_line": subject,
-                    "title": subject,
-                    "from_name": from_name,
-                    "reply_to": reply_to,
-                },
-            },
+            json={"type": "regular", "recipients": recipients, "settings": settings},
         )
     if response.status_code >= 400:
         return CampaignResult(success=False, message=_error_message(response))
@@ -268,6 +346,31 @@ async def set_campaign_content(*, api_key: str, campaign_id: str, html: str) -> 
             f"{base_url}/campaigns/{campaign_id}/content",
             auth=_auth(api_key),
             json={"html": html},
+        )
+    if response.status_code >= 400:
+        return ActionResult(success=False, message=_error_message(response))
+    return ActionResult(success=True, message="ok")
+
+
+async def set_campaign_template_content(
+    *, api_key: str, campaign_id: str, template_id: int, sections: dict[str, str]
+) -> ActionResult:
+    """Fills in a template-attached campaign's named editable content
+    area(s) instead of replacing its whole design — `sections` keys must
+    match the `mc:edit="..."` region names defined in the template's own
+    HTML (see `get_template_default_content`, which returns those names
+    along with their default content)."""
+    base_url = _base_url(api_key)
+    if base_url is None:
+        return ActionResult(
+            success=False,
+            message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
+        )
+    async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
+        response = await client.put(
+            f"{base_url}/campaigns/{campaign_id}/content",
+            auth=_auth(api_key),
+            json={"template": {"id": template_id, "sections": sections}},
         )
     if response.status_code >= 400:
         return ActionResult(success=False, message=_error_message(response))

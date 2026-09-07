@@ -206,6 +206,70 @@ async def test_create_email_campaign_requires_subject(client: AsyncClient) -> No
     assert response.status_code == 422
 
 
+async def test_create_email_campaign_with_mailchimp_template(client: AsyncClient) -> None:
+    """A Mailchimp template can stand in for raw `message` — see
+    CampaignCreate._channel_fields_present. The stored `message` becomes a
+    synthesized, display-only join of the section content (see
+    create_campaign's docstring in the controller); the real send reads
+    mailchimp_template_id/mailchimp_template_sections instead."""
+    response = await client.post(
+        "/api/v1/sms/campaigns",
+        json=_create_payload(
+            channel="EMAIL",
+            message=None,
+            subject="A subject line",
+            sender_id=None,
+            mailchimp_template_id=42,
+            mailchimp_template_sections={"main": "<p>Hello!</p>"},
+        ),
+    )
+    assert response.status_code == 201
+
+    data = response.json()["data"]
+    assert data["mailchimp_template_id"] == 42
+    assert data["mailchimp_template_sections"] == {"main": "<p>Hello!</p>"}
+    assert "<p>Hello!</p>" in data["message"]
+
+
+async def test_create_email_campaign_rejects_message_and_template_together(
+    client: AsyncClient,
+) -> None:
+    response = await client.post(
+        "/api/v1/sms/campaigns",
+        json=_create_payload(
+            channel="EMAIL",
+            message="<p>Hello!</p>",
+            subject="A subject line",
+            sender_id=None,
+            mailchimp_template_id=42,
+            mailchimp_template_sections={"main": "<p>Hello!</p>"},
+        ),
+    )
+    assert response.status_code == 422
+
+
+async def test_create_email_campaign_rejects_neither_message_nor_template(
+    client: AsyncClient,
+) -> None:
+    response = await client.post(
+        "/api/v1/sms/campaigns",
+        json=_create_payload(
+            channel="EMAIL", message=None, subject="A subject line", sender_id=None
+        ),
+    )
+    assert response.status_code == 422
+
+
+async def test_create_sms_campaign_rejects_mailchimp_template_id(client: AsyncClient) -> None:
+    """mailchimp_template_id is an EMAIL-only concept — see
+    CampaignCreate._channel_fields_present."""
+    response = await client.post(
+        "/api/v1/sms/campaigns",
+        json=_create_payload(mailchimp_template_id=42),
+    )
+    assert response.status_code == 422
+
+
 async def test_create_sms_campaign_requires_sender_id(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/sms/campaigns", json=_create_payload(sender_id=None)

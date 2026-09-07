@@ -63,8 +63,13 @@ export function QuickSendComposer({
   const [formId, setFormId] = useState("");
   const [subject, setSubject] = useState("");
   const [htmlBody, setHtmlBody] = useState("");
+  const [mailchimpTemplateId, setMailchimpTemplateId] = useState<number | null>(null);
+  const [mailchimpTemplateSections, setMailchimpTemplateSections] = useState<
+    Record<string, string>
+  >({});
 
   const isEmail = channel === "EMAIL";
+  const usesMailchimpTemplate = isEmail && mailchimpTemplateId !== null;
 
   async function handleSubmit(mode: "now" | "schedule", scheduledAt?: string) {
     if (!audienceRule || !campaignType) return;
@@ -77,9 +82,11 @@ export function QuickSendComposer({
       campaignType,
       audienceRule,
       channel,
-      message: isEmail ? htmlBody : message,
+      message: isEmail ? (usesMailchimpTemplate ? undefined : htmlBody) : message,
       senderId: isEmail ? undefined : senderId,
       subject: isEmail ? subject : undefined,
+      mailchimpTemplateId: usesMailchimpTemplate ? mailchimpTemplateId : undefined,
+      mailchimpTemplateSections: usesMailchimpTemplate ? mailchimpTemplateSections : undefined,
       scheduledAt: scheduledAtIso,
       status: "SCHEDULED",
       // A Form's attached landing page only applies to the SMS
@@ -113,7 +120,8 @@ export function QuickSendComposer({
     campaignType.length > 0 &&
     audienceRule !== null &&
     (isEmail
-      ? subject.trim().length > 0 && htmlBody.trim().length > 0
+      ? subject.trim().length > 0 &&
+        (usesMailchimpTemplate ? mailchimpTemplateId !== null : htmlBody.trim().length > 0)
       : senderId.trim().length > 0 && message.trim().length > 0);
 
   return (
@@ -145,6 +153,10 @@ export function QuickSendComposer({
           onSubjectChange={setSubject}
           htmlBody={htmlBody}
           onHtmlBodyChange={setHtmlBody}
+          mailchimpTemplateId={mailchimpTemplateId}
+          onMailchimpTemplateIdChange={setMailchimpTemplateId}
+          mailchimpTemplateSections={mailchimpTemplateSections}
+          onMailchimpTemplateSectionsChange={setMailchimpTemplateSections}
         />
       ) : (
         <QuickSendMessageSection

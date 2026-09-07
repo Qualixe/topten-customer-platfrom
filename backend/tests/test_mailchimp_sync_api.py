@@ -14,6 +14,9 @@ from app.common.mailchimp_client import (
     CampaignResult,
     ListResult,
     SegmentResult,
+    TemplateContentResult,
+    TemplatesResult,
+    TemplateSummary,
     UpsertResult,
 )
 from app.core.security import create_access_token, hash_password
@@ -325,6 +328,126 @@ async def test_send_fails_cleanly_when_mailchimp_rejects_the_campaign(
         )
 
     assert response.status_code == 422
+
+
+# --- Templates (list + section content) -----------------------------------
+
+
+async def test_send_campaign_with_template_id_uses_template_content(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _set_campaign_credentials()
+    customer = await _add_customer(
+        db_session, name="Rahim", phone="+8801711000214", email="rahim@example.com", opted_in=True
+    )
+
+    with (
+        _patch_list(),
+        patch(
+            "app.services.mailchimp_sync.upsert_member",
+            new=AsyncMock(return_value=UpsertResult(success=True, message="synced")),
+        ),
+        patch(
+            "app.services.mailchimp_sync.create_static_segment",
+            new=AsyncMock(
+                return_value=SegmentResult(success=True, message="created", segment_id=99)
+            ),
+        ),
+        patch(
+            "app.services.mailchimp_sync.create_campaign",
+            new=AsyncMock(
+                return_value=CampaignResult(
+                    success=True, message="created", campaign_id="camp-9", web_id=900
+                )
+            ),
+        ) as mock_create_campaign,
+        patch(
+            "app.services.mailchimp_sync.set_campaign_template_content",
+            new=AsyncMock(return_value=ActionResult(success=True, message="ok")),
+        ) as mock_set_template_content,
+        patch(
+            "app.services.mailchimp_sync.set_campaign_content", new=AsyncMock()
+        ) as mock_set_html_content,
+        patch(
+            "app.services.mailchimp_sync.send_campaign",
+            new=AsyncMock(return_value=ActionResult(success=True, message="sent")),
+        ),
+    ):
+        response = await client.post(
+            "/api/v1/mailchimp/send",
+            json={
+                "customer_ids": [str(customer.public_id)],
+                "subject": "Promo",
+                "template_id": 42,
+                "template_sections": {"main": "<p>Hello!</p>"},
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["sent"] == 1
+    assert mock_create_campaign.call_args.kwargs["template_id"] == 42
+    mock_set_template_content.assert_awaited_once()
+    assert mock_set_template_content.call_args.kwargs["sections"] == {"main": "<p>Hello!</p>"}
+    mock_set_html_content.assert_not_awaited()
+
+
+async def test_send_rejects_both_html_body_and_template_id(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _set_campaign_credentials()
+    customer = await _add_customer(
+        db_session, name="Rahim", phone="+8801711000215", email="rahim@example.com", opted_in=True
+    )
+    response = await client.post(
+        "/api/v1/mailchimp/send",
+        json={
+            "customer_ids": [str(customer.public_id)],
+            "subject": "Promo",
+            "html_body": "<p>Hi</p>",
+            "template_id": 42,
+        },
+    )
+    assert response.status_code == 422
+
+
+async def test_list_templates(client: AsyncClient, db_session: AsyncSession) -> None:
+    await _set_campaign_credentials()
+    with patch(
+        "app.services.mailchimp_sync.list_templates",
+        new=AsyncMock(
+            return_value=TemplatesResult(
+                success=True,
+                message="ok",
+                templates=(
+                    TemplateSummary(id=1, name="Newsletter", thumbnail="https://example.com/1.png"),
+                    TemplateSummary(id=2, name="Promo", thumbnail=None),
+                ),
+            )
+        ),
+    ):
+        response = await client.get("/api/v1/mailchimp/templates")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert [item["name"] for item in data] == ["Newsletter", "Promo"]
+    assert data[0]["id"] == 1
+    assert data[1]["thumbnail"] is None
+
+
+async def test_get_template_sections(client: AsyncClient, db_session: AsyncSession) -> None:
+    await _set_campaign_credentials()
+    with patch(
+        "app.services.mailchimp_sync.get_template_default_content",
+        new=AsyncMock(
+            return_value=TemplateContentResult(
+                success=True, message="ok", sections={"main": "<p>Default content</p>"}
+            )
+        ),
+    ):
+        response = await client.get("/api/v1/mailchimp/templates/42/sections")
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {"main": "<p>Default content</p>"}
 
 
 # --- Credentials status --------------------------------------------------------

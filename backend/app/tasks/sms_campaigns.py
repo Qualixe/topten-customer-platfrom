@@ -332,7 +332,11 @@ async def _send_email_campaign(session: AsyncSession, campaign: Campaign) -> Non
             session,
             customer_ids=list(recipient_by_customer_id.keys()),
             subject=campaign.subject or "",
-            html_body=campaign.message,
+            # Either raw HTML or an attached Mailchimp template — see
+            # CampaignCreate's docstring, exactly one is ever set.
+            html_body=campaign.message if campaign.mailchimp_template_id is None else None,
+            template_id=campaign.mailchimp_template_id,
+            template_sections=campaign.mailchimp_template_sections,
         )
     except ValidationAppError:
         # Nothing was sent — every PENDING recipient stays exactly that,

@@ -78,19 +78,29 @@ export interface MailchimpSendReport {
   campaignUrl: string | null;
 }
 
+/** Content is either raw `htmlBody` (the whole email) or a Mailchimp
+ * `templateId` + `templateSections` (only that template's named editable
+ * region(s) are set — its header/footer/design come from the template
+ * itself, designed once in Mailchimp) — provide exactly one of the two. */
+interface MailchimpContentInput {
+  htmlBody?: string;
+  templateId?: number;
+  templateSections?: Record<string, string>;
+}
+
 /** Sends a test email to one or more raw addresses — creates a throwaway
  * Mailchimp draft and uses Mailchimp's own "test send" feature, so the
  * rendered output matches exactly what a real send would look like.
  * No customer records are touched. */
-export async function sendMailchimpTestEmail(input: {
-  testEmails: string[];
-  subject: string;
-  htmlBody: string;
-}): Promise<void> {
+export async function sendMailchimpTestEmail(
+  input: { testEmails: string[]; subject: string } & MailchimpContentInput
+): Promise<void> {
   await apiPost<void>("/mailchimp/send-test", {
     test_emails: input.testEmails,
     subject: input.subject,
     html_body: input.htmlBody,
+    template_id: input.templateId,
+    template_sections: input.templateSections,
   });
 }
 
@@ -99,16 +109,42 @@ export async function sendMailchimpTestEmail(input: {
  * just them, and sends against it. Irreversible — there's no draft/review
  * step on the backend, so the caller's own review UI is the only chance
  * to catch a mistake before this fires. */
-export async function sendMailchimpCampaign(input: {
-  customerIds: string[];
-  subject: string;
-  htmlBody: string;
-}): Promise<MailchimpSendReport> {
+export async function sendMailchimpCampaign(
+  input: { customerIds: string[]; subject: string } & MailchimpContentInput
+): Promise<MailchimpSendReport> {
   const envelope = await apiPost<ApiEnvelope<MailchimpSendReport>>("/mailchimp/send", {
     customer_ids: input.customerIds,
     subject: input.subject,
     html_body: input.htmlBody,
+    template_id: input.templateId,
+    template_sections: input.templateSections,
   });
+  return envelope.data;
+}
+
+/** One of the account's saved Mailchimp templates — designed visually in
+ * Mailchimp's own editor. `thumbnail` is a preview image URL. */
+export interface MailchimpTemplate {
+  id: number;
+  name: string;
+  thumbnail: string | null;
+}
+
+export async function listMailchimpTemplates(): Promise<MailchimpTemplate[]> {
+  const envelope = await apiGet<ApiEnvelope<MailchimpTemplate[]>>("/mailchimp/templates");
+  return envelope.data;
+}
+
+/** A chosen template's editable section names and their default/starting
+ * content, as authored in the template's own `mc:edit="..."` regions —
+ * what to show the admin to fill in before attaching this template to a
+ * campaign (see `sendMailchimpCampaign`'s `templateSections`). */
+export async function getMailchimpTemplateSections(
+  templateId: number
+): Promise<Record<string, string>> {
+  const envelope = await apiGet<ApiEnvelope<Record<string, string>>>(
+    `/mailchimp/templates/${templateId}/sections`
+  );
   return envelope.data;
 }
 

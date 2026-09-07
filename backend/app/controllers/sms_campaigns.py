@@ -174,20 +174,39 @@ async def create_campaign(
     `POST /{id}/landing-page/from-form/{form_id}`."""
     rule = await resolve_since_campaign(db, payload.audience_rule)
 
+    # `message` is NOT NULL on the model even for a template-attached EMAIL
+    # campaign (which has no raw HTML of its own) — store a synthesized,
+    # display-only join of the section content instead, purely so Campaign
+    # History and similar views have something readable to show. The real
+    # send reads mailchimp_template_id/mailchimp_template_sections, never
+    # this synthesized string — see app.tasks.sms_campaigns._send_email_campaign.
+    if payload.mailchimp_template_id is not None:
+        stored_message = (
+            "\n\n".join(
+                f"[{name}]\n{content}"
+                for name, content in (payload.mailchimp_template_sections or {}).items()
+            )
+            or "(Mailchimp template)"
+        )
+    else:
+        stored_message = payload.message
+
     campaign = Campaign(
         name=payload.name,
         campaign_type=payload.campaign_type.value,
         channel=payload.channel.value,
         audience_rule_type=rule.rule_type.value,
         audience_rule_params=rule.storage_params(),
-        message=payload.message,
+        message=stored_message,
         sender_id=payload.sender_id,
         subject=payload.subject,
+        mailchimp_template_id=payload.mailchimp_template_id,
+        mailchimp_template_sections=payload.mailchimp_template_sections,
         # No per-segment cost model for EMAIL — stays 0, same as before
         # `estimated_cost` is resolved (see app.tasks.sms_campaigns).
         sms_segments=(
             service.compute_sms_segments(payload.message)
-            if payload.channel == CampaignChannel.SMS
+            if payload.channel == CampaignChannel.SMS and payload.message
             else 0
         ),
         scheduled_at=payload.scheduled_at,
@@ -285,6 +304,17 @@ async def update_campaign(
 
     for field, value in updates.items():
         setattr(campaign, field, value)
+
+    # Keep the synthesized display string (see `create_campaign` above) in
+    # sync when just the template's section content changes.
+    if "mailchimp_template_sections" in updates and campaign.mailchimp_template_id is not None:
+        campaign.message = (
+            "\n\n".join(
+                f"[{name}]\n{content}"
+                for name, content in (campaign.mailchimp_template_sections or {}).items()
+            )
+            or "(Mailchimp template)"
+        )
 
     if "message" in updates and campaign.channel == CampaignChannel.SMS.value:
         campaign.sms_segments = service.compute_sms_segments(campaign.message)
