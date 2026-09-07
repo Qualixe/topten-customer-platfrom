@@ -23,12 +23,9 @@ from app.common.mailchimp_client import (
     create_campaign,
     create_static_segment,
     get_reports_summary,
-    get_template_default_content,
-    list_templates,
     send_campaign,
     send_test_email,
     set_campaign_content,
-    set_campaign_template_content,
     upsert_member,
     verify_list,
 )
@@ -40,7 +37,6 @@ from app.views.mailchimp_marketing import (
     SendCampaignReport,
     SyncItemResult,
     SyncReport,
-    TemplateSummary,
 )
 
 MAX_TEST_EMAILS = 10
@@ -152,39 +148,12 @@ async def sync_customers(db: AsyncSession, *, customer_ids: list[UUID]) -> SyncR
     return SyncReport(total=len(items), synced=len(items) - failed, failed=failed, items=items)
 
 
-async def list_mailchimp_templates(db: AsyncSession) -> list[TemplateSummary]:
-    """The account's saved Mailchimp templates, for the "attach a template"
-    picker in the campaign composer — see `create_and_send_campaign`'s
-    `template_id` argument."""
-    data = await _require_campaign_credentials(db)
-    result = await list_templates(api_key=data["api_key"])
-    if not result.success:
-        raise ValidationAppError(f"Unable to reach Mailchimp: {result.message}")
-    return [
-        TemplateSummary(id=template.id, name=template.name, thumbnail=template.thumbnail)
-        for template in result.templates
-    ]
-
-
-async def get_mailchimp_template_sections(db: AsyncSession, template_id: int) -> dict[str, str]:
-    """A chosen template's editable section names and default content —
-    what the composer shows to fill in before attaching it to a campaign
-    (see `create_and_send_campaign`'s `template_sections` argument)."""
-    data = await _require_campaign_credentials(db)
-    result = await get_template_default_content(api_key=data["api_key"], template_id=template_id)
-    if not result.success:
-        raise ValidationAppError(f"Unable to reach Mailchimp: {result.message}")
-    return result.sections or {}
-
-
 async def create_and_send_campaign(
     db: AsyncSession,
     *,
     customer_ids: list[UUID],
     subject: str,
-    html_body: str | None = None,
-    template_id: int | None = None,
-    template_sections: dict[str, str] | None = None,
+    html_body: str,
 ) -> SendCampaignReport:
     """Sends a real Mailchimp campaign to exactly the given customers, in
     one step: upsert each as a list member (so Mailchimp has somewhere to
@@ -195,16 +164,10 @@ async def create_and_send_campaign(
     Sending is irreversible, so every prior step must fully succeed before
     it's attempted.
 
-    Content is either raw `html_body` (the whole email, built here) or a
-    Mailchimp `template_id` + `template_sections` (only the template's own
-    named editable region(s) are set; its header/footer/design come from
-    the template itself, designed once in Mailchimp) — exactly one of the
-    two must be given."""
-    if (html_body is None) == (template_id is None):
-        raise ValidationAppError(
-            "Provide either html_body or template_id (+ template_sections), not both."
-        )
-
+    `html_body` is always the whole email, built by the caller (this app
+    owns the layout/design entirely — see app.services.campaign_email) —
+    Mailchimp is only ever the delivery provider here, never a template
+    designer."""
     data = await _require_campaign_credentials(db)
     list_result = await verify_list(api_key=data["api_key"], list_id=data["list_id"])
     if not list_result.success:
@@ -282,22 +245,13 @@ async def create_and_send_campaign(
         subject=subject,
         from_name=data["from_name"],
         reply_to=data["reply_to_email"],
-        template_id=template_id,
     )
     if not campaign_result.success or not campaign_result.campaign_id:
         raise ValidationAppError(f"Unable to create Mailchimp campaign: {campaign_result.message}")
 
-    if template_id is not None:
-        content_result = await set_campaign_template_content(
-            api_key=data["api_key"],
-            campaign_id=campaign_result.campaign_id,
-            template_id=template_id,
-            sections=template_sections or {},
-        )
-    else:
-        content_result = await set_campaign_content(
-            api_key=data["api_key"], campaign_id=campaign_result.campaign_id, html=html_body  # type: ignore[arg-type]
-        )
+    content_result = await set_campaign_content(
+        api_key=data["api_key"], campaign_id=campaign_result.campaign_id, html=html_body
+    )
     if not content_result.success:
         raise ValidationAppError(
             f"Unable to set Mailchimp campaign content: {content_result.message}"
@@ -329,9 +283,7 @@ async def send_test_campaign(
     *,
     test_emails: list[str],
     subject: str,
-    html_body: str | None = None,
-    template_id: int | None = None,
-    template_sections: dict[str, str] | None = None,
+    html_body: str,
 ) -> None:
     """For previewing a campaign's real rendered content before committing
     to a real send — creates a throwaway draft campaign (targeted at the
@@ -341,14 +293,9 @@ async def send_test_campaign(
     customer regardless of who's in the configured Audience. The draft
     campaign is left behind in Mailchimp afterward (visible, unsent) —
     this app doesn't track or clean it up, same as manually testing from
-    Mailchimp's own UI would leave one too. Same html-or-template choice
-    as `create_and_send_campaign` — exactly one of the two must be given."""
+    Mailchimp's own UI would leave one too."""
     if not test_emails or len(test_emails) > MAX_TEST_EMAILS:
         raise ValidationAppError(f"Provide between 1 and {MAX_TEST_EMAILS} test email addresses.")
-    if (html_body is None) == (template_id is None):
-        raise ValidationAppError(
-            "Provide either html_body or template_id (+ template_sections), not both."
-        )
 
     data = await _require_campaign_credentials(db)
     list_result = await verify_list(api_key=data["api_key"], list_id=data["list_id"])
@@ -362,22 +309,13 @@ async def send_test_campaign(
         subject=subject,
         from_name=data["from_name"],
         reply_to=data["reply_to_email"],
-        template_id=template_id,
     )
     if not campaign_result.success or not campaign_result.campaign_id:
         raise ValidationAppError(f"Unable to create Mailchimp campaign: {campaign_result.message}")
 
-    if template_id is not None:
-        content_result = await set_campaign_template_content(
-            api_key=data["api_key"],
-            campaign_id=campaign_result.campaign_id,
-            template_id=template_id,
-            sections=template_sections or {},
-        )
-    else:
-        content_result = await set_campaign_content(
-            api_key=data["api_key"], campaign_id=campaign_result.campaign_id, html=html_body  # type: ignore[arg-type]
-        )
+    content_result = await set_campaign_content(
+        api_key=data["api_key"], campaign_id=campaign_result.campaign_id, html=html_body
+    )
     if not content_result.success:
         raise ValidationAppError(
             f"Unable to set Mailchimp campaign content: {content_result.message}"

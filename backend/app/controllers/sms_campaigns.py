@@ -72,7 +72,7 @@ router = APIRouter()
 # type, channel, scheduling, status) is system-controlled: set once at
 # creation and frozen from then on, same as the recipient snapshot it
 # produces. SMS campaigns are unaffected by this — see `update_campaign`.
-_EMAIL_EDITABLE_FIELDS = {"message", "subject", "mailchimp_template_sections"}
+_EMAIL_EDITABLE_FIELDS = {"message", "subject"}
 # Once an EMAIL campaign has started (or finished) sending, even its
 # content is frozen — the recipients already reached can't un-receive
 # what they were sent.
@@ -201,34 +201,15 @@ async def create_campaign(
     `POST /{id}/landing-page/from-form/{form_id}`."""
     rule = await resolve_since_campaign(db, payload.audience_rule)
 
-    # `message` is NOT NULL on the model even for a template-attached EMAIL
-    # campaign (which has no raw HTML of its own) — store a synthesized,
-    # display-only join of the section content instead, purely so Campaign
-    # History and similar views have something readable to show. The real
-    # send reads mailchimp_template_id/mailchimp_template_sections, never
-    # this synthesized string — see app.tasks.sms_campaigns._send_email_campaign.
-    if payload.mailchimp_template_id is not None:
-        stored_message = (
-            "\n\n".join(
-                f"[{name}]\n{content}"
-                for name, content in (payload.mailchimp_template_sections or {}).items()
-            )
-            or "(Mailchimp template)"
-        )
-    else:
-        stored_message = payload.message
-
     campaign = Campaign(
         name=payload.name,
         campaign_type=payload.campaign_type.value,
         channel=payload.channel.value,
         audience_rule_type=rule.rule_type.value,
         audience_rule_params=rule.storage_params(),
-        message=stored_message,
+        message=payload.message,
         sender_id=payload.sender_id,
         subject=payload.subject,
-        mailchimp_template_id=payload.mailchimp_template_id,
-        mailchimp_template_sections=payload.mailchimp_template_sections,
         # No per-segment cost model for EMAIL — stays 0, same as before
         # `estimated_cost` is resolved (see app.tasks.sms_campaigns).
         sms_segments=(
@@ -345,17 +326,6 @@ async def update_campaign(
 
     for field, value in updates.items():
         setattr(campaign, field, value)
-
-    # Keep the synthesized display string (see `create_campaign` above) in
-    # sync when just the template's section content changes.
-    if "mailchimp_template_sections" in updates and campaign.mailchimp_template_id is not None:
-        campaign.message = (
-            "\n\n".join(
-                f"[{name}]\n{content}"
-                for name, content in (campaign.mailchimp_template_sections or {}).items()
-            )
-            or "(Mailchimp template)"
-        )
 
     if "message" in updates and campaign.channel == CampaignChannel.SMS.value:
         campaign.sms_segments = service.compute_sms_segments(campaign.message)
@@ -477,37 +447,28 @@ async def preview_email_campaign(
     campaign = await _get_campaign_or_404(db, campaign_id)
     if campaign.channel != CampaignChannel.EMAIL.value:
         raise ValidationAppError("Only EMAIL campaigns can be previewed.")
-    if campaign.mailchimp_template_id is None and not (campaign.message or "").strip():
+    if not (campaign.message or "").strip():
         raise ValidationAppError("This campaign has no email body yet.")
     if not (campaign.subject or "").strip():
         raise ValidationAppError("This campaign has no email subject yet.")
 
     test_emails = payload.test_emails or [current_user.email]
 
-    if campaign.mailchimp_template_id is None:
-        company_name, company_logo = await get_email_branding(db)
-        html_body = render_campaign_email(
-            campaign.message,
-            customer_name="Sample Customer",
-            profile_link="#",
-            campaign_name=campaign.name,
-            company_name=company_name,
-            company_logo=company_logo,
-        )
-        template_id = None
-        template_sections = None
-    else:
-        html_body = None
-        template_id = campaign.mailchimp_template_id
-        template_sections = campaign.mailchimp_template_sections
+    company_name, company_logo = await get_email_branding(db)
+    html_body = render_campaign_email(
+        campaign.message,
+        customer_name="Sample Customer",
+        profile_link="#",
+        campaign_name=campaign.name,
+        company_name=company_name,
+        company_logo=company_logo,
+    )
 
     await send_test_campaign(
         db,
         test_emails=test_emails,
         subject=campaign.subject or "",
         html_body=html_body,
-        template_id=template_id,
-        template_sections=template_sections,
     )
 
 

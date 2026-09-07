@@ -54,10 +54,7 @@ async def validate_email_campaign_for_send(db: AsyncSession, campaign: Campaign)
         if not any(email and _EMAIL_RE.match(email) for email in pending_emails):
             errors.append("No recipients have a valid email address.")
 
-    if campaign.mailchimp_template_id is not None:
-        if not any((campaign.mailchimp_template_sections or {}).values()):
-            errors.append("This campaign's email template has no content yet.")
-    elif not (campaign.message or "").strip():
+    if not (campaign.message or "").strip():
         errors.append("This campaign has no email body yet.")
 
     if not (campaign.subject or "").strip():

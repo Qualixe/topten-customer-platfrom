@@ -45,21 +45,15 @@ class CampaignCreate(BaseModel):
     campaign_type: CampaignType
     audience_rule: AudienceRule
     channel: CampaignChannel = CampaignChannel.SMS
-    # Required for SMS (raw text). For EMAIL, this is the raw HTML body —
-    # provide it *or* mailchimp_template_id (+ mailchimp_template_sections),
-    # never both — see _channel_fields_present below.
+    # Required for both channels — raw text for SMS, raw HTML for EMAIL.
+    # TopTen owns the whole email layout/design (see
+    # app.services.campaign_email); Mailchimp is only ever the delivery
+    # provider, never a template designer.
     message: str | None = Field(default=None, max_length=MAX_MESSAGE_LENGTH)
     # Required for SMS, ignored for EMAIL — see _channel_fields_present below.
     sender_id: str | None = Field(default=None, max_length=20)
     # Required for EMAIL, ignored for SMS — see _channel_fields_present below.
     subject: str | None = Field(default=None, max_length=MAX_SUBJECT_LENGTH)
-    # EMAIL-only alternative to `message` — attaches a saved Mailchimp
-    # template instead of sending raw HTML; `mailchimp_template_sections`
-    # is that template's named editable region(s), keyed by section name
-    # (see GET /mailchimp/templates/{id}/sections for the names + Mailchimp
-    # defaults to start from).
-    mailchimp_template_id: int | None = None
-    mailchimp_template_sections: dict[str, str] | None = None
     scheduled_at: datetime | None = None
     status: CampaignStatus = CampaignStatus.DRAFT
     # Optional saved Form (see app.models.form) to attach as this
@@ -81,10 +75,8 @@ class CampaignCreate(BaseModel):
 
     @model_validator(mode="after")
     def _channel_fields_present(self) -> "CampaignCreate":
-        # SMS needs a sender_id to show recipients, plus a plain message —
-        # Mailchimp templates are an EMAIL-only concept. EMAIL needs a
-        # subject line, and its content is either raw `message` (HTML) or
-        # a Mailchimp template, never both/neither — see
+        # SMS needs a sender_id to show recipients, plus a plain message.
+        # EMAIL needs a subject line and its raw HTML body — see
         # app.tasks.sms_campaigns._send_email_campaign for how an EMAIL
         # campaign actually sends, via Mailchimp's Campaigns API.
         if self.channel == CampaignChannel.SMS:
@@ -92,16 +84,11 @@ class CampaignCreate(BaseModel):
                 raise ValueError("sender_id is required for an SMS campaign")
             if not self.message:
                 raise ValueError("message is required for an SMS campaign")
-            if self.mailchimp_template_id is not None:
-                raise ValueError("mailchimp_template_id is only valid for an EMAIL campaign")
         if self.channel == CampaignChannel.EMAIL:
             if not self.subject:
                 raise ValueError("subject is required for an EMAIL campaign")
-            if (not self.message) == (self.mailchimp_template_id is None):
-                raise ValueError(
-                    "Provide either message or mailchimp_template_id for an EMAIL campaign, "
-                    "not both"
-                )
+            if not self.message:
+                raise ValueError("message is required for an EMAIL campaign")
         return self
 
 
@@ -121,11 +108,6 @@ class CampaignUpdate(BaseModel):
     message: str | None = Field(default=None, min_length=1, max_length=MAX_MESSAGE_LENGTH)
     sender_id: str | None = Field(default=None, min_length=1, max_length=20)
     subject: str | None = Field(default=None, min_length=1, max_length=MAX_SUBJECT_LENGTH)
-    # Only meaningful for an EMAIL campaign already attached to a Mailchimp
-    # template — edits the content of that same template's section(s)
-    # without switching templates (mailchimp_template_id itself is frozen
-    # once a campaign is created, same as campaign_type/audience_rule).
-    mailchimp_template_sections: dict[str, str] | None = None
     scheduled_at: datetime | None = None
     status: CampaignStatus | None = None
 
@@ -152,8 +134,6 @@ class CampaignRead(BaseModel):
     message: str
     sender_id: str | None
     subject: str | None
-    mailchimp_template_id: int | None
-    mailchimp_template_sections: dict[str, str] | None
     total_recipients: int
     sms_segments: int
     estimated_cost: Decimal

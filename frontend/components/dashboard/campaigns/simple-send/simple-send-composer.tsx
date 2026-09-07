@@ -142,22 +142,12 @@ export function SimpleSendComposer({
   );
   const [message, setMessage] = useState(editCampaign?.channel === "EMAIL" ? "" : (editCampaign?.message ?? ""));
   const [subject, setSubject] = useState(editCampaign?.subject ?? "");
-  const isExistingTemplateCampaign = editCampaign?.mailchimpTemplateId != null;
   const [htmlBody, setHtmlBody] = useState(
-    editCampaign?.channel === "EMAIL" && !isExistingTemplateCampaign
-      ? (editCampaign?.message ?? "")
-      : ""
+    editCampaign?.channel === "EMAIL" ? (editCampaign?.message ?? "") : ""
   );
-  const [mailchimpTemplateId, setMailchimpTemplateId] = useState<number | null>(
-    editCampaign?.mailchimpTemplateId ?? null
-  );
-  const [mailchimpTemplateSections, setMailchimpTemplateSections] = useState<
-    Record<string, string>
-  >(editCampaign?.mailchimpTemplateSections ?? {});
   const [formId, setFormId] = useState("");
 
   const isEmail = channel === "EMAIL";
-  const usesMailchimpTemplate = isEmail && mailchimpTemplateId !== null;
 
   async function handleSubmit(mode: "now" | "schedule", scheduledAt?: string) {
     const scheduledAtIso =
@@ -166,10 +156,9 @@ export function SimpleSendComposer({
     if (isEditing && editCampaign) {
       const updated = await updateCampaign(editCampaign.id, {
         name: campaignName,
-        message: isEmail ? (usesMailchimpTemplate ? undefined : htmlBody) : message,
+        message: isEmail ? htmlBody : message,
         senderId: isEmail ? undefined : senderId,
         subject: isEmail ? subject : undefined,
-        mailchimpTemplateSections: usesMailchimpTemplate ? mailchimpTemplateSections : undefined,
         scheduledAt: scheduledAtIso,
         status: "SCHEDULED",
       });
@@ -185,11 +174,9 @@ export function SimpleSendComposer({
       campaignType,
       audienceRule,
       channel,
-      message: isEmail ? (usesMailchimpTemplate ? undefined : htmlBody) : message,
+      message: isEmail ? htmlBody : message,
       senderId: isEmail ? undefined : senderId,
       subject: isEmail ? subject : undefined,
-      mailchimpTemplateId: usesMailchimpTemplate ? mailchimpTemplateId : undefined,
-      mailchimpTemplateSections: usesMailchimpTemplate ? mailchimpTemplateSections : undefined,
       scheduledAt: scheduledAtIso,
       status: "SCHEDULED",
       // A Form's attached landing page only applies to the SMS
@@ -223,8 +210,7 @@ export function SimpleSendComposer({
     campaignName.trim().length > 0 &&
     (isEditing || audienceRule !== null) &&
     (isEmail
-      ? subject.trim().length > 0 &&
-        (usesMailchimpTemplate ? mailchimpTemplateId !== null : htmlBody.trim().length > 0)
+      ? subject.trim().length > 0 && htmlBody.trim().length > 0
       : senderId.trim().length > 0 && message.trim().length > 0);
 
   const canSend = canContinue;
@@ -314,11 +300,6 @@ export function SimpleSendComposer({
               onSubjectChange={setSubject}
               htmlBody={htmlBody}
               onHtmlBodyChange={setHtmlBody}
-              mailchimpTemplateId={mailchimpTemplateId}
-              onMailchimpTemplateIdChange={setMailchimpTemplateId}
-              mailchimpTemplateSections={mailchimpTemplateSections}
-              onMailchimpTemplateSectionsChange={setMailchimpTemplateSections}
-              templateLocked={isEditing}
             />
           ) : (
             <QuickSendMessageSection

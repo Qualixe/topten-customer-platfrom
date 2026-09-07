@@ -301,12 +301,10 @@ async def _send_email_campaign(session: AsyncSession, campaign: Campaign) -> Non
     than one shared campaign for the whole batch, since that's what makes
     genuine per-recipient personalization (customer_name, a unique
     profile_link) possible — the same pattern app.services.birthday_wishes
-    already uses for personalized birthday emails. A raw-HTML campaign's
-    body is rendered into TopTen's own branded layout
-    (app.services.campaign_email) before every send; a Mailchimp-template-
-    attached campaign keeps sending its template/sections as authored (no
-    per-recipient substitution there — Mailchimp's own template design
-    isn't token-aware).
+    already uses for personalized birthday emails. The body is always
+    rendered into TopTen's own branded layout
+    (app.services.campaign_email) before every send — Mailchimp is only
+    ever the delivery provider, never a template designer.
 
     Committed once per recipient, immediately after that recipient's send
     attempt resolves — a retried/redelivered task only ever finds true
@@ -355,35 +353,25 @@ async def _send_email_campaign(session: AsyncSession, campaign: Campaign) -> Non
 
     fatal_error: str | None = None
     for recipient, customer_public_id in pending:
-        if campaign.mailchimp_template_id is None:
-            token = await get_or_create_campaign_profile_token(
-                session, customer_id=recipient.customer_id, campaign_id=campaign.id
+        token = await get_or_create_campaign_profile_token(
+            session, customer_id=recipient.customer_id, campaign_id=campaign.id
+        )
+        if landing_page is not None:
+            profile_link = (
+                f"{settings.FRONTEND_BASE_URL}/campaign/{landing_page.slug}"
+                f"?token={token.token}"
             )
-            if landing_page is not None:
-                profile_link = (
-                    f"{settings.FRONTEND_BASE_URL}/campaign/{landing_page.slug}"
-                    f"?token={token.token}"
-                )
-            else:
-                profile_link = f"{settings.FRONTEND_BASE_URL}/customer/{token.token}"
-
-            html_body = render_campaign_email(
-                campaign.message,
-                customer_name=recipient.name,
-                profile_link=profile_link,
-                campaign_name=campaign.name,
-                company_name=company_name,
-                company_logo=company_logo,
-            )
-            template_id = None
-            template_sections = None
         else:
-            # A Mailchimp template's design/sections aren't token-aware —
-            # sent exactly as authored, same as before this per-recipient
-            # rewrite.
-            html_body = None
-            template_id = campaign.mailchimp_template_id
-            template_sections = campaign.mailchimp_template_sections
+            profile_link = f"{settings.FRONTEND_BASE_URL}/customer/{token.token}"
+
+        html_body = render_campaign_email(
+            campaign.message,
+            customer_name=recipient.name,
+            profile_link=profile_link,
+            campaign_name=campaign.name,
+            company_name=company_name,
+            company_logo=company_logo,
+        )
 
         try:
             report = await create_and_send_campaign(
@@ -391,8 +379,6 @@ async def _send_email_campaign(session: AsyncSession, campaign: Campaign) -> Non
                 customer_ids=[customer_public_id],
                 subject=campaign.subject or "",
                 html_body=html_body,
-                template_id=template_id,
-                template_sections=template_sections,
             )
         except ValidationAppError as exc:
             fatal_error = str(exc)

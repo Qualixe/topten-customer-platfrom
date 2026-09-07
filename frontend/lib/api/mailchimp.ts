@@ -78,14 +78,11 @@ export interface MailchimpSendReport {
   campaignUrl: string | null;
 }
 
-/** Content is either raw `htmlBody` (the whole email) or a Mailchimp
- * `templateId` + `templateSections` (only that template's named editable
- * region(s) are set — its header/footer/design come from the template
- * itself, designed once in Mailchimp) — provide exactly one of the two. */
+/** `htmlBody` is always the whole email — this app owns the layout
+ * entirely; Mailchimp is only ever the delivery provider, never a
+ * template designer. */
 interface MailchimpContentInput {
-  htmlBody?: string;
-  templateId?: number;
-  templateSections?: Record<string, string>;
+  htmlBody: string;
 }
 
 /** Sends a test email to one or more raw addresses — creates a throwaway
@@ -99,8 +96,6 @@ export async function sendMailchimpTestEmail(
     test_emails: input.testEmails,
     subject: input.subject,
     html_body: input.htmlBody,
-    template_id: input.templateId,
-    template_sections: input.templateSections,
   });
 }
 
@@ -116,35 +111,7 @@ export async function sendMailchimpCampaign(
     customer_ids: input.customerIds,
     subject: input.subject,
     html_body: input.htmlBody,
-    template_id: input.templateId,
-    template_sections: input.templateSections,
   });
-  return envelope.data;
-}
-
-/** One of the account's saved Mailchimp templates — designed visually in
- * Mailchimp's own editor. `thumbnail` is a preview image URL. */
-export interface MailchimpTemplate {
-  id: number;
-  name: string;
-  thumbnail: string | null;
-}
-
-export async function listMailchimpTemplates(): Promise<MailchimpTemplate[]> {
-  const envelope = await apiGet<ApiEnvelope<MailchimpTemplate[]>>("/mailchimp/templates");
-  return envelope.data;
-}
-
-/** A chosen template's editable section names and their default/starting
- * content, as authored in the template's own `mc:edit="..."` regions —
- * what to show the admin to fill in before attaching this template to a
- * campaign (see `sendMailchimpCampaign`'s `templateSections`). */
-export async function getMailchimpTemplateSections(
-  templateId: number
-): Promise<Record<string, string>> {
-  const envelope = await apiGet<ApiEnvelope<Record<string, string>>>(
-    `/mailchimp/templates/${templateId}/sections`
-  );
   return envelope.data;
 }
 

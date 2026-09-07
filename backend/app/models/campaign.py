@@ -111,27 +111,14 @@ class Campaign(Base):
     )
 
     # Required for SMS (raw message text). For an EMAIL campaign this is
-    # either the raw HTML body, or — when `mailchimp_template_id` is set
-    # instead — a synthesized, display-only join of the template section
-    # contents (see app.services.sms_campaigns's create_campaign): the
-    # real send reads `mailchimp_template_id`/`mailchimp_template_sections`
-    # in that case, never this column.
+    # the raw HTML body — TopTen owns the whole layout/design (see
+    # app.services.campaign_email), Mailchimp is only ever the delivery
+    # provider, never a template designer.
     message: Mapped[str] = mapped_column(Text, nullable=False)
     # Required for SMS, unused for EMAIL (which uses `subject` below instead).
     sender_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # Required for EMAIL, unused for SMS (which has no subject line).
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
-
-    # EMAIL-only, both null unless this campaign is attached to a saved
-    # Mailchimp template instead of raw HTML — see
-    # app.common.mailchimp_client.create_campaign's `template_id` and
-    # `set_campaign_template_content`. `mailchimp_template_sections` holds
-    # just the admin-edited named editable region(s); the template's own
-    # header/footer/design lives in Mailchimp, not here.
-    mailchimp_template_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    mailchimp_template_sections: Mapped[dict | None] = mapped_column(
-        JSONB().with_variant(JSON(), "sqlite"), nullable=True
-    )
 
     total_recipients: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"

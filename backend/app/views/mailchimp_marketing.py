@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.common.credentials import PlainFieldStatus, SecretFieldStatus
 
@@ -75,22 +75,13 @@ class SyncResponse(BaseModel):
 
 
 class SendCampaignRequest(BaseModel):
-    """Content is either raw `html_body` (the whole email) or a Mailchimp
-    `template_id` + `template_sections` (only that template's named
-    editable region(s) are set — its header/footer/design come from the
-    template itself) — exactly one of the two must be given."""
+    """`html_body` is always the whole email — this app owns the layout
+    entirely; Mailchimp is only ever the delivery provider, never a
+    template designer."""
 
     customer_ids: list[UUID] = Field(min_length=1)
     subject: str = Field(min_length=1, max_length=255)
-    html_body: str | None = Field(default=None, min_length=1)
-    template_id: int | None = None
-    template_sections: dict[str, str] | None = None
-
-    @model_validator(mode="after")
-    def _exactly_one_content_source(self) -> "SendCampaignRequest":
-        if (self.html_body is None) == (self.template_id is None):
-            raise ValueError("Provide either html_body or template_id, not both.")
-        return self
+    html_body: str = Field(min_length=1)
 
 
 class SendCampaignReport(BaseModel):
@@ -111,19 +102,9 @@ class SendCampaignResponse(BaseModel):
 
 
 class SendTestCampaignRequest(BaseModel):
-    """Same html-or-template choice as `SendCampaignRequest`."""
-
     test_emails: list[str] = Field(min_length=1)
     subject: str = Field(min_length=1, max_length=255)
-    html_body: str | None = Field(default=None, min_length=1)
-    template_id: int | None = None
-    template_sections: dict[str, str] | None = None
-
-    @model_validator(mode="after")
-    def _exactly_one_content_source(self) -> "SendTestCampaignRequest":
-        if (self.html_body is None) == (self.template_id is None):
-            raise ValueError("Provide either html_body or template_id, not both.")
-        return self
+    html_body: str = Field(min_length=1)
 
 
 class EmailStats(BaseModel):
@@ -140,30 +121,4 @@ class EmailStats(BaseModel):
 class EmailStatsResponse(BaseModel):
     success: bool = True
     data: EmailStats
-    meta: dict = {}
-
-
-class TemplateSummary(BaseModel):
-    """One of the account's saved Mailchimp templates — designed visually
-    in Mailchimp's own editor. `thumbnail` is a preview image URL, for a
-    visual picker."""
-
-    id: int
-    name: str
-    thumbnail: str | None
-
-
-class TemplateListResponse(BaseModel):
-    success: bool = True
-    data: list[TemplateSummary]
-    meta: dict = {}
-
-
-class TemplateSectionsResponse(BaseModel):
-    """Section name -> its default/starting HTML content, as authored in
-    the template's own `mc:edit="..."` regions — what to show the admin to
-    fill in before attaching this template to a campaign."""
-
-    success: bool = True
-    data: dict[str, str]
     meta: dict = {}
