@@ -46,13 +46,10 @@ export default async function PublicCampaignPage({
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-6 px-4 py-8">
-      <header>
-        <SiteLogoHeader />
-      </header>
-
       <PublicCampaignForm
         token={token}
         blocks={landingPage.builderData.blocks}
+        logo={<SiteLogoHeader />}
         initialValues={{
           dateOfBirth: profile.dateOfBirth ?? "",
           address: profile.address ?? "",

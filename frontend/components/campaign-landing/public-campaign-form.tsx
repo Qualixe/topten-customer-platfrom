@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Check, RefreshCw } from "lucide-react";
 
 import { BlockRenderer, type FormFieldName } from "@/components/campaign-builder/blocks";
@@ -19,10 +19,12 @@ const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 export function PublicCampaignForm({
   token,
   blocks,
+  logo,
   initialValues,
 }: {
   token: string;
   blocks: Block[];
+  logo: ReactNode;
   initialValues: { dateOfBirth: string; address: string; email: string };
 }) {
   const [values, setValues] = useState(initialValues);
@@ -65,6 +67,7 @@ export function PublicCampaignForm({
         role="status"
         className="flex flex-col items-center gap-3 rounded-[10px] border bg-card px-6 py-12 text-center shadow-lg"
       >
+        {logo}
         <span className="flex size-14 items-center justify-center rounded-full bg-emerald-500/10">
           <Check className="size-7 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
         </span>
@@ -80,6 +83,8 @@ export function PublicCampaignForm({
       noValidate
       className="flex flex-col gap-6 rounded-[10px] border bg-card p-6 shadow-lg sm:p-8"
     >
+      {logo}
+
       {blocks.map((block) => (
         <BlockRenderer
           key={block.id}
