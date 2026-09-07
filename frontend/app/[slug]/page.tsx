@@ -27,11 +27,7 @@ export default async function PublicFormPage({ params }: { params: Promise<{ slu
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-6 px-4 py-8">
-      <header>
-        <SiteLogoHeader />
-      </header>
-
-      <PublicGenericForm slug={slug} fields={form.builderData.fields} />
+      <PublicGenericForm slug={slug} fields={form.builderData.fields} logo={<SiteLogoHeader />} />
     </div>
   );
 }

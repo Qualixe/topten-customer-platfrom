@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Check, RefreshCw } from "lucide-react";
 
 import { FieldRenderer, type GenericFormValues } from "@/components/form-builder/fields";
@@ -28,7 +28,15 @@ const MIN_ADDRESS_LENGTH = 10;
  * wired to real state and submitted to the open /public/forms/{slug}/submit
  * endpoint, which finds or creates a Customer by phone (no token, no
  * pre-existing customer required — unlike the campaign/token flow). */
-export function PublicGenericForm({ slug, fields }: { slug: string; fields: FormField[] }) {
+export function PublicGenericForm({
+  slug,
+  fields,
+  logo,
+}: {
+  slug: string;
+  fields: FormField[];
+  logo: ReactNode;
+}) {
   const [values, setValues] = useState<GenericFormValues>(EMPTY_VALUES);
   const [fieldErrors, setFieldErrors] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -98,6 +106,7 @@ export function PublicGenericForm({ slug, fields }: { slug: string; fields: Form
         role="status"
         className="flex flex-col items-center gap-3 rounded-[10px] border bg-card px-6 py-12 text-center shadow-lg"
       >
+        {logo}
         <span className="flex size-14 items-center justify-center rounded-full bg-emerald-500/10">
           <Check className="size-7 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
         </span>
@@ -113,6 +122,8 @@ export function PublicGenericForm({ slug, fields }: { slug: string; fields: Form
       noValidate
       className="flex flex-col gap-6 rounded-[10px] border bg-card p-6 shadow-lg sm:p-8"
     >
+      {logo}
+
       {fields.map((field) => (
         <FieldRenderer
           key={field.id}
