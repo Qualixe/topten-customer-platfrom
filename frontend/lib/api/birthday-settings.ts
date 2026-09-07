@@ -1,10 +1,13 @@
-import { apiGet, apiPost, apiPut } from "@/lib/api/client";
+import { apiGet, apiPut } from "@/lib/api/client";
 import type { ApiEnvelope } from "@/lib/api/types";
 
 export interface BirthdaySettings {
   notifyDaysBefore: number;
   autoSendMessage: boolean;
   messageTemplate: string;
+  autoSendEmail: boolean;
+  emailSubject: string;
+  emailMessageTemplate: string;
   autoAssignGift: boolean;
 }
 
@@ -18,25 +21,10 @@ export async function updateBirthdaySettings(input: BirthdaySettings): Promise<B
     notify_days_before: input.notifyDaysBefore,
     auto_send_message: input.autoSendMessage,
     message_template: input.messageTemplate,
+    auto_send_email: input.autoSendEmail,
+    email_subject: input.emailSubject,
+    email_message_template: input.emailMessageTemplate,
     auto_assign_gift: input.autoAssignGift,
   });
-  return envelope.data;
-}
-
-export interface SendBirthdayWishesReport {
-  total: number;
-  sent: number;
-  failed: number;
-  skippedAlreadySent: number;
-}
-
-/** Runs the exact same job the daily schedule runs, on demand — see
- * app.controllers.birthday_settings.send_now. Still a no-op unless
- * autoSendMessage is on and the SMS gateway is configured. */
-export async function sendBirthdayWishesNow(): Promise<SendBirthdayWishesReport> {
-  const envelope = await apiPost<ApiEnvelope<SendBirthdayWishesReport>>(
-    "/settings/birthday/send-now",
-    {}
-  );
   return envelope.data;
 }

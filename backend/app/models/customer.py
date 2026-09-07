@@ -83,7 +83,10 @@ class Customer(Base):
     # last sent — see app.services.birthday_wishes. A year is enough to
     # guarantee at most one auto-wish per customer per birthday and is
     # immune to timezone edge cases a timestamp comparison would have.
+    # SMS and email are tracked separately so enabling one channel later
+    # doesn't skip a customer who already got the other this year.
     last_birthday_wish_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_birthday_email_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     customer_type_id: Mapped[int] = mapped_column(
         ForeignKey("customer_types.id", ondelete="RESTRICT"), nullable=False, index=True
     )
