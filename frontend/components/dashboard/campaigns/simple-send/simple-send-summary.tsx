@@ -25,18 +25,25 @@ function SummaryRow({
 /** Compact recap of what was filled in on step 1 — step 2 is a separate
  * screen, so (unlike Quick Send's single page) those fields aren't visible
  * anymore without this. Cost, balance, and recipient count live in
- * QuickSendSendSection below this, not duplicated here. */
+ * QuickSendSendSection below this, not duplicated here. Campaign type is
+ * deliberately not shown — Channel is this composer's only categorization
+ * (see QuickSendDetailsSection's `hideCampaignType`). */
 export function SimpleSendSummary({
   campaignName,
-  campaignTypeLabel,
   audienceLabel,
+  channel,
   senderId,
+  subject,
 }: {
   campaignName: string;
-  campaignTypeLabel: string;
   audienceLabel: string;
-  senderId: string;
+  channel: "SMS" | "EMAIL";
+  /** Only meaningful for SMS. */
+  senderId?: string;
+  /** Only meaningful for EMAIL. */
+  subject?: string;
 }) {
+  const isEmail = channel === "EMAIL";
   return (
     <Card>
       <CardHeader>
@@ -45,9 +52,12 @@ export function SimpleSendSummary({
       </CardHeader>
       <CardContent className="flex flex-col gap-0 divide-y">
         <SummaryRow icon={MessageSquare} label="Campaign" value={campaignName} />
-        <SummaryRow icon={MessageSquare} label="Type" value={campaignTypeLabel} />
         <SummaryRow icon={Users} label="Audience" value={audienceLabel} />
-        <SummaryRow icon={Send} label="Sender ID" value={senderId} />
+        {isEmail ? (
+          <SummaryRow icon={Send} label="Subject" value={subject ?? ""} />
+        ) : (
+          <SummaryRow icon={Send} label="Sender ID" value={senderId ?? ""} />
+        )}
       </CardContent>
     </Card>
   );

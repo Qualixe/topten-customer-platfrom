@@ -11,6 +11,7 @@ import { QuickSendAudienceLocked } from "@/components/dashboard/campaigns/quick-
 import { QuickSendAudienceSection } from "@/components/dashboard/campaigns/quick-send/quick-send-audience-section";
 import { QuickSendConfirmation } from "@/components/dashboard/campaigns/quick-send/quick-send-confirmation";
 import { QuickSendDetailsSection } from "@/components/dashboard/campaigns/quick-send/quick-send-details-section";
+import { QuickSendEmailMessageSection } from "@/components/dashboard/campaigns/quick-send/quick-send-email-message-section";
 import { QuickSendMessageSection } from "@/components/dashboard/campaigns/quick-send/quick-send-message-section";
 import { QuickSendSendSection } from "@/components/dashboard/campaigns/quick-send/quick-send-send-section";
 import { SimpleSendStepIndicator, type SimpleSendStepId } from "@/components/dashboard/campaigns/simple-send/simple-send-step-indicator";
@@ -23,11 +24,20 @@ import {
   updateCampaign,
   type AudienceCounts,
   type AudienceRule,
+  type CampaignChannel,
   type CampaignType,
   type SmsCampaign,
 } from "@/lib/api/campaigns";
 import type { Customer } from "@/lib/api/customers";
 import type { SmsAccount } from "@/lib/api/sms-account";
+
+/** This composer no longer asks for a Campaign type — Channel (SMS/Email)
+ * is the only categorization it surfaces (see QuickSendDetailsSection's
+ * `hideCampaignType`). `campaignType` is still a required field on the
+ * backend (used by the NEVER_RECEIVED_TYPE / RECEIVED_TYPE_BEFORE_DATE
+ * audience rules), so every campaign created here is just tagged with
+ * this fixed default rather than exposing a choice nobody asked for. */
+const DEFAULT_CAMPAIGN_TYPE: CampaignType = "PROMOTIONAL";
 
 interface SimpleSendComposerProps {
   audienceCounts: AudienceCounts;
@@ -98,9 +108,13 @@ function isoToLocalInput(iso: string | null): string {
  * (/dashboard/campaigns/new) and the single-page Quick Send composer
  * (/dashboard/campaigns/quick-send): one step to fill in everything
  * (details, audience, message — the exact same sections Quick Send uses),
- * one step to review and send. See app/dashboard/campaigns/send. Also
- * doubles as the edit flow for an existing campaign (see `editCampaign`),
- * since it's the primary "New Campaign" entry point. */
+ * one step to review and send. See app/dashboard/campaigns/send. This is
+ * the primary "New Campaign" entry point, so — unlike Quick Send — it
+ * doesn't ask for a Campaign type at all; Channel (SMS/Email) is the only
+ * categorization shown, and every campaign gets a fixed campaign type
+ * behind the scenes (see DEFAULT_CAMPAIGN_TYPE above). Also doubles as the
+ * edit flow for an existing campaign (see `editCampaign`), with Channel
+ * locked the same way Campaign type used to be (frozen server-side). */
 export function SimpleSendComposer({
   audienceCounts,
   defaultSenderId,
@@ -116,29 +130,33 @@ export function SimpleSendComposer({
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
 
   const [campaignName, setCampaignName] = useState(editCampaign?.name ?? "");
-  const [campaignType, setCampaignType] = useState<CampaignType | "">(
-    editCampaign?.campaignType ?? ""
+  const [campaignType, setCampaignType] = useState<CampaignType>(
+    editCampaign?.campaignType ?? DEFAULT_CAMPAIGN_TYPE
   );
+  const [channel, setChannel] = useState<CampaignChannel>(editCampaign?.channel ?? "SMS");
   const [senderId, setSenderId] = useState(editCampaign?.senderId ?? defaultSenderId);
   const [audienceRule, setAudienceRule] = useState<AudienceRule | null>(null);
   const [pickedCustomers, setPickedCustomers] = useState<Customer[]>([]);
   const [recipientCount, setRecipientCount] = useState<number | null>(
     editCampaign?.totalRecipients ?? null
   );
-  const [message, setMessage] = useState(editCampaign?.message ?? "");
+  const [message, setMessage] = useState(editCampaign?.channel === "EMAIL" ? "" : (editCampaign?.message ?? ""));
+  const [subject, setSubject] = useState(editCampaign?.subject ?? "");
+  const [htmlBody, setHtmlBody] = useState(editCampaign?.channel === "EMAIL" ? (editCampaign?.message ?? "") : "");
   const [formId, setFormId] = useState("");
 
-  async function handleSubmit(mode: "now" | "schedule", scheduledAt?: string) {
-    if (!campaignType) return;
+  const isEmail = channel === "EMAIL";
 
+  async function handleSubmit(mode: "now" | "schedule", scheduledAt?: string) {
     const scheduledAtIso =
       mode === "now" ? new Date().toISOString() : new Date(scheduledAt!).toISOString();
 
     if (isEditing && editCampaign) {
       const updated = await updateCampaign(editCampaign.id, {
         name: campaignName,
-        message,
-        senderId,
+        message: isEmail ? htmlBody : message,
+        senderId: isEmail ? undefined : senderId,
+        subject: isEmail ? subject : undefined,
         scheduledAt: scheduledAtIso,
         status: "SCHEDULED",
       });
@@ -153,12 +171,16 @@ export function SimpleSendComposer({
       name: campaignName,
       campaignType,
       audienceRule,
-      channel: "SMS",
-      message,
-      senderId,
+      channel,
+      message: isEmail ? htmlBody : message,
+      senderId: isEmail ? undefined : senderId,
+      subject: isEmail ? subject : undefined,
       scheduledAt: scheduledAtIso,
       status: "SCHEDULED",
-      formId: formId || undefined,
+      // A Form's attached landing page only applies to the SMS
+      // {{form_link}} pipeline — Mailchimp emails have no per-campaign
+      // landing page/token concept.
+      formId: isEmail ? undefined : formId || undefined,
     });
 
     setConfirmation({
@@ -184,10 +206,10 @@ export function SimpleSendComposer({
 
   const canContinue =
     campaignName.trim().length > 0 &&
-    campaignType.length > 0 &&
-    senderId.trim().length > 0 &&
     (isEditing || audienceRule !== null) &&
-    message.trim().length > 0;
+    (isEmail
+      ? subject.trim().length > 0 && htmlBody.trim().length > 0
+      : senderId.trim().length > 0 && message.trim().length > 0);
 
   const canSend = canContinue;
 
@@ -245,6 +267,9 @@ export function SimpleSendComposer({
             onNameChange={setCampaignName}
             campaignType={campaignType}
             onCampaignTypeChange={setCampaignType}
+            hideCampaignType
+            channel={channel}
+            onChannelChange={isEditing ? undefined : setChannel}
             senderId={senderId}
             onSenderIdChange={setSenderId}
             campaignTypeLocked={isEditing}
@@ -263,15 +288,25 @@ export function SimpleSendComposer({
               pickedCustomers={pickedCustomers}
               onPickedCustomersChange={setPickedCustomers}
               onRecipientCountChange={setRecipientCount}
+              channel={channel}
             />
           )}
 
-          <QuickSendMessageSection
-            message={message}
-            onMessageChange={setMessage}
-            formId={formId}
-            onFormIdChange={setFormId}
-          />
+          {isEmail ? (
+            <QuickSendEmailMessageSection
+              subject={subject}
+              onSubjectChange={setSubject}
+              htmlBody={htmlBody}
+              onHtmlBodyChange={setHtmlBody}
+            />
+          ) : (
+            <QuickSendMessageSection
+              message={message}
+              onMessageChange={setMessage}
+              formId={formId}
+              onFormIdChange={setFormId}
+            />
+          )}
 
           <div className="flex justify-end">
             <Button onClick={() => setStep(2)} disabled={!canContinue}>
@@ -281,21 +316,23 @@ export function SimpleSendComposer({
         </div>
       )}
 
-      {step === 2 && campaignType && (isEditing || audienceRule) && (
+      {step === 2 && (isEditing || audienceRule) && (
         <div className="flex flex-col gap-3">
           <SimpleSendSummary
             campaignName={campaignName}
-            campaignTypeLabel={CAMPAIGN_TYPE_LABELS[campaignType]}
             audienceLabel={audienceLabel}
+            channel={channel}
             senderId={senderId}
+            subject={subject}
           />
 
           <QuickSendSendSection
             recipientCount={recipientCount}
-            message={message}
+            message={isEmail ? htmlBody : message}
             ratePerSegmentBdt={ratePerSegmentBdt}
             smsAccount={smsAccount}
             canSend={canSend}
+            channel={channel}
             onSubmit={handleSubmit}
             onBack={() => setStep(1)}
             initialSendMode={isEditing && editCampaign?.scheduledAt ? "schedule" : "now"}

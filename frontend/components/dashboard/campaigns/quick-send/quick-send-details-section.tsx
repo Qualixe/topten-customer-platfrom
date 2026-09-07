@@ -31,11 +31,12 @@ const CHANNEL_LABELS: Record<CampaignChannel, string> = {
   EMAIL: "Email",
 };
 
-/** Details section of the single-page Quick Send composer — same fields as
- * the wizard's StepDetails, plus a channel picker the wizard deliberately
- * doesn't have (that one's staying SMS-only; Quick Send is where SMS and
- * Mailchimp-backed email campaigns both live) — and minus the
- * "Continue"-gated form, since every section is visible at once here. */
+/** Details section shared by the single-page Quick Send composer and the
+ * 2-step SimpleSendComposer ("New Campaign") — name, an optional Channel
+ * (SMS/Email) picker, an optional Campaign type picker (hidden by
+ * SimpleSendComposer via `hideCampaignType`, which uses Channel as its
+ * only categorization instead — see DEFAULT_CAMPAIGN_TYPE there), and
+ * Sender ID for SMS. */
 export function QuickSendDetailsSection({
   name,
   onNameChange,
@@ -50,18 +51,24 @@ export function QuickSendDetailsSection({
    * recipient snapshot is resolved from them) and rejects any change.
    * Name and Sender ID stay editable either way. */
   campaignTypeLocked = false,
+  /** Hides the Campaign type select entirely — Channel (SMS/Email) is the
+   * only categorization this composer surfaces; `campaignType` is still
+   * tracked internally (a fixed default), just not exposed here. */
+  hideCampaignType = false,
 }: {
   name: string;
   onNameChange: (value: string) => void;
   campaignType: CampaignType | "";
   onCampaignTypeChange: (value: CampaignType) => void;
   channel?: CampaignChannel;
-  /** Omit to hide the Channel picker entirely and stay SMS-only (e.g. the
-   * 2-step SimpleSendComposer, which deliberately doesn't offer email). */
+  /** Omit to hide the Channel picker entirely and stay SMS-only — used
+   * only while editing an existing campaign, since channel is frozen at
+   * creation just like campaign type. */
   onChannelChange?: (value: CampaignChannel) => void;
   senderId: string;
   onSenderIdChange: (value: string) => void;
   campaignTypeLocked?: boolean;
+  hideCampaignType?: boolean;
 }) {
   return (
     <Card>
@@ -82,28 +89,30 @@ export function QuickSendDetailsSection({
           />
         </FormField>
 
-        <FormField
-          htmlFor="quick-send-type"
-          label="Campaign type"
-          description={campaignTypeLocked ? "Locked — can't change after a campaign is created." : undefined}
-        >
-          <Select
-            value={campaignType}
-            onValueChange={(value) => onCampaignTypeChange(value as CampaignType)}
-            disabled={campaignTypeLocked}
+        {!hideCampaignType && (
+          <FormField
+            htmlFor="quick-send-type"
+            label="Campaign type"
+            description={campaignTypeLocked ? "Locked — can't change after a campaign is created." : undefined}
           >
-            <SelectTrigger id="quick-send-type" className={'w-full'}>
-              <SelectValue placeholder="Select a type" />
-            </SelectTrigger>
-            <SelectContent>
-              {CAMPAIGN_TYPE_OPTIONS.map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
+            <Select
+              value={campaignType}
+              onValueChange={(value) => onCampaignTypeChange(value as CampaignType)}
+              disabled={campaignTypeLocked}
+            >
+              <SelectTrigger id="quick-send-type" className={'w-full'}>
+                <SelectValue placeholder="Select a type" />
+              </SelectTrigger>
+              <SelectContent>
+                {CAMPAIGN_TYPE_OPTIONS.map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+        )}
 
         {onChannelChange && (
           <FormField
