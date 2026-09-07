@@ -61,17 +61,25 @@ async def _require_credentials(db: AsyncSession) -> dict:
     return row.data
 
 
-async def _require_campaign_credentials(db: AsyncSession) -> dict:
+async def campaign_credentials_missing_fields(db: AsyncSession) -> list[str]:
+    """Non-raising check for the required campaign-sending credential
+    fields — used by pre-send validation (see
+    app.services.campaign_send_validation) to report "not configured" as
+    one of several possible blocking reasons, rather than aborting via an
+    exception the way `_require_campaign_credentials` does for the actual
+    send path."""
     row = await get_or_create_credential_row(db, MAILCHIMP_PROVIDER)
-    missing = [
-        field for field in _REQUIRED_CAMPAIGN_CREDENTIAL_FIELDS if not row.data.get(field)
-    ]
+    return [field for field in _REQUIRED_CAMPAIGN_CREDENTIAL_FIELDS if not row.data.get(field)]
+
+
+async def _require_campaign_credentials(db: AsyncSession) -> dict:
+    missing = await campaign_credentials_missing_fields(db)
     if missing:
         raise ValidationAppError(
             "Save Mailchimp credentials (API key, Audience ID, From Name, and Reply-To email) "
             "in Settings before sending a campaign."
         )
-    return row.data
+    return (await get_or_create_credential_row(db, MAILCHIMP_PROVIDER)).data
 
 
 async def check_list_status(data: dict) -> tuple[bool, str | None]:

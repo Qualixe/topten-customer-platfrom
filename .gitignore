@@ -17,6 +17,7 @@ frontend/.env*.local
 # General
 .env
 .env.prod
+nginx/certs/
 .DS_Store
 *.log
 .vscode/

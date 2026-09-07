@@ -126,34 +126,55 @@ async def test_successful_send_marks_recipients_sent_and_campaign_completed(
     _, kwargs = mock_send.call_args
     assert kwargs["customer_ids"] == [customer.public_id]
     assert kwargs["subject"] == "A subject line"
-    assert kwargs["html_body"] == "<p>Hello!</p>"
+    # The raw body is rendered into TopTen's own branded layout before
+    # being sent — not passed through to Mailchimp verbatim.
+    assert "<p>Hello!</p>" in kwargs["html_body"]
+    assert "<!DOCTYPE html>" in kwargs["html_body"]
 
 
 async def test_partial_failure_marks_only_that_recipient_failed(
     db_session: AsyncSession,
 ) -> None:
+    """Each recipient gets their own `create_and_send_campaign` call (for
+    per-recipient personalization) — the mock returns a different report
+    depending on which single customer_id it was called with."""
     reached = await _add_customer(db_session, name="Reached", email="reached@example.com")
     skipped = await _add_customer(db_session, name="Skipped", email="skipped@example.com")
     campaign = await _create_resolved_email_campaign(db_session, [reached, skipped])
 
-    mock_report = SendCampaignReport(
-        total=2,
-        sent=1,
-        failed=1,
-        items=[
-            SyncItemResult(
-                customer_id=reached.public_id, email=reached.email, success=True, message="OK"
-            ),
-            SyncItemResult(
-                customer_id=skipped.public_id,
-                email="",
-                success=False,
-                message="Not eligible — needs marketing opt-in and a saved email address.",
-            ),
-        ],
-    )
+    def _report_for(*_args, customer_ids, **_kwargs) -> SendCampaignReport:
+        customer_id = customer_ids[0]
+        if customer_id == reached.public_id:
+            return SendCampaignReport(
+                total=1,
+                sent=1,
+                failed=0,
+                items=[
+                    SyncItemResult(
+                        customer_id=reached.public_id,
+                        email=reached.email,
+                        success=True,
+                        message="OK",
+                    )
+                ],
+            )
+        return SendCampaignReport(
+            total=1,
+            sent=0,
+            failed=1,
+            items=[
+                SyncItemResult(
+                    customer_id=skipped.public_id,
+                    email="",
+                    success=False,
+                    message="Not eligible — needs marketing opt-in and a saved email address.",
+                )
+            ],
+        )
+
     with patch(
-        "app.tasks.sms_campaigns.create_and_send_campaign", new=AsyncMock(return_value=mock_report)
+        "app.tasks.sms_campaigns.create_and_send_campaign",
+        new=AsyncMock(side_effect=_report_for),
     ):
         await send_campaign_messages_async(campaign.id, session_factory=TestSessionLocal)
 

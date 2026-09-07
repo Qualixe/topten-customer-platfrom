@@ -15,6 +15,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CampaignStatusBadge } from "@/components/dashboard/campaigns/campaign-status-badge";
+import { EmailBodyEditor } from "@/components/dashboard/campaigns/email-body-editor";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
 import type { StatDefinition } from "@/components/dashboard/stats-grid";
@@ -113,7 +114,12 @@ export default async function CampaignDetailPage({
             </p>
           </div>
         </div>
-        {canManage && (
+        {/* An EMAIL campaign's configuration (name, audience, type,
+         * recipients, landing page) is system-controlled — no Edit or
+         * Landing Page Builder link for it; the email-body-only editor
+         * below is the only thing an admin can change. SMS campaigns keep
+         * their existing full-edit flow, unaffected. */}
+        {canManage && campaign.channel === "SMS" && (
           <div className="flex items-center gap-2">
             {(campaign.status === "DRAFT" || campaign.status === "SCHEDULED") && (
               <Button
@@ -139,14 +145,30 @@ export default async function CampaignDetailPage({
       <StatsSectionCard title="Delivery" stats={deliveryStats} />
       <StatsSectionCard title="Verification" stats={verificationStats} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Message</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm whitespace-pre-wrap text-muted-foreground">{campaign.message}</p>
-        </CardContent>
-      </Card>
+      {campaign.channel === "EMAIL" ? (
+        canManage ? (
+          <EmailBodyEditor initialCampaign={campaign} />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Email content</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">Subject: {campaign.subject}</p>
+              <p className="text-sm whitespace-pre-wrap text-muted-foreground">{campaign.message}</p>
+            </CardContent>
+          </Card>
+        )
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Message</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap text-muted-foreground">{campaign.message}</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { SimpleSendComposer } from "@/components/dashboard/campaigns/simple-send/simple-send-composer";
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
@@ -67,6 +67,11 @@ export default async function EditCampaignPage({
 
   if (campaignResult === NOT_FOUND) notFound();
   const campaign = campaignResult;
+
+  // An EMAIL campaign's configuration is system-controlled — there's
+  // nothing left for this full composer to edit. Its email body is
+  // edited inline on the detail page instead (see EmailBodyEditor).
+  if (campaign.channel === "EMAIL") redirect(backHref);
 
   // Once a campaign is out of DRAFT/SCHEDULED it's already sending or done
   // — its recipient snapshot has been acted on, so nothing here is safe to

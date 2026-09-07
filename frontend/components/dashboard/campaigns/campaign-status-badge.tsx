@@ -13,8 +13,8 @@ const STATUS_TONE: Record<SmsCampaignStatus, StatusTone> = {
 const STATUS_LABEL: Record<SmsCampaignStatus, string> = {
   DRAFT: "Draft",
   SCHEDULED: "Scheduled",
-  PROCESSING: "Processing",
-  COMPLETED: "Completed",
+  PROCESSING: "Sending",
+  COMPLETED: "Sent",
   FAILED: "Failed",
   CANCELLED: "Cancelled",
 };

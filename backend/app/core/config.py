@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     # (e.g. {FRONTEND_BASE_URL}/campaign/{slug}?token={token}).
     FRONTEND_BASE_URL: str = "http://localhost:3000"
 
+    # This API's own public origin (no path prefix) — used to build
+    # absolute asset URLs (e.g. the site logo) for content that leaves the
+    # app entirely, like an outbound campaign email, where a relative
+    # `/branding/...` path wouldn't resolve for the recipient.
+    API_PUBLIC_BASE_URL: str = "http://localhost:8000"
+
     API_V1_PREFIX: str = "/api/v1"
 
     SECRET_KEY: str = _DEFAULT_SECRET_KEY

@@ -323,6 +323,44 @@ export async function deleteCampaign(id: string): Promise<void> {
   await apiDelete<void>(`/sms/campaigns/${id}`);
 }
 
+/** Whether `sendCampaignEmail` would succeed right now for this EMAIL
+ * campaign, and why not if not — for a live "Ready to send" state on the
+ * campaign detail page. */
+export interface CampaignSendReadiness {
+  ready: boolean;
+  reasons: string[];
+}
+
+export async function getCampaignSendReadiness(id: string): Promise<CampaignSendReadiness> {
+  const envelope = await apiGet<ApiEnvelope<CampaignSendReadiness>>(
+    `/sms/campaigns/${id}/send-readiness`
+  );
+  return envelope.data;
+}
+
+/** Validates and queues the real send for an EMAIL campaign — the only
+ * way one actually goes out; there's no more "set status=SCHEDULED"
+ * shortcut. Throws (422) with every blocking reason joined into one
+ * message if the campaign isn't ready (see `getCampaignSendReadiness` to
+ * check first). The backend guards against a second call for the same
+ * campaign racing this one — the campaign's own recipient snapshot is
+ * always what's used, never anything the frontend sends. */
+export async function sendCampaignEmail(id: string): Promise<SmsCampaign> {
+  const envelope = await apiPost<ApiEnvelope<SmsCampaignDto>>(`/sms/campaigns/${id}/send-email`, {});
+  return mapDtoToCampaign(envelope.data);
+}
+
+/** Sends this EMAIL campaign's current subject/body — rendered through the
+ * same TopTen layout and personalization a real send uses, with
+ * placeholder recipient values — to real inboxes for review. Reaches no
+ * actual campaign recipient. Defaults to the requesting admin's own
+ * address when `testEmails` is omitted. */
+export async function previewCampaignEmail(id: string, testEmails?: string[]): Promise<void> {
+  await apiPost<void>(`/sms/campaigns/${id}/preview-email`, {
+    test_emails: testEmails,
+  });
+}
+
 export interface AudienceCounts {
   general: number;
   vip: number;

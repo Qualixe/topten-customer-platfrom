@@ -34,6 +34,9 @@ __all__ = [
     "CampaignRecipientsListResponse",
     "CampaignStats",
     "CampaignStatsResponse",
+    "CampaignSendReadiness",
+    "CampaignSendReadinessResponse",
+    "PreviewEmailRequest",
 ]
 
 
@@ -286,6 +289,28 @@ class CampaignStatsResponse(BaseModel):
     success: bool = True
     data: CampaignStats
     meta: dict = {}
+
+
+class CampaignSendReadiness(BaseModel):
+    """Whether `POST /{campaign_id}/send-email` would succeed right now —
+    see app.services.campaign_send_validation.validate_email_campaign_for_send,
+    the single source of truth this and the send endpoint both read."""
+
+    ready: bool
+    reasons: list[str]
+
+
+class CampaignSendReadinessResponse(BaseModel):
+    success: bool = True
+    data: CampaignSendReadiness
+    meta: dict = {}
+
+
+class PreviewEmailRequest(BaseModel):
+    """Empty/omitted `test_emails` defaults to the requesting admin's own
+    address — see the endpoint."""
+
+    test_emails: list[str] | None = Field(default=None, min_length=1, max_length=10)
 
 
 class SmsOverviewStats(BaseModel):

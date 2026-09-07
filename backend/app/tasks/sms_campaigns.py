@@ -44,6 +44,7 @@ from app.models.campaign import Campaign, CampaignChannel, CampaignStatus
 from app.models.campaign_landing_page import CampaignLandingPage
 from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientStatus
 from app.models.customer import Customer
+from app.services.campaign_email import get_email_branding, render_campaign_email
 from app.services.mailchimp_sync import create_and_send_campaign
 from app.services.sms_campaigns import (
     SMS_GATEWAY_PROVIDER,
@@ -295,16 +296,28 @@ async def send_campaign_messages_async(
 
 async def _send_email_campaign(session: AsyncSession, campaign: Campaign) -> None:
     """The EMAIL counterpart to the SMS loop above — same PENDING-recipient
-    snapshot, but sent in one shot through Mailchimp's Campaigns API (see
-    app.services.mailchimp_sync.create_and_send_campaign) rather than one
-    request per recipient, since that's how Mailchimp campaigns work: a
-    single campaign object addressed to a segment, not a per-recipient
-    send call. Only a hard failure before Mailchimp actually sends
-    anything (missing credentials, segment/campaign/content-setup errors)
-    fails the whole campaign — once `send_campaign` itself has been called
-    successfully, every recipient's own PENDING/SENT/FAILED status instead
-    reflects whether Mailchimp actually had a deliverable address for
-    them (opted in, has an email on file)."""
+    snapshot, but each recipient gets their own Mailchimp "campaign of
+    one" (see app.services.mailchimp_sync.create_and_send_campaign) rather
+    than one shared campaign for the whole batch, since that's what makes
+    genuine per-recipient personalization (customer_name, a unique
+    profile_link) possible — the same pattern app.services.birthday_wishes
+    already uses for personalized birthday emails. A raw-HTML campaign's
+    body is rendered into TopTen's own branded layout
+    (app.services.campaign_email) before every send; a Mailchimp-template-
+    attached campaign keeps sending its template/sections as authored (no
+    per-recipient substitution there — Mailchimp's own template design
+    isn't token-aware).
+
+    Committed once per recipient, immediately after that recipient's send
+    attempt resolves — a retried/redelivered task only ever finds true
+    PENDING rows left to (re-)attempt, so this is safe to run again after
+    a crash without re-sending anyone already SENT/FAILED. A
+    `ValidationAppError` (missing credentials, an unreachable Audience,
+    segment/campaign-creation failure, ...) is never a *this recipient's*
+    problem — it's fatal for every remaining recipient too, so it stops
+    the loop immediately rather than repeating the same failure for each
+    one; whoever hasn't been attempted yet (this one included) stays
+    PENDING for a later retry once the underlying issue is fixed."""
     campaign.status = CampaignStatus.PROCESSING.value
     await session.commit()
 
@@ -316,6 +329,7 @@ async def _send_email_campaign(session: AsyncSession, campaign: Campaign) -> Non
                 CampaignRecipient.campaign_id == campaign.id,
                 CampaignRecipient.status == CampaignRecipientStatus.PENDING.value,
             )
+            .order_by(CampaignRecipient.id)
             .with_for_update(of=CampaignRecipient, skip_locked=True)
         )
     ).all()
@@ -325,41 +339,84 @@ async def _send_email_campaign(session: AsyncSession, campaign: Campaign) -> Non
         await session.commit()
         return
 
-    recipient_by_customer_id = {public_id: recipient for recipient, public_id in pending}
-
-    try:
-        report = await create_and_send_campaign(
-            session,
-            customer_ids=list(recipient_by_customer_id.keys()),
-            subject=campaign.subject or "",
-            # Either raw HTML or an attached Mailchimp template — see
-            # CampaignCreate's docstring, exactly one is ever set.
-            html_body=campaign.message if campaign.mailchimp_template_id is None else None,
-            template_id=campaign.mailchimp_template_id,
-            template_sections=campaign.mailchimp_template_sections,
+    # Only a published landing page gets a link — same rule the SMS loop
+    # above uses for {{form_link}}; profile_link falls back to the generic
+    # customer profile page when this campaign has none.
+    landing_page = (
+        await session.execute(
+            select(CampaignLandingPage).where(
+                CampaignLandingPage.campaign_id == campaign.id,
+                CampaignLandingPage.published.is_(True),
+            )
         )
-    except ValidationAppError:
-        # Nothing was sent — every PENDING recipient stays exactly that,
-        # so a later manual retry (once credentials/etc. are fixed) has a
-        # clean set to work from rather than a batch already marked FAILED.
-        campaign.status = CampaignStatus.FAILED.value
-        await session.commit()
-        return
+    ).scalar_one_or_none()
 
-    now = datetime.now(UTC)
-    for item in report.items:
-        recipient = recipient_by_customer_id.get(item.customer_id)
-        if recipient is None:
-            continue
-        if item.success:
+    company_name, company_logo = await get_email_branding(session)
+
+    fatal_error: str | None = None
+    for recipient, customer_public_id in pending:
+        if campaign.mailchimp_template_id is None:
+            token = await get_or_create_campaign_profile_token(
+                session, customer_id=recipient.customer_id, campaign_id=campaign.id
+            )
+            if landing_page is not None:
+                profile_link = (
+                    f"{settings.FRONTEND_BASE_URL}/campaign/{landing_page.slug}"
+                    f"?token={token.token}"
+                )
+            else:
+                profile_link = f"{settings.FRONTEND_BASE_URL}/customer/{token.token}"
+
+            html_body = render_campaign_email(
+                campaign.message,
+                customer_name=recipient.name,
+                profile_link=profile_link,
+                campaign_name=campaign.name,
+                company_name=company_name,
+                company_logo=company_logo,
+            )
+            template_id = None
+            template_sections = None
+        else:
+            # A Mailchimp template's design/sections aren't token-aware —
+            # sent exactly as authored, same as before this per-recipient
+            # rewrite.
+            html_body = None
+            template_id = campaign.mailchimp_template_id
+            template_sections = campaign.mailchimp_template_sections
+
+        try:
+            report = await create_and_send_campaign(
+                session,
+                customer_ids=[customer_public_id],
+                subject=campaign.subject or "",
+                html_body=html_body,
+                template_id=template_id,
+                template_sections=template_sections,
+            )
+        except ValidationAppError as exc:
+            fatal_error = str(exc)
+            break
+
+        now = datetime.now(UTC)
+        item = report.items[0] if report.items else None
+        if item is not None and item.success:
             recipient.status = CampaignRecipientStatus.SENT.value
             recipient.sent_at = now
         else:
             recipient.status = CampaignRecipientStatus.FAILED.value
             recipient.failed_at = now
-            recipient.failure_reason = item.message[:500]
+            recipient.failure_reason = (item.message if item is not None else "Not sent")[:500]
+        await session.commit()
 
-    campaign.status = CampaignStatus.COMPLETED.value
+    if fatal_error is not None:
+        # Nothing further was attempted — every recipient not already
+        # SENT/FAILED above stays PENDING, so a later manual retry (once
+        # credentials/etc. are fixed) only has to reach the ones that
+        # never got a chance.
+        campaign.status = CampaignStatus.FAILED.value
+    else:
+        campaign.status = CampaignStatus.COMPLETED.value
     await session.commit()
 
 

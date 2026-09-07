@@ -129,25 +129,42 @@ async def test_email_stats_counts_sent_and_failed_from_local_rows(
         subject="Subject",
     )
 
-    mock_report = SendCampaignReport(
-        total=2,
-        sent=1,
-        failed=1,
-        items=[
-            SyncItemResult(
-                customer_id=customer_ok.public_id, email="a@example.com", success=True, message="OK"
-            ),
-            SyncItemResult(
-                customer_id=customer_bad.public_id,
-                email="b@example.com",
-                success=False,
-                message="bounced",
-            ),
-        ],
-        campaign_url=None,
-    )
+    # Each recipient gets its own `create_and_send_campaign` call (for
+    # per-recipient personalization) — the mock returns a different report
+    # depending on which single customer_id it was called with.
+    def _report_for(*_args, customer_ids, **_kwargs) -> SendCampaignReport:
+        customer_id = customer_ids[0]
+        if customer_id == customer_ok.public_id:
+            return SendCampaignReport(
+                total=1,
+                sent=1,
+                failed=0,
+                items=[
+                    SyncItemResult(
+                        customer_id=customer_ok.public_id,
+                        email="a@example.com",
+                        success=True,
+                        message="OK",
+                    )
+                ],
+            )
+        return SendCampaignReport(
+            total=1,
+            sent=0,
+            failed=1,
+            items=[
+                SyncItemResult(
+                    customer_id=customer_bad.public_id,
+                    email="b@example.com",
+                    success=False,
+                    message="bounced",
+                )
+            ],
+        )
+
     with patch(
-        "app.tasks.sms_campaigns.create_and_send_campaign", new=AsyncMock(return_value=mock_report)
+        "app.tasks.sms_campaigns.create_and_send_campaign",
+        new=AsyncMock(side_effect=_report_for),
     ):
         await send_campaign_messages_async(campaign.id, session_factory=TestSessionLocal)
 

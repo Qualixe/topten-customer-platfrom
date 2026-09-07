@@ -8,12 +8,25 @@ from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.dependencies import get_db, require_permission
-from app.common.exceptions import NotFoundError
-from app.models.campaign import AudienceRuleType, Campaign, CampaignChannel, CampaignType
+from app.common.exceptions import NotFoundError, ValidationAppError
+from app.models import User
+from app.models.campaign import (
+    AudienceRuleType,
+    Campaign,
+    CampaignChannel,
+    CampaignStatus,
+    CampaignType,
+)
 from app.models.campaign_landing_page import CampaignLandingPage
 from app.services import campaign_landing_pages as landing_page_service
 from app.services import forms as forms_service
 from app.services import sms_campaigns as service
+from app.services.campaign_email import get_email_branding, render_campaign_email
+from app.services.campaign_send_validation import (
+    queue_email_campaign_send,
+    validate_email_campaign_for_send,
+)
+from app.services.mailchimp_sync import send_test_campaign
 from app.services.sms_campaigns_audience import AudienceRule, resolve_since_campaign
 from app.services.sms_campaigns_sms_utils import estimate_sms_cost
 from app.tasks.sms_campaigns import (
@@ -40,16 +53,30 @@ from app.views.sms_campaigns import (
     CampaignRecipientsListResponse,
     CampaignRecipientsMeta,
     CampaignResponse,
+    CampaignSendReadiness,
+    CampaignSendReadinessResponse,
     CampaignsListResponse,
     CampaignsMeta,
     CampaignStatsResponse,
     CampaignUpdate,
     DispatchScheduledReport,
     DispatchScheduledResponse,
+    PreviewEmailRequest,
     SmsOverviewStatsResponse,
 )
 
 router = APIRouter()
+
+# Fields still editable via PATCH once an EMAIL campaign exists — its
+# email content only. Everything else (name, audience rule, campaign
+# type, channel, scheduling, status) is system-controlled: set once at
+# creation and frozen from then on, same as the recipient snapshot it
+# produces. SMS campaigns are unaffected by this — see `update_campaign`.
+_EMAIL_EDITABLE_FIELDS = {"message", "subject", "mailchimp_template_sections"}
+# Once an EMAIL campaign has started (or finished) sending, even its
+# content is frozen — the recipients already reached can't un-receive
+# what they were sent.
+_EMAIL_EDITABLE_STATUSES = (CampaignStatus.DRAFT.value, CampaignStatus.FAILED.value)
 
 
 def _audience_rule_query(
@@ -299,6 +326,20 @@ async def update_campaign(
     campaign = await _get_campaign_or_404(db, campaign_id)
     updates = payload.model_dump(exclude_unset=True)
 
+    if campaign.channel == CampaignChannel.EMAIL.value:
+        disallowed = sorted(set(updates) - _EMAIL_EDITABLE_FIELDS)
+        if disallowed:
+            raise ValidationAppError(
+                f"Cannot modify {', '.join(disallowed)} on an EMAIL campaign — its name, "
+                "audience, type, and schedule are system-controlled and can't be edited. "
+                "Only the email subject and body can be changed."
+            )
+        if updates and campaign.status not in _EMAIL_EDITABLE_STATUSES:
+            raise ValidationAppError(
+                "This campaign has already been sent or is currently sending — its email "
+                "content can no longer be edited."
+            )
+
     if updates.get("status") is not None:
         updates["status"] = updates["status"].value
 
@@ -374,6 +415,102 @@ async def get_campaign_stats(
     return CampaignStatsResponse(data=stats)
 
 
+@router.get("/{campaign_id}/send-readiness", response_model=CampaignSendReadinessResponse)
+async def get_campaign_send_readiness(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.view")),
+) -> CampaignSendReadinessResponse:
+    """Whether `POST /{campaign_id}/send-email` would succeed right now, and
+    why not if not — for the campaign detail page to show a live "Ready to
+    send" state (or its blocking reasons) before the admin clicks Send."""
+    campaign = await _get_campaign_or_404(db, campaign_id)
+    reasons = await validate_email_campaign_for_send(db, campaign)
+    return CampaignSendReadinessResponse(
+        data=CampaignSendReadiness(ready=not reasons, reasons=reasons)
+    )
+
+
+@router.post(
+    "/{campaign_id}/send-email",
+    response_model=CampaignResponse,
+    status_code=http_status.HTTP_202_ACCEPTED,
+)
+async def send_email_campaign(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.manage")),
+) -> CampaignResponse:
+    """Validates and, if clean, queues the real send — the only way an
+    EMAIL campaign actually goes out under the locked-down campaign
+    system (no more scheduling/status fields exposed for admins to set
+    directly). Row-locks the campaign for the duration of the validate +
+    status-flip so two concurrent clicks can't both queue a send for the
+    same campaign — see
+    app.services.campaign_send_validation.queue_email_campaign_send."""
+    campaign = (
+        await db.execute(
+            select(Campaign).where(Campaign.public_id == campaign_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if campaign is None:
+        raise NotFoundError("Campaign not found")
+
+    await queue_email_campaign_send(db, campaign)
+    await db.refresh(campaign)
+    return CampaignResponse(data=CampaignRead.model_validate(campaign))
+
+
+@router.post("/{campaign_id}/preview-email", status_code=http_status.HTTP_204_NO_CONTENT)
+async def preview_email_campaign(
+    campaign_id: UUID,
+    payload: PreviewEmailRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("campaigns.manage")),
+) -> None:
+    """A real Mailchimp test-send of this campaign's current content,
+    rendered through the same TopTen layout/personalization a real send
+    uses (with placeholder recipient values, since a preview has no real
+    recipient) — reuses app.services.mailchimp_sync.send_test_campaign,
+    the same "send a test" path the Marketing page already uses. Defaults
+    to the requesting admin's own address when none is given."""
+    campaign = await _get_campaign_or_404(db, campaign_id)
+    if campaign.channel != CampaignChannel.EMAIL.value:
+        raise ValidationAppError("Only EMAIL campaigns can be previewed.")
+    if campaign.mailchimp_template_id is None and not (campaign.message or "").strip():
+        raise ValidationAppError("This campaign has no email body yet.")
+    if not (campaign.subject or "").strip():
+        raise ValidationAppError("This campaign has no email subject yet.")
+
+    test_emails = payload.test_emails or [current_user.email]
+
+    if campaign.mailchimp_template_id is None:
+        company_name, company_logo = await get_email_branding(db)
+        html_body = render_campaign_email(
+            campaign.message,
+            customer_name="Sample Customer",
+            profile_link="#",
+            campaign_name=campaign.name,
+            company_name=company_name,
+            company_logo=company_logo,
+        )
+        template_id = None
+        template_sections = None
+    else:
+        html_body = None
+        template_id = campaign.mailchimp_template_id
+        template_sections = campaign.mailchimp_template_sections
+
+    await send_test_campaign(
+        db,
+        test_emails=test_emails,
+        subject=campaign.subject or "",
+        html_body=html_body,
+        template_id=template_id,
+        template_sections=template_sections,
+    )
+
+
 def _landing_page_to_read(
     campaign: Campaign, landing_page: CampaignLandingPage
 ) -> CampaignLandingPageRead:
@@ -414,6 +551,11 @@ async def create_campaign_landing_page(
     _: object = Depends(require_permission("campaigns.manage")),
 ) -> CampaignLandingPageResponse:
     campaign = await _get_campaign_or_404(db, campaign_id)
+    if campaign.channel == CampaignChannel.EMAIL.value:
+        raise ValidationAppError(
+            "Landing page configuration is system-controlled for an EMAIL campaign and can't "
+            "be changed."
+        )
     landing_page = await landing_page_service.create_landing_page(
         db,
         campaign_id=campaign.id,
@@ -433,6 +575,11 @@ async def update_campaign_landing_page(
     _: object = Depends(require_permission("campaigns.manage")),
 ) -> CampaignLandingPageResponse:
     campaign = await _get_campaign_or_404(db, campaign_id)
+    if campaign.channel == CampaignChannel.EMAIL.value:
+        raise ValidationAppError(
+            "Landing page configuration is system-controlled for an EMAIL campaign and can't "
+            "be changed."
+        )
     landing_page = await landing_page_service.get_landing_page_by_campaign_id(db, campaign.id)
     if landing_page is None:
         raise NotFoundError("This campaign has no landing page yet")
@@ -471,6 +618,11 @@ async def attach_form_to_campaign(
     warn the admin.
     """
     campaign = await _get_campaign_or_404(db, campaign_id)
+    if campaign.channel == CampaignChannel.EMAIL.value:
+        raise ValidationAppError(
+            "Landing page configuration is system-controlled for an EMAIL campaign and can't "
+            "be changed."
+        )
     form = await forms_service.get_form_by_public_id(db, form_id)
     if form is None:
         raise NotFoundError("Form not found")
