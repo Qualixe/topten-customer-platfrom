@@ -237,3 +237,69 @@ async def test_standalone_form_verification_excluded_when_filtering_by_campaign(
     )
     data = response.json()["data"]
     assert [row["name"] for row in data] == ["Via Campaign"]
+
+
+async def test_verified_customers_dedupes_two_campaigns_keeping_the_latest(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Same customer, verified through two different campaigns — used to
+    show up twice; now collapses to one row showing whichever verification
+    happened last."""
+    customer = await _create_customer(db_session, name="Rahim", phone="+8801711000115")
+    earlier_campaign = await _create_campaign(db_session, name="Earlier Campaign")
+    later_campaign = await _create_campaign(db_session, name="Later Campaign")
+
+    earlier_recipient = CampaignRecipient(
+        campaign_id=earlier_campaign.id,
+        customer_id=customer.id,
+        phone=customer.phone,
+        name=customer.name,
+        verification_status="VERIFIED",
+        verified_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    later_recipient = CampaignRecipient(
+        campaign_id=later_campaign.id,
+        customer_id=customer.id,
+        phone=customer.phone,
+        name=customer.name,
+        verification_status="VERIFIED",
+        verified_at=datetime(2026, 6, 1, tzinfo=UTC),
+    )
+    db_session.add_all([earlier_recipient, later_recipient])
+    await db_session.commit()
+
+    response = await client.get("/api/v1/customers/verified")
+    data = response.json()["data"]
+    assert [row["name"] for row in data] == ["Rahim"]
+    assert data[0]["campaign_name"] == "Later Campaign"
+
+
+async def test_verified_customers_dedupes_campaign_and_standalone_form(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Same customer, verified via a campaign form and (later) the
+    standalone Forms feature — collapses to one row for the later,
+    standalone verification instead of showing both."""
+    campaign = await _create_campaign(db_session, name="Old Campaign")
+    customer = await _create_customer(
+        db_session,
+        name="Karim",
+        phone="+8801711000116",
+        form_verified_at=datetime(2026, 6, 1, tzinfo=UTC),
+    )
+    earlier_recipient = CampaignRecipient(
+        campaign_id=campaign.id,
+        customer_id=customer.id,
+        phone=customer.phone,
+        name=customer.name,
+        verification_status="VERIFIED",
+        verified_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    db_session.add(earlier_recipient)
+    await db_session.commit()
+
+    response = await client.get("/api/v1/customers/verified")
+    data = response.json()["data"]
+    assert [row["name"] for row in data] == ["Karim"]
+    assert data[0]["campaign_id"] is None
+    assert data[0]["campaign_name"] is None

@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.credentials import get_or_create_credential_row
@@ -22,14 +22,17 @@ from app.common.mailchimp_client import (
     campaign_web_url,
     create_campaign,
     create_static_segment,
+    get_reports_summary,
     send_campaign,
     send_test_email,
     set_campaign_content,
     upsert_member,
     verify_list,
 )
+from app.models.campaign import Campaign, CampaignChannel
+from app.models.campaign_recipient import CampaignRecipient, CampaignRecipientStatus
 from app.models.customer import Customer
-from app.views.mailchimp_marketing import SendCampaignReport, SyncItemResult, SyncReport
+from app.views.mailchimp_marketing import EmailStats, SendCampaignReport, SyncItemResult, SyncReport
 
 MAX_TEST_EMAILS = 10
 
@@ -299,3 +302,50 @@ async def send_test_campaign(
     )
     if not test_result.success:
         raise ValidationAppError(f"Unable to send test email: {test_result.message}")
+
+
+async def get_email_overview_stats(db: AsyncSession) -> EmailStats:
+    """Account-wide EMAIL totals for the Reports page. `total_campaigns`/
+    `sent`/`failed` come from this app's own `Campaign`/`CampaignRecipient`
+    rows (channel=EMAIL) — the same source Campaign History reads, so the
+    numbers agree with what's on that table. `opened` has no local
+    equivalent (nothing in this app receives Mailchimp's open-tracking
+    events back), so it's a best-effort live read of Mailchimp's own
+    account-wide Reports API instead — not scoped to just this app's
+    campaigns like the other three, since there's no local id to scope by
+    (see `create_and_send_campaign`'s docstring: no Mailchimp campaign id
+    is persisted). Never raises — a missing/invalid key just reports 0
+    opens rather than breaking the whole stats section."""
+    total_campaigns = (
+        await db.execute(
+            select(func.count())
+            .select_from(Campaign)
+            .where(Campaign.channel == CampaignChannel.EMAIL.value)
+        )
+    ).scalar_one()
+
+    status_rows = (
+        await db.execute(
+            select(CampaignRecipient.status, func.count())
+            .select_from(CampaignRecipient)
+            .join(Campaign, Campaign.id == CampaignRecipient.campaign_id)
+            .where(Campaign.channel == CampaignChannel.EMAIL.value)
+            .group_by(CampaignRecipient.status)
+        )
+    ).all()
+    status_counts = {status: count for status, count in status_rows}
+    sent = status_counts.get(CampaignRecipientStatus.SENT.value, 0)
+    failed = status_counts.get(CampaignRecipientStatus.FAILED.value, 0)
+
+    opened = 0
+    row = await get_or_create_credential_row(db, MAILCHIMP_PROVIDER)
+    api_key = row.data.get("api_key")
+    if api_key:
+        try:
+            reports_result = await get_reports_summary(api_key=api_key)
+        except httpx.HTTPError:
+            reports_result = None
+        if reports_result is not None and reports_result.success:
+            opened = reports_result.opens
+
+    return EmailStats(total_campaigns=total_campaigns, sent=sent, opened=opened, failed=failed)

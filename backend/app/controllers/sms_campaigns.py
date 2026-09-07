@@ -46,6 +46,7 @@ from app.views.sms_campaigns import (
     CampaignUpdate,
     DispatchScheduledReport,
     DispatchScheduledResponse,
+    SmsOverviewStatsResponse,
 )
 
 router = APIRouter()
@@ -83,6 +84,15 @@ async def _get_campaign_or_404(db: AsyncSession, campaign_id: UUID) -> Campaign:
 # subpaths) — a request to e.g. /audience-counts would otherwise be
 # swallowed by the dynamic route as campaign_id="audience-counts" and fail
 # UUID parsing (422) instead of reaching the intended static route.
+@router.get("/overview-stats", response_model=SmsOverviewStatsResponse)
+async def get_overview_stats(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("campaigns.view")),
+) -> SmsOverviewStatsResponse:
+    stats = await service.get_sms_overview_stats(db)
+    return SmsOverviewStatsResponse(data=stats)
+
+
 @router.get("/audience-counts", response_model=AudienceCountsResponse)
 async def get_audience_counts(
     db: AsyncSession = Depends(get_db),

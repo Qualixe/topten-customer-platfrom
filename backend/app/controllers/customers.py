@@ -727,18 +727,24 @@ async def list_verified_customers(
     verified_from: date | None = Query(None),
     verified_to: date | None = Query(None),
 ) -> VerifiedCustomersListResponse:
-    """One row per (customer, campaign) VERIFIED pair, plus one row per
-    customer verified via the standalone, tokenless Forms feature (which
-    has no campaign — see Customer.form_verified_at) — combined and sorted
-    by verified_at. A customer who verified through two campaigns appears
-    twice; one who *also* completed a standalone form appears once more
-    alongside those. Reads only `CampaignRecipient.verification_status`,
-    never `status` (SMS delivery is a different thing — see
-    VerificationStatus's docstring).
+    """One row per customer — their single most recent VERIFIED event,
+    whichever of (a) any campaign's profile form or (b) the standalone,
+    tokenless Forms feature (no campaign — see Customer.form_verified_at)
+    happened last. A customer verified through several campaigns, or both
+    a campaign and the standalone form, still shows once, keeping only the
+    latest `verified_at` — a later verification effectively replaces an
+    earlier one in this list rather than adding another row. Reads only
+    `CampaignRecipient.verification_status`, never `status` (SMS delivery
+    is a different thing — see VerificationStatus's docstring).
+
+    When `campaign_id` narrows to one specific campaign, no dedup is
+    needed — `CampaignRecipient` already has a unique (campaign_id,
+    customer_id) constraint, so at most one row per customer exists for
+    that campaign already.
 
     Both sources are loaded in full (filtered, not yet paginated) and
-    merged/sorted/paginated in Python — the two shapes don't share a
-    query, so there's no single SQL statement that could paginate them
+    merged/deduped/sorted/paginated in Python — the two shapes don't share
+    a query, so there's no single SQL statement that could do this
     together. Fine at this table's expected scale (an admin-only view);
     revisit if it ever needs to scale past that."""
     search = (search or "").strip()
@@ -823,6 +829,20 @@ async def list_verified_customers(
             )
             for customer in form_customers
         )
+
+    # No campaign filter means both sources were queried, so the same
+    # customer can appear once per campaign they verified through plus
+    # once more for a standalone-form verification — collapse those down
+    # to just their latest verification. Skipped when campaign_id is set:
+    # CampaignRecipient's own (campaign_id, customer_id) unique constraint
+    # already guarantees at most one row per customer in that branch.
+    if campaign_id is None:
+        latest_by_customer: dict[UUID, VerifiedCustomerRead] = {}
+        for row in data:
+            existing = latest_by_customer.get(row.id)
+            if existing is None or row.verified_at > existing.verified_at:
+                latest_by_customer[row.id] = row
+        data = list(latest_by_customer.values())
 
     data.sort(key=lambda row: row.verified_at, reverse=True)
 

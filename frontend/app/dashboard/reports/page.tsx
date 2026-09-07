@@ -6,7 +6,13 @@ import {
   Crown,
   FileCheck2,
   Gift,
+  Hash,
   Inbox,
+  Mail,
+  MailCheck,
+  MailOpen,
+  MailX,
+  MessageSquare,
   PackageCheck,
   PartyPopper,
   Send,
@@ -14,6 +20,7 @@ import {
   UserCheck,
   UserPlus,
   Users,
+  XCircle,
 } from "lucide-react";
 
 import { CampaignHistory } from "@/components/dashboard/reports/campaign-history";
@@ -25,9 +32,10 @@ import { ReportsPageHeader } from "@/components/dashboard/reports/page-header";
 import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
 import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getBirthdaysOverview } from "@/lib/api/birthdays";
-import { listCampaigns } from "@/lib/api/campaigns";
+import { getSmsOverviewStats, listCampaigns } from "@/lib/api/campaigns";
 import { listUpcomingBirthdays } from "@/lib/api/customers";
 import { getDashboardOverview } from "@/lib/api/dashboard-overview";
+import { getEmailStats } from "@/lib/api/mailchimp";
 import { settleOk } from "@/lib/api/settle";
 
 const GiftOrdersChart = nextDynamic(
@@ -38,16 +46,21 @@ const GiftOrdersChart = nextDynamic(
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-  const [upcomingBirthdays, overview, birthdaysOverview, campaignsResult] = await Promise.all([
-    listUpcomingBirthdays(30),
-    getDashboardOverview(),
-    getBirthdaysOverview(),
-    // Reports has no permission gate of its own (unlike the Campaigns page)
-    // — settleOk so a viewer without campaigns.view still gets every other
-    // section instead of the whole page erroring out.
-    settleOk(listCampaigns({ pageSize: 100 })),
-  ]);
+  const [upcomingBirthdays, overview, birthdaysOverview, campaignsResult, smsStatsResult, emailStatsResult] =
+    await Promise.all([
+      listUpcomingBirthdays(30),
+      getDashboardOverview(),
+      getBirthdaysOverview(),
+      // Reports has no permission gate of its own (unlike the Campaigns page)
+      // — settleOk so a viewer without campaigns.view/marketing.view still
+      // gets every other section instead of the whole page erroring out.
+      settleOk(listCampaigns({ pageSize: 100 })),
+      settleOk(getSmsOverviewStats()),
+      settleOk(getEmailStats()),
+    ]);
   const campaigns = campaignsResult?.items ?? [];
+  const smsStats = smsStatsResult ?? { totalCampaigns: 0, totalRecipients: 0, sent: 0, failed: 0 };
+  const emailStats = emailStatsResult ?? { totalCampaigns: 0, sent: 0, opened: 0, failed: 0 };
   const birthdayStats = birthdaysOverview.stats;
   const currentMonthName = new Date().toLocaleDateString("en-US", { month: "long" });
   // birthdaysOverview.all already covers a full year out (within_days=365),
@@ -167,15 +180,72 @@ export default async function ReportsPage() {
     },
   ];
 
+  const smsStatsStats: StatDefinition[] = [
+    {
+      key: "total-sms-campaigns",
+      label: "Total SMS campaign",
+      value: smsStats.totalCampaigns.toLocaleString(),
+      icon: MessageSquare,
+    },
+    {
+      key: "total-sms-number",
+      label: "Total Number",
+      caption: "Recipients across all SMS campaigns",
+      value: smsStats.totalRecipients.toLocaleString(),
+      icon: Hash,
+    },
+    {
+      key: "sms-sent",
+      label: "SMS sent",
+      value: smsStats.sent.toLocaleString(),
+      icon: Send,
+    },
+    {
+      key: "sms-failed",
+      label: "SMS failed",
+      value: smsStats.failed.toLocaleString(),
+      icon: XCircle,
+    },
+  ];
+
+  const emailStatsStats: StatDefinition[] = [
+    {
+      key: "total-email",
+      label: "Total email",
+      value: emailStats.totalCampaigns.toLocaleString(),
+      icon: Mail,
+    },
+    {
+      key: "email-sent",
+      label: "Email sent",
+      value: emailStats.sent.toLocaleString(),
+      icon: MailCheck,
+    },
+    {
+      key: "email-open",
+      label: "Email open",
+      value: emailStats.opened.toLocaleString(),
+      icon: MailOpen,
+    },
+    {
+      key: "email-failed",
+      label: "Email failed",
+      value: emailStats.failed.toLocaleString(),
+      icon: MailX,
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <ReportsPageHeader />
+      <StatsSectionCard title="SMS Overview" stats={smsStatsStats} show_title={false} />
+      <StatsSectionCard title="Email Overview" stats={emailStatsStats} show_title={false} />
+      {/* <StatsSectionCard title="Today's Activity" stats={todayActivityStats} show_title={false}/> */}
+      {/* <StatsSectionCard title="Customer Overview" stats={customerOverviewStats} show_title={false}/> */}
+      {/* <StatsSectionCard title="Birthday Overview" stats={birthdayOverviewStats} show_title={false} /> */}
+ 
 
-      <StatsSectionCard title="Today's Activity" stats={todayActivityStats} show_title={false}/>
-      <StatsSectionCard title="Customer Overview" stats={customerOverviewStats} show_title={false}/>
-      <StatsSectionCard title="Birthday Overview" stats={birthdayOverviewStats} show_title={false} />
-
-      <div className="grid gap-4 lg:grid-cols-3">
+      {/* <div className="grid gap-4 lg:grid-cols-3">
         <HealthCircles
           totalCustomers={overview.totalCustomers}
           profileCompleteCustomers={overview.profileCompleteCustomers}
@@ -184,11 +254,12 @@ export default async function ReportsPage() {
         />
         <TopGifts gifts={overview.topGifts} />
         <GiftOrdersChart data={overview.giftOrdersByDay} total={overview.totalGiftOrders} />
-      </div>
+      </div> */}
 
-      <UpcomingBirthdays birthdays={upcomingBirthdays} />
+     
 
       <CampaignHistory campaigns={campaigns} />
+      <UpcomingBirthdays birthdays={upcomingBirthdays} />
     </div>
   );
 }

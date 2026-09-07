@@ -101,3 +101,20 @@ class SendTestCampaignRequest(BaseModel):
     test_emails: list[str] = Field(min_length=1)
     subject: str = Field(min_length=1, max_length=255)
     html_body: str = Field(min_length=1)
+
+
+class EmailStats(BaseModel):
+    """Account-wide EMAIL campaign totals for the Reports page — see
+    app.services.mailchimp_sync.get_email_overview_stats for exactly what
+    each field is sourced from."""
+
+    total_campaigns: int
+    sent: int
+    opened: int
+    failed: int
+
+
+class EmailStatsResponse(BaseModel):
+    success: bool = True
+    data: EmailStats
+    meta: dict = {}

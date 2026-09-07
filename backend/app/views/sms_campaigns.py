@@ -257,6 +257,22 @@ class CampaignStatsResponse(BaseModel):
     meta: dict = {}
 
 
+class SmsOverviewStats(BaseModel):
+    """Account-wide SMS totals for the Reports page — every SMS campaign
+    (any status), not scoped to a single one like `CampaignStats` above."""
+
+    total_campaigns: int
+    total_recipients: int
+    sent: int
+    failed: int
+
+
+class SmsOverviewStatsResponse(BaseModel):
+    success: bool = True
+    data: SmsOverviewStats
+    meta: dict = {}
+
+
 class DispatchScheduledReport(BaseModel):
     """How many campaigns this manual trigger caught up — see
     app.tasks.sms_campaigns.dispatch_due_scheduled_campaigns_async and

@@ -12,10 +12,12 @@ from app.services.mailchimp_sync import (
     MAILCHIMP_PROVIDER,
     check_list_status,
     create_and_send_campaign,
+    get_email_overview_stats,
     send_test_campaign,
     sync_customers,
 )
 from app.views.mailchimp_marketing import (
+    EmailStatsResponse,
     MailchimpCredentialsResponse,
     MailchimpCredentialsStatus,
     MailchimpCredentialsUpdate,
@@ -29,6 +31,7 @@ from app.views.mailchimp_marketing import (
 router = APIRouter()
 
 _manage = [Depends(require_permission("marketing.manage"))]
+_view = [Depends(require_permission("marketing.view"))]
 
 
 async def _to_status(data: dict[str, str | None]) -> MailchimpCredentialsStatus:
@@ -87,3 +90,9 @@ async def send_test(
         subject=payload.subject,
         html_body=payload.html_body,
     )
+
+
+@router.get("/email-stats", response_model=EmailStatsResponse, dependencies=_view)
+async def email_stats(db: AsyncSession = Depends(get_db)) -> EmailStatsResponse:
+    stats = await get_email_overview_stats(db)
+    return EmailStatsResponse(data=stats)

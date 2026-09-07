@@ -111,3 +111,22 @@ export async function sendMailchimpCampaign(input: {
   });
   return envelope.data;
 }
+
+/** Account-wide EMAIL totals for the Reports page. `totalCampaigns`/`sent`/
+ * `failed` come from this app's own Campaign/CampaignRecipient rows
+ * (channel=EMAIL) — the same source Campaign History reads. `opened` has
+ * no local equivalent (nothing here receives Mailchimp's open-tracking
+ * events), so it's a best-effort live read of Mailchimp's own account-wide
+ * Reports API instead — not scoped to just this app's campaigns like the
+ * other three. */
+export interface EmailStats {
+  totalCampaigns: number;
+  sent: number;
+  opened: number;
+  failed: number;
+}
+
+export async function getEmailStats(): Promise<EmailStats> {
+  const envelope = await apiGet<ApiEnvelope<EmailStats>>("/mailchimp/email-stats");
+  return envelope.data;
+}

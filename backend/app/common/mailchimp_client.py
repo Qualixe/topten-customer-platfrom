@@ -319,6 +319,66 @@ async def send_test_email(
     return ActionResult(success=True, message="sent")
 
 
+@dataclass(frozen=True, slots=True)
+class ReportsSummaryResult:
+    success: bool
+    message: str
+    total_campaigns: int = 0
+    emails_sent: int = 0
+    opens: int = 0
+    failed: int = 0
+
+
+# Mailchimp's own page-size ceiling for a list endpoint like /reports —
+# accounts with more sent campaigns than this would need real pagination,
+# not handled here (the Reports page's summary is a best-effort total).
+_REPORTS_PAGE_SIZE = 1000
+
+
+async def get_reports_summary(*, api_key: str) -> ReportsSummaryResult:
+    """Aggregates every campaign report in the account — this is Mailchimp's
+    own send history, not scoped to campaigns sent through this app (there's
+    no local record to scope by; see app.services.mailchimp_sync's module
+    docstring). `opens` is unique opens (one per recipient who opened at
+    least once, not total open events); `failed` is hard + soft bounces."""
+    base_url = _base_url(api_key)
+    if base_url is None:
+        return ReportsSummaryResult(
+            success=False,
+            message="Invalid API key format — expected a value ending in -xxNN (e.g. -us21).",
+        )
+    async with httpx.AsyncClient(timeout=MAILCHIMP_API_TIMEOUT) as client:
+        response = await client.get(
+            f"{base_url}/reports",
+            auth=_auth(api_key),
+            params={
+                "count": _REPORTS_PAGE_SIZE,
+                "fields": "reports.emails_sent,reports.opens.unique_opens,"
+                "reports.bounces.hard_bounces,reports.bounces.soft_bounces,total_items",
+            },
+        )
+    if response.status_code >= 400:
+        return ReportsSummaryResult(success=False, message=_error_message(response))
+
+    body = response.json()
+    reports = body.get("reports", [])
+    emails_sent = sum(report.get("emails_sent", 0) for report in reports)
+    opens = sum(report.get("opens", {}).get("unique_opens", 0) for report in reports)
+    failed = sum(
+        report.get("bounces", {}).get("hard_bounces", 0)
+        + report.get("bounces", {}).get("soft_bounces", 0)
+        for report in reports
+    )
+    return ReportsSummaryResult(
+        success=True,
+        message="ok",
+        total_campaigns=body.get("total_items", len(reports)),
+        emails_sent=emails_sent,
+        opens=opens,
+        failed=failed,
+    )
+
+
 def campaign_web_url(*, api_key: str, web_id: int) -> str | None:
     """Mailchimp's own dashboard URL for viewing a campaign's report —
     `web_id` (a short numeric id, distinct from the string `campaign_id`)

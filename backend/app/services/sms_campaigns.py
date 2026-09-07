@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.credentials import get_or_create_credential_row
 from app.core.config import settings
-from app.models.campaign import AudienceRuleType, Campaign
+from app.models.campaign import AudienceRuleType, Campaign, CampaignChannel
 from app.models.campaign_recipient import (
     CampaignRecipient,
     CampaignRecipientStatus,
@@ -27,7 +27,7 @@ from app.models.customer import Customer
 from app.models.customer_profile_token import CustomerProfileToken
 from app.services.sms_campaigns_audience import AudienceRule, build_condition
 from app.services.sms_campaigns_sms_utils import analyze_sms_message
-from app.views.sms_campaigns import CampaignRecipientRead, CampaignStats
+from app.views.sms_campaigns import CampaignRecipientRead, CampaignStats, SmsOverviewStats
 
 SMS_GATEWAY_PROVIDER = "sms_gateway"
 
@@ -219,6 +219,51 @@ async def get_campaign_stats(db: AsyncSession, campaign_id: int) -> CampaignStat
         verified=verified,
         pending_verification=pending_verification,
         verification_rate=verification_rate,
+    )
+
+
+async def get_sms_overview_stats(db: AsyncSession) -> SmsOverviewStats:
+    """Account-wide SMS totals for the Reports page — every SMS campaign
+    ever created, any status, not scoped to one campaign like
+    `get_campaign_stats` above. Two grouped COUNT queries, not a Python
+    tally over loaded rows: one for the campaign count itself, one for the
+    recipient-status breakdown joined to just the SMS channel."""
+    total_campaigns = (
+        await db.execute(
+            select(func.count())
+            .select_from(Campaign)
+            .where(Campaign.channel == CampaignChannel.SMS.value)
+        )
+    ).scalar_one()
+
+    status_rows = (
+        await db.execute(
+            select(CampaignRecipient.status, func.count())
+            .select_from(CampaignRecipient)
+            .join(Campaign, Campaign.id == CampaignRecipient.campaign_id)
+            .where(Campaign.channel == CampaignChannel.SMS.value)
+            .group_by(CampaignRecipient.status)
+        )
+    ).all()
+    status_counts = {status: count for status, count in status_rows}
+
+    # DELIVERED/BOUNCED are reserved for a future delivery-webhook — the
+    # send task itself only ever sets SENT or FAILED (see
+    # app.tasks.sms_campaigns) — counted alongside them regardless so this
+    # stays correct once that lands.
+    sent = status_counts.get(CampaignRecipientStatus.SENT.value, 0) + status_counts.get(
+        CampaignRecipientStatus.DELIVERED.value, 0
+    )
+    failed = status_counts.get(CampaignRecipientStatus.FAILED.value, 0) + status_counts.get(
+        CampaignRecipientStatus.BOUNCED.value, 0
+    )
+    total_recipients = sum(status_counts.values())
+
+    return SmsOverviewStats(
+        total_campaigns=total_campaigns,
+        total_recipients=total_recipients,
+        sent=sent,
+        failed=failed,
     )
 
 

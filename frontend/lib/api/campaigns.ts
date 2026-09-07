@@ -484,3 +484,19 @@ export async function dispatchScheduledCampaigns(): Promise<DispatchScheduledRep
   );
   return envelope.data;
 }
+
+/** Account-wide SMS totals for the Reports page — every SMS campaign ever
+ * created, any status, not scoped to one campaign like
+ * `getCampaignRecipientStats`. `sent` counts SENT (+ DELIVERED, once a
+ * delivery webhook exists); `failed` counts FAILED (+ BOUNCED). */
+export interface SmsOverviewStats {
+  totalCampaigns: number;
+  totalRecipients: number;
+  sent: number;
+  failed: number;
+}
+
+export async function getSmsOverviewStats(): Promise<SmsOverviewStats> {
+  const envelope = await apiGet<ApiEnvelope<SmsOverviewStats>>("/sms/campaigns/overview-stats");
+  return envelope.data;
+}
