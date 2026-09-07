@@ -3,17 +3,16 @@ for one specific recipient — the send-time counterpart to the frontend's
 preview-only substitution in `message-preview.tsx`.
 
 Supported tokens: `{{customer_name}}`, `{{form_link}}`, `{{phone}}`,
-`{{email}}`, `{{birthday}}`, `{{current_date}}`. `form_link`/`phone`/
-`email`/`birthday` are only known when the caller has that data available
-(e.g. `form_link` needs a published landing page; `phone`/`email`/
-`birthday` come from the recipient snapshot and may be null) — like any
-other unrecognized `{{token}}`, an unavailable one is left untouched
-rather than stripped or raising, so a typo'd token fails visibly (it shows
-up literally in the sent message) instead of silently vanishing. Not
-supported: `{{city}}` (no structured city field — only a free-text
-address) and `{{company}}` (no such concept on Customer, an individual
-retail-customer record) — inventing either would mean sending fabricated
-data to a real recipient.
+`{{email}}`, `{{birthday}}`, `{{current_date}}`, `{{city}}`,
+`{{company_name}}`. `form_link`/`phone`/`email`/`birthday`/`city` are only
+known when the caller has that data available (e.g. `form_link` needs a
+published landing page; `phone`/`email`/`birthday`/`city` come from the
+recipient snapshot and may be null); `company_name` is only known when the
+caller passes one (e.g. birthday wishes pass the configured store name).
+Like any other unrecognized `{{token}}`, an unavailable one is left
+untouched rather than stripped or raising, so a typo'd token fails visibly
+(it shows up literally in the sent message) instead of silently
+vanishing.
 """
 
 import re
@@ -30,6 +29,8 @@ def render_message(
     phone: str | None = None,
     email: str | None = None,
     date_of_birth: date | None = None,
+    city: str | None = None,
+    company_name: str | None = None,
 ) -> str:
     known_tokens = {
         "customer_name": customer_name,
@@ -43,6 +44,10 @@ def render_message(
         known_tokens["email"] = email
     if date_of_birth is not None:
         known_tokens["birthday"] = date_of_birth.strftime("%B %d")
+    if city is not None:
+        known_tokens["city"] = city
+    if company_name is not None:
+        known_tokens["company_name"] = company_name
 
     def _replace(match: re.Match[str]) -> str:
         key = match.group(1)

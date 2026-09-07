@@ -8,9 +8,11 @@ async def test_defaults_before_any_update(client: AsyncClient) -> None:
     response = await client.get("/api/v1/settings/birthday")
     assert response.status_code == 200
     data = response.json()["data"]
-    assert data["auto_send_message"] is False
-    assert data["auto_send_email"] is False
+    assert data["enabled"] is False
+    assert data["channel"] == "SMS"
+    assert data["send_hour"] == 9
     assert data["notify_days_before"] == 3
+    assert data["last_run_at"] is None
 
 
 async def test_update_persists_and_round_trips(client: AsyncClient) -> None:
@@ -18,9 +20,11 @@ async def test_update_persists_and_round_trips(client: AsyncClient) -> None:
         "/api/v1/settings/birthday",
         json={
             "notify_days_before": 5,
-            "auto_send_message": True,
+            "enabled": True,
+            "channel": "BOTH",
+            "send_hour": 14,
+            "company_name": "Pulsedesk",
             "message_template": "Happy Birthday, {{customer_name}}! 🎂",
-            "auto_send_email": True,
             "email_subject": "Happy Birthday, {{customer_name}}! 🎉",
             "email_message_template": "<p>Happy Birthday, {{customer_name}}!</p>",
             "auto_assign_gift": True,
@@ -29,9 +33,11 @@ async def test_update_persists_and_round_trips(client: AsyncClient) -> None:
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["notify_days_before"] == 5
-    assert data["auto_send_message"] is True
+    assert data["enabled"] is True
+    assert data["channel"] == "BOTH"
+    assert data["send_hour"] == 14
+    assert data["company_name"] == "Pulsedesk"
     assert data["message_template"] == "Happy Birthday, {{customer_name}}! 🎂"
-    assert data["auto_send_email"] is True
     assert data["email_subject"] == "Happy Birthday, {{customer_name}}! 🎉"
     assert data["email_message_template"] == "<p>Happy Birthday, {{customer_name}}!</p>"
     assert data["auto_assign_gift"] is True
@@ -45,9 +51,11 @@ async def test_blank_template_is_rejected(client: AsyncClient) -> None:
         "/api/v1/settings/birthday",
         json={
             "notify_days_before": 3,
-            "auto_send_message": False,
+            "enabled": False,
+            "channel": "SMS",
+            "send_hour": 9,
+            "company_name": "",
             "message_template": "   ",
-            "auto_send_email": False,
             "email_subject": "Happy Birthday, {{customer_name}}!",
             "email_message_template": "<p>Happy Birthday!</p>",
             "auto_assign_gift": False,
@@ -61,10 +69,48 @@ async def test_blank_email_subject_is_rejected(client: AsyncClient) -> None:
         "/api/v1/settings/birthday",
         json={
             "notify_days_before": 3,
-            "auto_send_message": False,
+            "enabled": False,
+            "channel": "SMS",
+            "send_hour": 9,
+            "company_name": "",
             "message_template": "Happy Birthday, {{customer_name}}!",
-            "auto_send_email": False,
             "email_subject": "   ",
+            "email_message_template": "<p>Happy Birthday!</p>",
+            "auto_assign_gift": False,
+        },
+    )
+    assert response.status_code == 422
+
+
+async def test_invalid_channel_is_rejected(client: AsyncClient) -> None:
+    response = await client.put(
+        "/api/v1/settings/birthday",
+        json={
+            "notify_days_before": 3,
+            "enabled": False,
+            "channel": "FAX",
+            "send_hour": 9,
+            "company_name": "",
+            "message_template": "Happy Birthday, {{customer_name}}!",
+            "email_subject": "Happy Birthday, {{customer_name}}!",
+            "email_message_template": "<p>Happy Birthday!</p>",
+            "auto_assign_gift": False,
+        },
+    )
+    assert response.status_code == 422
+
+
+async def test_send_hour_out_of_range_is_rejected(client: AsyncClient) -> None:
+    response = await client.put(
+        "/api/v1/settings/birthday",
+        json={
+            "notify_days_before": 3,
+            "enabled": False,
+            "channel": "SMS",
+            "send_hour": 24,
+            "company_name": "",
+            "message_template": "Happy Birthday, {{customer_name}}!",
+            "email_subject": "Happy Birthday, {{customer_name}}!",
             "email_message_template": "<p>Happy Birthday!</p>",
             "auto_assign_gift": False,
         },

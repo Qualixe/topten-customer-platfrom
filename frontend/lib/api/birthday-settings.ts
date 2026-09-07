@@ -1,14 +1,19 @@
 import { apiGet, apiPut } from "@/lib/api/client";
 import type { ApiEnvelope } from "@/lib/api/types";
 
+export type BirthdayChannel = "SMS" | "EMAIL" | "BOTH";
+
 export interface BirthdaySettings {
   notifyDaysBefore: number;
-  autoSendMessage: boolean;
+  enabled: boolean;
+  channel: BirthdayChannel;
+  sendHour: number;
+  companyName: string;
   messageTemplate: string;
-  autoSendEmail: boolean;
   emailSubject: string;
   emailMessageTemplate: string;
   autoAssignGift: boolean;
+  lastRunAt: string | null;
 }
 
 export async function getBirthdaySettings(): Promise<BirthdaySettings> {
@@ -16,12 +21,16 @@ export async function getBirthdaySettings(): Promise<BirthdaySettings> {
   return envelope.data;
 }
 
-export async function updateBirthdaySettings(input: BirthdaySettings): Promise<BirthdaySettings> {
+export async function updateBirthdaySettings(
+  input: Omit<BirthdaySettings, "lastRunAt">
+): Promise<BirthdaySettings> {
   const envelope = await apiPut<ApiEnvelope<BirthdaySettings>>("/settings/birthday", {
     notify_days_before: input.notifyDaysBefore,
-    auto_send_message: input.autoSendMessage,
+    enabled: input.enabled,
+    channel: input.channel,
+    send_hour: input.sendHour,
+    company_name: input.companyName,
     message_template: input.messageTemplate,
-    auto_send_email: input.autoSendEmail,
     email_subject: input.emailSubject,
     email_message_template: input.emailMessageTemplate,
     auto_assign_gift: input.autoAssignGift,

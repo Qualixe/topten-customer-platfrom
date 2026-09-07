@@ -1,5 +1,8 @@
-"""Automatic birthday wish — settings CRUD plus the daily send job, for
-both SMS and email.
+"""Automatic birthday wish — settings CRUD plus the send job, for both SMS
+and email. Gated by a single `enabled` flag and a `channel` selector
+("SMS", "EMAIL", or "BOTH"); the hour-of-day gate (`send_hour`, UTC) lives
+in the Celery task wrapper (app.tasks.birthday_wishes), not here, so this
+function stays callable at any wall-clock time for direct calls and tests.
 
 SMS reuses the exact same send path a real campaign uses
 (app.tasks.sms_campaigns._send_one_sms / render_message) rather than
@@ -10,12 +13,11 @@ called once per birthday customer so each gets their own personalized
 subject/body (Mailchimp campaigns have no per-recipient personalization
 this app uses).
 
-The two channels are independent (either, both, or neither can be on) and
-have separate idempotency columns on Customer (`last_birthday_wish_year`
-for SMS, `last_birthday_email_year` for email) — not timestamps, see those
-columns' docstring — so a job that runs twice in one day, or a customer
-who has only one channel newly enabled, can never double-wish nor get
-skipped incorrectly.
+The two channels have separate idempotency columns on Customer
+(`last_birthday_wish_year` for SMS, `last_birthday_email_year` for email)
+— not timestamps, see those columns' docstring — so a job that runs twice
+in one day, or a customer who has only one channel selected, can never
+double-wish nor get skipped incorrectly.
 """
 
 from dataclasses import dataclass
@@ -72,18 +74,22 @@ async def update_birthday_settings(
     db: AsyncSession,
     *,
     notify_days_before: int,
-    auto_send_message: bool,
+    enabled: bool,
+    channel: str,
+    send_hour: int,
+    company_name: str,
     message_template: str,
-    auto_send_email: bool,
     email_subject: str,
     email_message_template: str,
     auto_assign_gift: bool,
 ) -> BirthdaySettings:
     row = await get_or_create_birthday_settings(db)
     row.notify_days_before = notify_days_before
-    row.auto_send_message = auto_send_message
+    row.enabled = enabled
+    row.channel = channel
+    row.send_hour = send_hour
+    row.company_name = company_name
     row.message_template = message_template
-    row.auto_send_email = auto_send_email
     row.email_subject = email_subject
     row.email_message_template = email_message_template
     row.auto_assign_gift = auto_assign_gift
@@ -135,13 +141,15 @@ async def _send_one_sms(credential_row, *, sender_id: str, phone: str, message: 
     return False, f"HTTP {result.http_status}: {result.message}"[:500]
 
 
-def _render(template: str, customer: Customer) -> str:
+def _render(template: str, customer: Customer, company_name: str) -> str:
     return render_message(
         template,
         customer_name=customer.name,
         phone=customer.phone,
         email=customer.email,
         date_of_birth=customer.date_of_birth,
+        city=customer.city,
+        company_name=company_name or None,
     )
 
 
@@ -150,15 +158,22 @@ async def send_todays_birthday_wishes(
 ) -> SendBirthdayWishesReport:
     """Sends the configured wish(es) to every customer whose birthday is
     today, skipping (per channel) anyone already wished that channel this
-    calendar year. A no-op (zero-everything report) if both channels are
-    turned off — never raises, since the scheduled job has no one to
-    surface an exception to; a single customer's send failing on either
-    channel doesn't stop the rest."""
+    calendar year. A no-op (zero-everything report, `last_run_at` left
+    untouched) if automation is disabled — never raises, since the
+    scheduled job has no one to surface an exception to; a single
+    customer's send failing on either channel doesn't stop the rest."""
     today = today or datetime.now(UTC).date()
     settings_row = await get_or_create_birthday_settings(db)
 
-    if not settings_row.auto_send_message and not settings_row.auto_send_email:
+    if not settings_row.enabled:
         return SendBirthdayWishesReport(total=0, sent=0, failed=0, skipped_already_sent=0)
+
+    settings_row.last_run_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(settings_row)
+
+    send_sms = settings_row.channel in ("SMS", "BOTH")
+    send_email = settings_row.channel in ("EMAIL", "BOTH")
 
     all_customers = (
         (await db.execute(select(Customer).where(Customer.date_of_birth.is_not(None))))
@@ -168,7 +183,7 @@ async def send_todays_birthday_wishes(
     todays_customers = [c for c in all_customers if _has_birthday_today(c.date_of_birth, today)]
 
     total = sent = failed = skipped_already_sent = 0
-    if settings_row.auto_send_message:
+    if send_sms:
         credential_row = await get_or_create_credential_row(db, SMS_GATEWAY_PROVIDER)
         sender_id = credential_row.data.get("sender_id")
         gateway_ready = (
@@ -181,7 +196,7 @@ async def send_todays_birthday_wishes(
                 if customer.last_birthday_wish_year == today.year:
                     skipped_already_sent += 1
                     continue
-                message = _render(settings_row.message_template, customer)
+                message = _render(settings_row.message_template, customer, settings_row.company_name)
                 success, _failure_reason = await _send_one_sms(
                     credential_row, sender_id=sender_id, phone=customer.phone, message=message
                 )
@@ -193,7 +208,7 @@ async def send_todays_birthday_wishes(
                 await db.commit()
 
     email_total = email_sent = email_failed = email_skipped_already_sent = 0
-    if settings_row.auto_send_email:
+    if send_email:
         for customer in todays_customers:
             if not customer.email:
                 continue
@@ -201,8 +216,8 @@ async def send_todays_birthday_wishes(
             if customer.last_birthday_email_year == today.year:
                 email_skipped_already_sent += 1
                 continue
-            subject = _render(settings_row.email_subject, customer)
-            html_body = _render(settings_row.email_message_template, customer)
+            subject = _render(settings_row.email_subject, customer, settings_row.company_name)
+            html_body = _render(settings_row.email_message_template, customer, settings_row.company_name)
             try:
                 # One customer per call — a customer not opted into
                 # marketing simply comes back with sent=0 below (never

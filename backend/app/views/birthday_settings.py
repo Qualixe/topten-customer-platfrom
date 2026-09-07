@@ -1,14 +1,26 @@
+from datetime import datetime
+from enum import StrEnum
+
 from pydantic import BaseModel, Field, field_validator
+
+
+class BirthdayChannel(StrEnum):
+    SMS = "SMS"
+    EMAIL = "EMAIL"
+    BOTH = "BOTH"
 
 
 class BirthdaySettingsData(BaseModel):
     notify_days_before: int
-    auto_send_message: bool
+    enabled: bool
+    channel: BirthdayChannel
+    send_hour: int
+    company_name: str
     message_template: str
-    auto_send_email: bool
     email_subject: str
     email_message_template: str
     auto_assign_gift: bool
+    last_run_at: datetime | None
 
 
 class BirthdaySettingsResponse(BaseModel):
@@ -19,9 +31,11 @@ class BirthdaySettingsResponse(BaseModel):
 
 class BirthdaySettingsUpdate(BaseModel):
     notify_days_before: int = Field(ge=0, le=30)
-    auto_send_message: bool
+    enabled: bool
+    channel: BirthdayChannel
+    send_hour: int = Field(ge=0, le=23)
+    company_name: str = Field(max_length=120)
     message_template: str = Field(min_length=1, max_length=500)
-    auto_send_email: bool
     email_subject: str = Field(min_length=1, max_length=255)
     email_message_template: str = Field(min_length=1, max_length=2000)
     auto_assign_gift: bool
@@ -33,3 +47,8 @@ class BirthdaySettingsUpdate(BaseModel):
         if not stripped:
             raise ValueError("This field cannot be blank")
         return stripped
+
+    @field_validator("company_name")
+    @classmethod
+    def _strip_company_name(cls, value: str) -> str:
+        return value.strip()

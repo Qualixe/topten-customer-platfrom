@@ -16,12 +16,15 @@ router = APIRouter(dependencies=[Depends(require_permission("settings.manage"))]
 def _to_data(row: BirthdaySettings) -> BirthdaySettingsData:
     return BirthdaySettingsData(
         notify_days_before=row.notify_days_before,
-        auto_send_message=row.auto_send_message,
+        enabled=row.enabled,
+        channel=row.channel,
+        send_hour=row.send_hour,
+        company_name=row.company_name,
         message_template=row.message_template,
-        auto_send_email=row.auto_send_email,
         email_subject=row.email_subject,
         email_message_template=row.email_message_template,
         auto_assign_gift=row.auto_assign_gift,
+        last_run_at=row.last_run_at,
     )
 
 
@@ -38,9 +41,11 @@ async def update_settings(
     row = await update_birthday_settings(
         db,
         notify_days_before=payload.notify_days_before,
-        auto_send_message=payload.auto_send_message,
+        enabled=payload.enabled,
+        channel=payload.channel.value,
+        send_hour=payload.send_hour,
+        company_name=payload.company_name,
         message_template=payload.message_template,
-        auto_send_email=payload.auto_send_email,
         email_subject=payload.email_subject,
         email_message_template=payload.email_message_template,
         auto_assign_gift=payload.auto_assign_gift,

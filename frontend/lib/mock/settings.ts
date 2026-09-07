@@ -11,13 +11,6 @@ export interface CustomerSettings {
   allowDuplicateEmails: boolean;
 }
 
-export interface BirthdaySettings {
-  notifyDaysBefore: number;
-  autoSendMessage: boolean;
-  messageTemplate: string;
-  autoAssignGift: boolean;
-}
-
 export interface VipSettings {
   vipSpendingThreshold: number;
   platinumThreshold: number;
@@ -44,14 +37,6 @@ export const defaultCustomerSettings: CustomerSettings = {
   defaultStatus: "Active",
   minAgeRequirement: 13,
   allowDuplicateEmails: false,
-};
-
-export const defaultBirthdaySettings: BirthdaySettings = {
-  notifyDaysBefore: 3,
-  autoSendMessage: true,
-  messageTemplate:
-    "Happy Birthday, {{name}}! Enjoy a special gift from all of us at TopTen.",
-  autoAssignGift: true,
 };
 
 export const defaultVipSettings: VipSettings = {

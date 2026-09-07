@@ -55,9 +55,11 @@ async def _enable_auto_send(db_session: AsyncSession, template: str = "Happy Bir
     await update_birthday_settings(
         db_session,
         notify_days_before=3,
-        auto_send_message=True,
+        enabled=True,
+        channel="SMS",
+        send_hour=9,
+        company_name="",
         message_template=template,
-        auto_send_email=False,
         email_subject="Happy Birthday, {{customer_name}}!",
         email_message_template="<p>Happy Birthday, {{customer_name}}!</p>",
         auto_assign_gift=False,
@@ -165,9 +167,11 @@ async def test_leap_year_birthday_wished_on_feb_28_in_non_leap_year(
 
 async def test_get_or_create_birthday_settings_defaults(db_session: AsyncSession) -> None:
     settings_row = await get_or_create_birthday_settings(db_session)
-    assert settings_row.auto_send_message is False
-    assert settings_row.auto_send_email is False
+    assert settings_row.enabled is False
+    assert settings_row.channel == "SMS"
+    assert settings_row.send_hour == 9
     assert settings_row.notify_days_before == 3
+    assert settings_row.last_run_at is None
 
 
 async def _enable_auto_send_email(
@@ -176,9 +180,11 @@ async def _enable_auto_send_email(
     await update_birthday_settings(
         db_session,
         notify_days_before=3,
-        auto_send_message=False,
+        enabled=True,
+        channel="EMAIL",
+        send_hour=9,
+        company_name="",
         message_template="Happy Birthday, {{customer_name}}!",
-        auto_send_email=True,
         email_subject=subject,
         email_message_template="<p>Happy Birthday, {{customer_name}}!</p>",
         auto_assign_gift=False,
@@ -276,9 +282,11 @@ async def test_sms_and_email_tracked_independently(db_session: AsyncSession) -> 
     await update_birthday_settings(
         db_session,
         notify_days_before=3,
-        auto_send_message=True,
+        enabled=True,
+        channel="BOTH",
+        send_hour=9,
+        company_name="",
         message_template="Happy Birthday, {{customer_name}}!",
-        auto_send_email=True,
         email_subject="Happy Birthday, {{customer_name}}!",
         email_message_template="<p>Happy Birthday, {{customer_name}}!</p>",
         auto_assign_gift=False,
@@ -308,3 +316,78 @@ async def test_sms_and_email_tracked_independently(db_session: AsyncSession) -> 
     assert report.skipped_already_sent == 1
     mock_email.assert_called_once()
     assert report.email_sent == 1
+
+
+async def test_sms_only_channel_never_sends_email(db_session: AsyncSession) -> None:
+    await merge_credential_data(db_session, SMS_GATEWAY_PROVIDER, VALID_CREDENTIALS)
+    await _enable_auto_send(db_session)
+    await _add_customer(
+        db_session,
+        name="A",
+        phone="+8801711000101",
+        date_of_birth=date(1990, 6, 15),
+        email="a@example.com",
+        marketing_opt_in=True,
+    )
+
+    mock_result = SendSmsResult(success=True, http_status=200, message="OK")
+    with (
+        patch(
+            "app.services.birthday_wishes.gateway_send_sms",
+            new=AsyncMock(return_value=mock_result),
+        ),
+        patch(
+            "app.services.birthday_wishes.create_and_send_campaign", new=AsyncMock()
+        ) as mock_email,
+    ):
+        report = await send_todays_birthday_wishes(db_session, today=date(2026, 6, 15))
+
+    mock_email.assert_not_called()
+    assert report.sent == 1
+    assert report.email_total == 0
+
+
+async def test_last_run_at_set_when_enabled_and_untouched_when_disabled(
+    db_session: AsyncSession,
+) -> None:
+    settings_row = await get_or_create_birthday_settings(db_session)
+    assert settings_row.last_run_at is None
+
+    await send_todays_birthday_wishes(db_session, today=date(2026, 6, 15))
+    await db_session.refresh(settings_row)
+    assert settings_row.last_run_at is None
+
+    await _enable_auto_send(db_session)
+    await send_todays_birthday_wishes(db_session, today=date(2026, 6, 15))
+    await db_session.refresh(settings_row)
+    assert settings_row.last_run_at is not None
+
+
+async def test_city_and_company_name_tokens_rendered(db_session: AsyncSession) -> None:
+    await merge_credential_data(db_session, SMS_GATEWAY_PROVIDER, VALID_CREDENTIALS)
+    await update_birthday_settings(
+        db_session,
+        notify_days_before=3,
+        enabled=True,
+        channel="SMS",
+        send_hour=9,
+        company_name="Pulsedesk",
+        message_template="Happy Birthday, {{customer_name}} from {{city}}! Love, {{company_name}}.",
+        email_subject="Happy Birthday, {{customer_name}}!",
+        email_message_template="<p>Happy Birthday, {{customer_name}}!</p>",
+        auto_assign_gift=False,
+    )
+    customer = await _add_customer(
+        db_session, name="Rahim Uddin", phone="+8801711000101", date_of_birth=date(1990, 6, 15)
+    )
+    customer.city = "Dhaka"
+    await db_session.commit()
+
+    mock_result = SendSmsResult(success=True, http_status=200, message="OK")
+    with patch(
+        "app.services.birthday_wishes.gateway_send_sms", new=AsyncMock(return_value=mock_result)
+    ) as mock_send:
+        await send_todays_birthday_wishes(db_session, today=date(2026, 6, 15))
+
+    _, kwargs = mock_send.call_args
+    assert kwargs["message"] == "Happy Birthday, Rahim Uddin from Dhaka! Love, Pulsedesk."

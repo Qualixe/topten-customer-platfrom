@@ -30,9 +30,13 @@ celery_app.conf.update(
     # Requires a `celery beat` process running alongside the worker (see
     # beat.sh) — the worker alone never fires anything on its own schedule.
     beat_schedule={
+        # Fires every hour on the hour — app.tasks.birthday_wishes itself
+        # checks BirthdaySettings.send_hour against the current UTC hour
+        # and no-ops unless it matches, so admins can pick any UTC send
+        # hour without a beat-schedule change.
         "send-daily-birthday-wishes": {
             "task": "birthday_wishes.send_daily_birthday_wishes",
-            "schedule": crontab(hour=9, minute=0),
+            "schedule": crontab(minute=0),
         },
         # Catches campaigns scheduled for a future time that has since
         # arrived — see app.tasks.sms_campaigns' module docstring. Every
