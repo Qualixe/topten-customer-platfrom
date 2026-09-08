@@ -1,5 +1,4 @@
 from celery import Celery
-from celery.schedules import crontab
 
 from app.core.config import settings
 
@@ -15,11 +14,11 @@ celery_app.conf.update(
     accept_content=["json"],
     result_serializer="json",
     # This app's whole audience is Bangladesh-based (see the SMS gateway,
-    # phone normalization, etc. elsewhere) — `timezone` here controls how
-    # `crontab(...)` beat schedules below are interpreted, not how
-    # timestamps are stored (those stay UTC in the database regardless;
-    # `enable_utc=True` is about internal message timestamps, unrelated to
-    # this). So `crontab(hour=9)` means 9 AM Dhaka time, not 9 AM UTC.
+    # phone normalization, etc. elsewhere). None of the beat schedules
+    # below currently use `crontab(...)` (all are fixed-interval floats,
+    # timezone-independent), but `timezone` stays set to Dhaka for any
+    # `crontab(...)` schedule added later — it would otherwise default to
+    # UTC and silently fire at the wrong local hour.
     timezone="Asia/Dhaka",
     enable_utc=True,
     # A worker that dies mid-task redelivers it rather than losing it —
@@ -30,13 +29,13 @@ celery_app.conf.update(
     # Requires a `celery beat` process running alongside the worker (see
     # beat.sh) — the worker alone never fires anything on its own schedule.
     beat_schedule={
-        # Fires every hour on the hour — app.tasks.birthday_wishes itself
-        # checks BirthdaySettings.send_hour against the current UTC hour
-        # and no-ops unless it matches, so admins can pick any UTC send
-        # hour without a beat-schedule change.
+        # Fires every minute — app.tasks.birthday_wishes itself checks
+        # BirthdaySettings.send_hour/send_minute against the current UTC
+        # time and no-ops unless both match, so admins can pick any UTC
+        # send time (minute precision) without a beat-schedule change.
         "send-daily-birthday-wishes": {
             "task": "birthday_wishes.send_daily_birthday_wishes",
-            "schedule": crontab(minute=0),
+            "schedule": 60.0,
         },
         # Catches campaigns scheduled for a future time that has since
         # arrived — see app.tasks.sms_campaigns' module docstring. Every

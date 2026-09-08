@@ -58,6 +58,7 @@ async def _enable_auto_send(db_session: AsyncSession, template: str = "Happy Bir
         enabled=True,
         channel="SMS",
         send_hour=9,
+        send_minute=0,
         company_name="",
         message_template=template,
         email_subject="Happy Birthday, {{customer_name}}!",
@@ -170,6 +171,7 @@ async def test_get_or_create_birthday_settings_defaults(db_session: AsyncSession
     assert settings_row.enabled is False
     assert settings_row.channel == "SMS"
     assert settings_row.send_hour == 9
+    assert settings_row.send_minute == 0
     assert settings_row.notify_days_before == 3
     assert settings_row.last_run_at is None
 
@@ -183,6 +185,7 @@ async def _enable_auto_send_email(
         enabled=True,
         channel="EMAIL",
         send_hour=9,
+        send_minute=0,
         company_name="",
         message_template="Happy Birthday, {{customer_name}}!",
         email_subject=subject,
@@ -285,6 +288,7 @@ async def test_sms_and_email_tracked_independently(db_session: AsyncSession) -> 
         enabled=True,
         channel="BOTH",
         send_hour=9,
+        send_minute=0,
         company_name="",
         message_template="Happy Birthday, {{customer_name}}!",
         email_subject="Happy Birthday, {{customer_name}}!",
@@ -371,6 +375,7 @@ async def test_city_and_company_name_tokens_rendered(db_session: AsyncSession) -
         enabled=True,
         channel="SMS",
         send_hour=9,
+        send_minute=0,
         company_name="Pulsedesk",
         message_template="Happy Birthday, {{customer_name}} from {{city}}! Love, {{company_name}}.",
         email_subject="Happy Birthday, {{customer_name}}!",

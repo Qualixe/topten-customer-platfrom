@@ -8,17 +8,19 @@ from app.models.base import Base
 
 class BirthdaySettings(Base):
     """Singleton row (always id=1 in practice) controlling the automatic
-    birthday wish — see app.services.birthday_wishes for the hourly job
+    birthday wish — see app.services.birthday_wishes for the per-minute job
     that reads this. `enabled` is the single master toggle; `channel`
     ("SMS", "EMAIL", or "BOTH") picks which wish(es) go out. `send_hour`
-    (0-23, UTC) is compared against the current UTC hour by the Celery task
-    wrapper (app.tasks.birthday_wishes), not by the service function
-    itself, so the service stays callable at any hour for direct/manual
-    invocations and tests. `last_run_at` is updated on every run that
-    actually executes (enabled=True), regardless of whether any customer
-    had a birthday that day. `auto_assign_gift` is stored here for the
-    admin's benefit but not yet acted on by anything (no gift-auto-queue
-    feature exists yet)."""
+    (0-23, UTC) and `send_minute` (0-59, UTC) are compared against the
+    current UTC time by the Celery task wrapper (app.tasks.birthday_wishes),
+    not by the service function itself, so the service stays callable at
+    any wall-clock time for direct/manual invocations and tests. The
+    frontend collects/displays this as Bangladesh local time and converts
+    to/from UTC at the API boundary — the stored value is always UTC.
+    `last_run_at` is updated on every run that actually executes
+    (enabled=True), regardless of whether any customer had a birthday that
+    day. `auto_assign_gift` is stored here for the admin's benefit but not
+    yet acted on by anything (no gift-auto-queue feature exists yet)."""
 
     __tablename__ = "birthday_settings"
 
@@ -27,6 +29,7 @@ class BirthdaySettings(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     channel: Mapped[str] = mapped_column(String(10), nullable=False, server_default="SMS")
     send_hour: Mapped[int] = mapped_column(Integer, nullable=False, server_default="9")
+    send_minute: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     company_name: Mapped[str] = mapped_column(String(120), nullable=False, server_default="")
     message_template: Mapped[str] = mapped_column(
         String(500),

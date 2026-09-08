@@ -8,6 +8,7 @@ export interface BirthdaySettings {
   enabled: boolean;
   channel: BirthdayChannel;
   sendHour: number;
+  sendMinute: number;
   companyName: string;
   messageTemplate: string;
   emailSubject: string;
@@ -29,6 +30,7 @@ export async function updateBirthdaySettings(
     enabled: input.enabled,
     channel: input.channel,
     send_hour: input.sendHour,
+    send_minute: input.sendMinute,
     company_name: input.companyName,
     message_template: input.messageTemplate,
     email_subject: input.emailSubject,

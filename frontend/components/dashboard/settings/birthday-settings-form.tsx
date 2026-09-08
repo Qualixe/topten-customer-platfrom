@@ -32,6 +32,7 @@ const EMPTY_SETTINGS: BirthdaySettings = {
   enabled: false,
   channel: "SMS",
   sendHour: 9,
+  sendMinute: 0,
   companyName: "",
   messageTemplate: "",
   emailSubject: "",
@@ -45,6 +46,30 @@ const CHANNEL_OPTIONS: { value: BirthdayChannel; label: string }[] = [
   { value: "EMAIL", label: "Email only" },
   { value: "BOTH", label: "SMS + Email" },
 ];
+
+// The app's whole audience is Bangladesh-based, so the send time is
+// collected/displayed here as Dhaka wall-clock time (UTC+6, no DST) even
+// though `sendHour`/`sendMinute` are stored as UTC — the conversion is a
+// fixed +/-6 hour shift, no library needed.
+const BD_UTC_OFFSET_HOURS = 6;
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+function utcToBdTimeInputValue(sendHour: number, sendMinute: number): string {
+  const bdHour = (sendHour + BD_UTC_OFFSET_HOURS + 24) % 24;
+  return `${pad2(bdHour)}:${pad2(sendMinute)}`;
+}
+
+function bdTimeInputValueToUtc(value: string): { sendHour: number; sendMinute: number } | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const bdHour = Number(match[1]);
+  const sendMinute = Number(match[2]);
+  const sendHour = (bdHour - BD_UTC_OFFSET_HOURS + 24) % 24;
+  return { sendHour, sendMinute };
+}
 
 function formatLastRun(lastRunAt: string | null): string {
   if (!lastRunAt) return "—";
@@ -148,8 +173,8 @@ export function BirthdaySettingsForm() {
             Birthday Automation
           </CardTitle>
           <CardDescription>
-            Greetings run every hour and fire once per customer at your chosen hour (UTC). Last
-            run: {formatLastRun(settings.lastRunAt)}
+            Greetings are checked every minute and fire once per customer at your chosen time
+            (Bangladesh time). Last run: {formatLastRun(settings.lastRunAt)}
           </CardDescription>
           <CardAction className="flex items-center gap-2">
             <Switch
@@ -186,21 +211,26 @@ export function BirthdaySettingsForm() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="birthday-send-hour">Send hour (UTC)</Label>
+              <Label htmlFor="birthday-send-time">Send time (Bangladesh time)</Label>
               <Input
-                id="birthday-send-hour"
-                type="number"
-                min={0}
-                max={23}
-                value={settings.sendHour}
+                id="birthday-send-time"
+                type="time"
+                value={utcToBdTimeInputValue(settings.sendHour, settings.sendMinute)}
                 disabled={disabled}
-                onChange={(event) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    sendHour: Number(event.target.value),
-                  }))
-                }
-                onBlur={fieldBlurHandler("sendHour")}
+                onChange={(event) => {
+                  const parsed = bdTimeInputValueToUtc(event.target.value);
+                  if (!parsed) return;
+                  setSettings((prev) => ({ ...prev, ...parsed }));
+                }}
+                onBlur={() => {
+                  if (
+                    settings.sendHour === savedSettings.sendHour &&
+                    settings.sendMinute === savedSettings.sendMinute
+                  ) {
+                    return;
+                  }
+                  persist(settings);
+                }}
               />
             </div>
 

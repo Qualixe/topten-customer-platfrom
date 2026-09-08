@@ -1,8 +1,9 @@
 """Automatic birthday wish — settings CRUD plus the send job, for both SMS
 and email. Gated by a single `enabled` flag and a `channel` selector
-("SMS", "EMAIL", or "BOTH"); the hour-of-day gate (`send_hour`, UTC) lives
-in the Celery task wrapper (app.tasks.birthday_wishes), not here, so this
-function stays callable at any wall-clock time for direct calls and tests.
+("SMS", "EMAIL", or "BOTH"); the time-of-day gate (`send_hour`/`send_minute`,
+UTC) lives in the Celery task wrapper (app.tasks.birthday_wishes), not
+here, so this function stays callable at any wall-clock time for direct
+calls and tests.
 
 SMS reuses the exact same send path a real campaign uses
 (app.tasks.sms_campaigns._send_one_sms / render_message) rather than
@@ -77,6 +78,7 @@ async def update_birthday_settings(
     enabled: bool,
     channel: str,
     send_hour: int,
+    send_minute: int,
     company_name: str,
     message_template: str,
     email_subject: str,
@@ -88,6 +90,7 @@ async def update_birthday_settings(
     row.enabled = enabled
     row.channel = channel
     row.send_hour = send_hour
+    row.send_minute = send_minute
     row.company_name = company_name
     row.message_template = message_template
     row.email_subject = email_subject

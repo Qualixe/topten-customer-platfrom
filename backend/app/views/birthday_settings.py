@@ -15,6 +15,7 @@ class BirthdaySettingsData(BaseModel):
     enabled: bool
     channel: BirthdayChannel
     send_hour: int
+    send_minute: int
     company_name: str
     message_template: str
     email_subject: str
@@ -34,6 +35,7 @@ class BirthdaySettingsUpdate(BaseModel):
     enabled: bool
     channel: BirthdayChannel
     send_hour: int = Field(ge=0, le=23)
+    send_minute: int = Field(ge=0, le=59)
     company_name: str = Field(max_length=120)
     message_template: str = Field(min_length=1, max_length=500)
     email_subject: str = Field(min_length=1, max_length=255)
