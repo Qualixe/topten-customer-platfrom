@@ -12,13 +12,16 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 echo "▶ Pulling latest code..."
-git pull origin main
+git pull origin master
 
 echo "▶ Building images..."
 docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" build --pull
 
 echo "▶ Starting services (migrations run automatically inside backend)..."
 docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" up -d --remove-orphans
+
+echo "▶ Reloading nginx (picks up new container IPs for backend/frontend)..."
+docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" exec nginx nginx -s reload
 
 echo "▶ Cleaning up dangling images..."
 docker image prune -f

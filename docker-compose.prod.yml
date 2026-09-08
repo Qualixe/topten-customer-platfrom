@@ -48,6 +48,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       CORS_ORIGINS: ${CORS_ORIGINS}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
       UPLOAD_DIR: /app/var/uploads/imports
@@ -77,6 +78,9 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       APP_ENV: production
       SECRET_KEY: ${SECRET_KEY}
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
       UPLOAD_DIR: /app/var/uploads/imports
       BRANDING_UPLOAD_DIR: /app/var/public/branding
       GIFT_IMAGE_UPLOAD_DIR: /app/var/public/gift-images
@@ -107,6 +111,9 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       APP_ENV: production
       SECRET_KEY: ${SECRET_KEY}
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
       UPLOAD_DIR: /app/var/uploads/imports
       BRANDING_UPLOAD_DIR: /app/var/public/branding
       GIFT_IMAGE_UPLOAD_DIR: /app/var/public/gift-images
@@ -124,6 +131,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
     container_name: topten-frontend
     restart: always
     environment:
