@@ -90,6 +90,36 @@ services:
     networks:
       - internal
 
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: topten-celery-beat
+    restart: always
+    # Enqueues the birthday-wish check (every minute) and scheduled-campaign
+    # dispatch/retry (see backend/beat.sh and app.core.celery_app) — the
+    # worker above never fires anything on its own without this running.
+    # Exactly one instance: running it twice would fire every scheduled
+    # task twice.
+    command: celery -A app.core.celery_app beat --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      APP_ENV: production
+      SECRET_KEY: ${SECRET_KEY}
+      UPLOAD_DIR: /app/var/uploads/imports
+      BRANDING_UPLOAD_DIR: /app/var/public/branding
+      GIFT_IMAGE_UPLOAD_DIR: /app/var/public/gift-images
+    volumes:
+      - backend_uploads:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
   frontend:
     build:
       context: ./frontend
