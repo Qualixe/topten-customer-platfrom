@@ -16,7 +16,7 @@ export type { Customer, CustomerStatus, CustomerTier } from "@/lib/mock/customer
 export type { CustomerTypeOption } from "@/lib/api/customer-types";
 export { formatCurrency } from "@/lib/mock/customers";
 
-export type CustomersSortBy = "name" | "totalSpent" | "totalOrders";
+export type CustomersSortBy = "name" | "totalSpent" | "totalOrders" | "createdAt";
 export type SortDirection = "asc" | "desc";
 
 export interface ListCustomersParams {
@@ -137,6 +137,9 @@ const SORT_BY_TO_BACKEND: Record<CustomersSortBy, string | undefined> = {
   // The backend has no order-count column to sort by; omitting `sort_by`
   // falls back to its default ordering rather than erroring.
   totalOrders: undefined,
+  // Registration order — ascending (FIFO) shows the earliest-joined
+  // customers first, descending (LIFO) the most recently-joined.
+  createdAt: "created_at",
 };
 
 /** Shared by `listCustomers` and `exportCustomersCsv` — the export must

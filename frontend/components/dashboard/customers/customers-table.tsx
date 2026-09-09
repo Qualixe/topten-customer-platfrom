@@ -104,7 +104,13 @@ export function CustomersTable({
                 sortDir={sortDir}
                 onSort={onSort}
               />
-              <TableHead>Joined</TableHead>
+              <SortableHead
+                column="createdAt"
+                label="Joined"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>

@@ -9,7 +9,7 @@ import type { CustomersSortBy } from "@/lib/api/customers";
 
 type RawSearchParams = Record<string, string | string[] | undefined>;
 
-const SORTABLE_COLUMNS: CustomersSortBy[] = ["name", "totalSpent", "totalOrders"];
+const SORTABLE_COLUMNS: CustomersSortBy[] = ["name", "totalSpent", "totalOrders", "createdAt"];
 
 function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;

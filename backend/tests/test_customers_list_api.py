@@ -73,6 +73,23 @@ async def test_pagination_returns_bounded_page(
     assert len(body["data"]) == 2
 
 
+async def test_sort_by_created_at(client: AsyncClient, db_session: AsyncSession) -> None:
+    """FIFO/LIFO ordering on the Customers page — ascending is oldest-joined
+    first, descending is newest-joined first."""
+    first = await _add_customer(db_session, name="First Joined", phone="+8801711000101")
+    second = await _add_customer(db_session, name="Second Joined", phone="+8801711000102")
+
+    fifo = await client.get(
+        "/api/v1/customers", params={"sort_by": "created_at", "sort_dir": "asc"}
+    )
+    assert [c["name"] for c in fifo.json()["data"]] == [first.name, second.name]
+
+    lifo = await client.get(
+        "/api/v1/customers", params={"sort_by": "created_at", "sort_dir": "desc"}
+    )
+    assert [c["name"] for c in lifo.json()["data"]] == [second.name, first.name]
+
+
 async def test_search_matches_name_or_phone(client: AsyncClient, db_session: AsyncSession) -> None:
     await _add_customer(db_session, name="Rahim Uddin", phone="+8801711000101")
     await _add_customer(db_session, name="Karim Hossain", phone="+8801711000102")
