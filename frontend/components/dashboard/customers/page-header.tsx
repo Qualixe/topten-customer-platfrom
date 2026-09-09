@@ -1,4 +1,5 @@
 import { AddCustomerDialog } from "@/components/dashboard/customers/add-customer-dialog";
+import { ImportCustomersButton } from "@/components/dashboard/customers/import-customers-button";
 
 export function CustomersPageHeader() {
   return (
@@ -10,6 +11,7 @@ export function CustomersPageHeader() {
         </p>
       </div>
       <div className="flex items-center gap-2">
+        <ImportCustomersButton />
         <AddCustomerDialog />
       </div>
     </div>
