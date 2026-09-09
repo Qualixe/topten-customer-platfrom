@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DistrictSelect } from "@/components/ui/district-select";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -167,12 +168,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
       </FormField>
 
       <FormField htmlFor="add-customer-city" label="City (optional)">
-        <Input
-          id="add-customer-city"
-          value={city}
-          onChange={(event) => setCity(event.target.value)}
-          placeholder="e.g. Dhaka"
-        />
+        <DistrictSelect id="add-customer-city" value={city} onChange={setCity} />
       </FormField>
 
       <FormField htmlFor="add-customer-dob" label="Date of birth (optional)">

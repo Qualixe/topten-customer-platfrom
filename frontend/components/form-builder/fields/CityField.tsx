@@ -1,4 +1,4 @@
-import { Input } from "@/components/ui/input";
+import { DistrictSelect } from "@/components/ui/district-select";
 import { Label } from "@/components/ui/label";
 import type { FormField } from "@/lib/form-builder/types";
 
@@ -19,11 +19,11 @@ export function CityField({
         {field.label}
         {field.required && <span className="text-destructive"> *</span>}
       </Label>
-      <Input
-        placeholder={field.placeholder}
+      <DistrictSelect
+        placeholder={field.placeholder || "Select a district"}
         disabled={!preview && !onChange}
-        value={onChange ? (value ?? "") : undefined}
-        onChange={onChange ? (event) => onChange(event.target.value) : undefined}
+        value={value ?? ""}
+        onChange={onChange ?? (() => {})}
       />
     </div>
   );

@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DistrictSelect } from "@/components/ui/district-select";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -290,15 +291,13 @@ export function SendGiftForm({ catalog }: { catalog: GiftItem[] }) {
                             {recipient.courier}
                           </div>
                           {recipient.dispatchMode !== "pathao" && (
-                            <Input
+                            <DistrictSelect
                               value={recipient.city}
-                              onChange={(event) =>
-                                updateDetails(customer.id, { city: event.target.value })
-                              }
+                              onChange={(value) => updateDetails(customer.id, { city: value })}
                               placeholder="City"
-                              className="h-8 text-sm"
-                              aria-label={`City for ${customer.name}`}
+                              className="h-8 w-full text-sm"
                               required={recipient.shipViaCourier}
+                              aria-label={`City for ${customer.name}`}
                             />
                           )}
                         </div>

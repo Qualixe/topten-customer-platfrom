@@ -66,7 +66,12 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
   city: {
     label: "City",
     icon: Building2,
-    defaultField: { type: "city", label: "City", placeholder: "e.g. Dhaka", required: false },
+    defaultField: {
+      type: "city",
+      label: "City",
+      placeholder: "Select a district",
+      required: false,
+    },
   },
   marketing_consent: {
     label: "Marketing Consent",
