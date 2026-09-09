@@ -18,6 +18,7 @@ export async function CustomersResults({
     search: current.search,
     status: current.status,
     customerTypeId: current.customerTypeId,
+    city: current.city,
     sortBy: current.sortBy,
     sortDir: current.sortDir,
   });

@@ -10,9 +10,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type {
+  CityFilter,
   CustomerTypeFilter,
   StatusFilter,
 } from "@/components/dashboard/customers/customers-url";
+import { BD_DISTRICTS } from "@/lib/bd-districts";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
@@ -29,6 +31,8 @@ export function CustomersToolbar({
   onStatusFilterChange,
   customerTypeFilter,
   onCustomerTypeFilterChange,
+  cityFilter,
+  onCityFilterChange,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
@@ -36,6 +40,8 @@ export function CustomersToolbar({
   onStatusFilterChange: (value: StatusFilter) => void;
   customerTypeFilter: CustomerTypeFilter;
   onCustomerTypeFilterChange: (value: CustomerTypeFilter) => void;
+  cityFilter: CityFilter;
+  onCityFilterChange: (value: CityFilter) => void;
 }) {
   const [types, setTypes] = useState<CustomerTypeOption[]>([]);
 
@@ -96,6 +102,25 @@ export function CustomersToolbar({
             {types.map((type) => (
               <SelectItem key={type.id} value={type.id}>
                 {type.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={cityFilter}
+          onValueChange={(value) => onCityFilterChange(value as CityFilter)}
+        >
+          <SelectTrigger className="w-full sm:w-36" aria-label="Filter by city">
+            <SelectValue>
+              {(value: CityFilter) => (value === "all" ? "All Cities" : value)}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Cities</SelectItem>
+            {BD_DISTRICTS.map((district) => (
+              <SelectItem key={district} value={district}>
+                {district}
               </SelectItem>
             ))}
           </SelectContent>

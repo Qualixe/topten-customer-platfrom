@@ -3,11 +3,14 @@ import type { CustomerStatus, CustomersSortBy, SortDirection } from "@/lib/api/c
 export type StatusFilter = CustomerStatus | "all";
 /** An opaque customer type id (from `listCustomerTypes()`), or "all". */
 export type CustomerTypeFilter = string;
+/** A Bangladesh district name (see BD_DISTRICTS), or "all". */
+export type CityFilter = string;
 
 export interface CustomersUrlParams {
   search: string;
   status: StatusFilter;
   customerTypeId: CustomerTypeFilter;
+  city: CityFilter;
   sortBy?: CustomersSortBy;
   sortDir: SortDirection;
   page: number;
@@ -35,6 +38,7 @@ export function buildCustomersHref(
   if (next.search.trim().length > 0) params.set("search", next.search.trim());
   if (next.status !== "all") params.set("status", next.status);
   if (next.customerTypeId !== "all") params.set("customerTypeId", next.customerTypeId);
+  if (next.city !== "all") params.set("city", next.city);
   if (next.sortBy) {
     params.set("sortBy", next.sortBy);
     params.set("sortDir", next.sortDir);

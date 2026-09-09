@@ -20,6 +20,7 @@ async def _add_customer(
     is_vip: bool = False,
     total_spent: str = "0",
     customer_type: str = "General",
+    city: str | None = None,
 ) -> Customer:
     customer = Customer(
         name=name,
@@ -29,6 +30,7 @@ async def _add_customer(
         is_vip=is_vip,
         total_spent=Decimal(total_spent),
         customer_type_id=await get_customer_type_id(db_session, customer_type),
+        city=city,
     )
     db_session.add(customer)
     await db_session.commit()
@@ -104,6 +106,43 @@ async def test_is_vip_filter(client: AsyncClient, db_session: AsyncSession) -> N
 
     assert body["meta"]["total"] == 1
     assert body["data"][0]["name"] == "VIP One"
+
+
+async def test_city_filter(client: AsyncClient, db_session: AsyncSession) -> None:
+    await _add_customer(db_session, name="Dhaka One", phone="+8801711000101", city="Dhaka")
+    await _add_customer(db_session, name="Khulna One", phone="+8801711000102", city="Khulna")
+
+    response = await client.get("/api/v1/customers", params={"city": "Dhaka"})
+    body = response.json()
+
+    assert body["meta"]["total"] == 1
+    assert body["data"][0]["name"] == "Dhaka One"
+
+
+async def test_city_filter_is_case_insensitive(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Existing rows may hold free text entered before the frontend switched
+    city to a district dropdown (e.g. "dhaka") — the filter still matches
+    those against the canonical district name."""
+    await _add_customer(db_session, name="Lowercase City", phone="+8801711000101", city="dhaka")
+
+    response = await client.get("/api/v1/customers", params={"city": "Dhaka"})
+    body = response.json()
+
+    assert body["meta"]["total"] == 1
+
+
+async def test_city_filter_omitted_returns_everyone(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _add_customer(db_session, name="Dhaka One", phone="+8801711000101", city="Dhaka")
+    await _add_customer(db_session, name="No City", phone="+8801711000102", city=None)
+
+    response = await client.get("/api/v1/customers")
+    body = response.json()
+
+    assert body["meta"]["total"] == 2
 
 
 async def test_verified_filter(client: AsyncClient, db_session: AsyncSession) -> None:

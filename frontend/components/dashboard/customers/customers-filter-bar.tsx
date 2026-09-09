@@ -64,6 +64,8 @@ export function CustomersFilterBar({
         onStatusFilterChange={(value) => navigate({ status: value })}
         customerTypeFilter={current.customerTypeId}
         onCustomerTypeFilterChange={(value) => navigate({ customerTypeId: value })}
+        cityFilter={current.city}
+        onCityFilterChange={(value) => navigate({ city: value })}
       />
       <ExportCustomersButton filters={current} />
     </div>

@@ -32,6 +32,8 @@ export interface ListCustomersParams {
   verified?: boolean;
   /** Only customers who've opted into marketing email. */
   marketingOptIn?: boolean;
+  /** A Bangladesh district name (see BD_DISTRICTS), exact match — or "all". */
+  city?: string | "all";
 }
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -147,6 +149,7 @@ function buildCustomersFilterQuery(
     sort_dir: params.sortDir,
     verified: params.verified,
     marketing_opt_in: params.marketingOptIn,
+    city: params.city && params.city !== "all" ? params.city : undefined,
   };
 }
 

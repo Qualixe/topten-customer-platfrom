@@ -193,6 +193,7 @@ async def _build_customer_filters(
     marketing_opt_in: bool | None,
     created_from: date | None,
     created_to: date | None,
+    city: str | None,
 ) -> list[ColumnElement]:
     """Shared WHERE-clause builder for `GET /customers` and
     `GET /customers/export` — the export must return exactly the rows the
@@ -219,6 +220,14 @@ async def _build_customer_filters(
     if customer_type_id is not None:
         resolved_type = await get_customer_type_or_404(db, customer_type_id)
         filters.append(Customer.customer_type_id == resolved_type.id)
+
+    # Case-insensitive exact match, not `search`'s substring `ilike` — city
+    # is dropdown-driven on the frontend now (one of Bangladesh's 64
+    # districts), but existing rows may still hold free text entered before
+    # that (e.g. "dhaka"), so this stays tolerant of casing without
+    # matching unrelated substrings.
+    if city:
+        filters.append(Customer.city.ilike(city))
 
     # profile_status is derived (see Customer.profile_status), not a stored
     # column — this is that same COMPLETE rule expressed in SQL.
@@ -276,6 +285,7 @@ async def list_customers(
     ),
     created_from: date | None = Query(None),
     created_to: date | None = Query(None),
+    city: str | None = Query(None, description="A Bangladesh district name, exact match"),
     sort_by: str | None = Query(None),
     sort_dir: Literal["asc", "desc"] = Query("asc"),
 ) -> CustomersListResponse:
@@ -290,6 +300,7 @@ async def list_customers(
         marketing_opt_in=marketing_opt_in,
         created_from=created_from,
         created_to=created_to,
+        city=city,
     )
 
     count_query = select(func.count()).select_from(Customer)
@@ -404,6 +415,7 @@ async def export_customers_csv(
     ),
     created_from: date | None = Query(None),
     created_to: date | None = Query(None),
+    city: str | None = Query(None, description="A Bangladesh district name, exact match"),
     sort_by: str | None = Query(None),
     sort_dir: Literal["asc", "desc"] = Query("asc"),
 ) -> StreamingResponse:
@@ -420,6 +432,7 @@ async def export_customers_csv(
         marketing_opt_in=marketing_opt_in,
         created_from=created_from,
         created_to=created_to,
+        city=city,
     )
     order_column = _SORTABLE_COLUMNS.get(sort_by or "", Customer.name)
     order_clause = order_column.desc() if sort_dir == "desc" else order_column.asc()
