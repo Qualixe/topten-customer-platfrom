@@ -83,12 +83,21 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   const days = lastNDhakaDays(TREND_DAYS);
   const today = days[days.length - 1];
 
-  // The 3 built-in types are always seeded (see get_seed_customer_type_id
-  // on the backend), so this resolves before the mix counts below can fire.
+  // Only "General" is guaranteed to exist (see get_seed_customer_type_id
+  // on the backend, which lazily creates it on first POS import) — VIP and
+  // VVIP are ordinary admin-managed types from Settings and may not exist
+  // yet on a given install. A bucket whose id can't be resolved must never
+  // fall back to an unfiltered `listPosCustomers` call (customerTypeId:
+  // undefined means "no filter" server-side, i.e. every customer) — that
+  // silently inflated this exact chart to double-counting the total. Skip
+  // the request entirely for a type that doesn't exist and count it as 0.
   const types = await listCustomerTypes();
   const generalId = types.find((t) => t.name === "General")?.id;
   const vipId = types.find((t) => t.name === "VIP")?.id;
   const vvipId = types.find((t) => t.name === "VVIP")?.id;
+
+  const countForType = (typeId: string | undefined) =>
+    typeId ? listPosCustomers({ customerTypeId: typeId, pageSize: 1 }) : Promise.resolve({ total: 0 });
 
   const [
     stats,
@@ -106,9 +115,9 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   ] = await Promise.all([
     getCustomerStats(),
     listCustomers({ verified: true, pageSize: 1 }),
-    listPosCustomers({ customerTypeId: generalId, pageSize: 1 }),
-    listPosCustomers({ customerTypeId: vipId, pageSize: 1 }),
-    listPosCustomers({ customerTypeId: vvipId, pageSize: 1 }),
+    countForType(generalId),
+    countForType(vipId),
+    countForType(vvipId),
     listPosCustomers({ profileStatus: "COMPLETE", pageSize: 1 }),
     Promise.all(
       days.map((day) =>

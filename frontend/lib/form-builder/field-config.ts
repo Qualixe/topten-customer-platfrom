@@ -3,6 +3,7 @@ import {
   Calendar,
   Heading as HeadingIcon,
   Mail,
+  MailCheck,
   MapPin,
   MousePointerClick,
   Phone as PhoneIcon,
@@ -66,6 +67,15 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
     label: "City",
     icon: Building2,
     defaultField: { type: "city", label: "City", placeholder: "e.g. Dhaka", required: false },
+  },
+  marketing_consent: {
+    label: "Marketing Consent",
+    icon: MailCheck,
+    defaultField: {
+      type: "marketing_consent",
+      label: "I agree to receive marketing emails and promotions.",
+      required: false,
+    },
   },
   divider: {
     label: "Divider",

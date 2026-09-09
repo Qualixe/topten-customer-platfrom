@@ -12,7 +12,6 @@ import {
   Settings,
   MessageSquareText,
   BarChart3,
-  ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
 
@@ -65,7 +64,6 @@ export const NAV_ITEMS: NavItem[] = [
 
   { title: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone, section: "Messaging", permission: "campaigns.view" },
   { title: "Templates", href: "/dashboard/templates", icon: MessageSquareText, section: "Messaging", permission: "templates.view" },
-  { title: "Marketing", href: "/dashboard/marketing", icon: ShoppingBag, section: "Messaging", permission: "marketing.view" },
   {
     title: "Gifts",
     href: "/dashboard/gifts",

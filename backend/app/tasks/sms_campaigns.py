@@ -383,6 +383,20 @@ async def _send_email_campaign(session: AsyncSession, campaign: Campaign) -> Non
         except ValidationAppError as exc:
             fatal_error = str(exc)
             break
+        except httpx.HTTPError as exc:
+            # A transient network/timeout talking to Mailchimp for this one
+            # recipient — unlike ValidationAppError above (bad/missing
+            # credentials, genuinely fatal for everyone), this says nothing
+            # about whether the next recipient's call will fail too. Mirrors
+            # _send_one_sms's identical handling for the SMS loop: mark just
+            # this recipient FAILED and keep going, rather than crashing the
+            # whole Celery task and leaving the campaign stuck at PROCESSING
+            # forever with nothing to retry it.
+            recipient.status = CampaignRecipientStatus.FAILED.value
+            recipient.failed_at = datetime.now(UTC)
+            recipient.failure_reason = str(exc)[:500]
+            await session.commit()
+            continue
 
         now = datetime.now(UTC)
         item = report.items[0] if report.items else None

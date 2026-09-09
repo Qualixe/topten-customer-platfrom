@@ -21,6 +21,7 @@ const REQUIRED_TYPES: FormField["type"][] = [
   "date_of_birth",
   "address",
   "city",
+  "marketing_consent",
 ];
 
 /** Right column — editable properties for whichever field is selected.

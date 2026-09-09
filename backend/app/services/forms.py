@@ -184,13 +184,15 @@ async def get_published_form_by_slug(db: AsyncSession, slug: str) -> Form | None
 
 
 def _required_field_types(form: Form) -> set[str]:
-    """Which of email/date_of_birth/address/city this specific form's own
-    config marks required — name/phone are always required regardless (see
-    GenericFormSubmission), since a Customer can't exist without them."""
+    """Which of email/date_of_birth/address/city/marketing_consent this
+    specific form's own config marks required — name/phone are always
+    required regardless (see GenericFormSubmission), since a Customer can't
+    exist without them."""
     return {
         field["type"]
         for field in form.builder_data.get("fields", [])
-        if field.get("type") in {"email", "date_of_birth", "address", "city"}
+        if field.get("type")
+        in {"email", "date_of_birth", "address", "city", "marketing_consent"}
         and field.get("required")
     }
 
@@ -218,6 +220,9 @@ async def submit_generic_form(
     if missing:
         verb = "is" if len(missing) == 1 else "are"
         raise ValidationAppError(f"{', '.join(missing)} {verb} required")
+
+    if "marketing_consent" in required and not submission.marketing_opt_in:
+        raise ValidationAppError("Please check the marketing consent box before submitting")
 
     # 10 chars matches Pathao's own minimum for a shippable address (see
     # app.services.pathao) — checked whenever an address is given, not just
@@ -255,6 +260,13 @@ async def submit_generic_form(
         customer.address = submission.address
     if submission.city:
         customer.city = submission.city
+
+    # Only ever turns opt-in on, never off — an unchecked box on a later
+    # resubmission must not silently revoke consent already given earlier
+    # (e.g. via a different form, or the customer's own profile page).
+    if submission.marketing_opt_in and not customer.marketing_opt_in:
+        customer.marketing_opt_in = True
+        customer.marketing_opt_in_at = datetime.now(UTC)
 
     # A completed standalone-form submission counts as "verified" for this
     # customer — see Customer.form_verified_at's docstring. Set once, never

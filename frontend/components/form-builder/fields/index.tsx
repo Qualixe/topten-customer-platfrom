@@ -4,13 +4,21 @@ import { DateOfBirthField } from "@/components/form-builder/fields/DateOfBirthFi
 import { DividerField } from "@/components/form-builder/fields/DividerField";
 import { EmailField } from "@/components/form-builder/fields/EmailField";
 import { HeadingField } from "@/components/form-builder/fields/HeadingField";
+import { MarketingConsentField } from "@/components/form-builder/fields/MarketingConsentField";
 import { NameField } from "@/components/form-builder/fields/NameField";
 import { ParagraphField } from "@/components/form-builder/fields/ParagraphField";
 import { PhoneField } from "@/components/form-builder/fields/PhoneField";
 import { SubmitButtonField } from "@/components/form-builder/fields/SubmitButtonField";
 import type { FormField } from "@/lib/form-builder/types";
 
-export type GenericFormFieldName = "name" | "phone" | "email" | "dateOfBirth" | "address" | "city";
+export type GenericFormFieldName =
+  | "name"
+  | "phone"
+  | "email"
+  | "dateOfBirth"
+  | "address"
+  | "city"
+  | "marketingOptIn";
 
 /** Values for a real submission — only present on the public, tokenless
  * /form/[slug] page, where name/phone/email/date_of_birth/address/city turn
@@ -22,6 +30,7 @@ export interface GenericFormValues {
   dateOfBirth: string;
   address: string;
   city: string;
+  marketingOptIn: boolean;
 }
 
 /** Picks the right component for a field's type. Used identically by the
@@ -39,7 +48,7 @@ export function FieldRenderer({
   field: FormField;
   preview?: boolean;
   formValues?: GenericFormValues;
-  onFormFieldChange?: (field: GenericFormFieldName, value: string) => void;
+  onFormFieldChange?: (field: GenericFormFieldName, value: string | boolean) => void;
   /** Only meaningful for a "submit_button" field on the real public form —
    * disables it while a submission is in flight. */
   submitDisabled?: boolean;
@@ -103,6 +112,17 @@ export function FieldRenderer({
           preview={preview}
           value={formValues?.city}
           onChange={onFormFieldChange ? (value) => onFormFieldChange("city", value) : undefined}
+        />
+      );
+    case "marketing_consent":
+      return (
+        <MarketingConsentField
+          field={field}
+          preview={preview}
+          checked={formValues?.marketingOptIn}
+          onChange={
+            onFormFieldChange ? (value) => onFormFieldChange("marketingOptIn", value) : undefined
+          }
         />
       );
     case "divider":

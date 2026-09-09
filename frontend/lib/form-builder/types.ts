@@ -7,6 +7,7 @@ export type FieldType =
   | "date_of_birth"
   | "address"
   | "city"
+  | "marketing_consent"
   | "divider"
   | "submit_button";
 

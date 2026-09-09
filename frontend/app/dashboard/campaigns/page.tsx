@@ -1,21 +1,27 @@
 import { AlertTriangle, CheckCircle2, Clock, Megaphone, Send } from "lucide-react";
 
 import { CampaignsDirectory } from "@/components/dashboard/campaigns/campaigns-directory";
+import { MailchimpStatusCard } from "@/components/dashboard/campaigns/mailchimp-status-card";
 import { CampaignsPageHeader } from "@/components/dashboard/campaigns/page-header";
 import { SmsBalanceCard } from "@/components/dashboard/campaigns/sms-balance-card";
 import { StatsSectionCard } from "@/components/dashboard/stats-section-card";
 import type { StatDefinition } from "@/components/dashboard/stats-grid";
 import { getCampaignStats, listCampaigns } from "@/lib/api/campaigns";
+import { getMailchimpCredentials } from "@/lib/api/mailchimp";
 import { getSmsAccount } from "@/lib/api/sms-account";
 
 // Real, frequently-changing backend data — must not be statically cached.
 export const dynamic = "force-dynamic";
 
 export default async function CampaignsPage() {
-  const [{ items: campaigns }, stats, smsAccount] = await Promise.all([
+  const [{ items: campaigns }, stats, smsAccount, mailchimpCredentials] = await Promise.all([
     listCampaigns({ pageSize: 50 }),
     getCampaignStats(),
     getSmsAccount(),
+    // Requires marketing.manage — not every campaigns.view user has it, so
+    // this must never reject the whole page load. See
+    // MailchimpStatusCard's own docstring for the null-credentials case.
+    getMailchimpCredentials().catch(() => null),
   ]);
 
   const statDefinitions: StatDefinition[] = [
@@ -64,7 +70,7 @@ export default async function CampaignsPage() {
       <CampaignsPageHeader />
       <div className="grid gap-4 lg:grid-cols-2">
         <SmsBalanceCard account={smsAccount} />
-        <SmsBalanceCard account={smsAccount} />
+        <MailchimpStatusCard credentials={mailchimpCredentials} />
       </div>
       <StatsSectionCard title="Campaigns" stats={statDefinitions} />
       <CampaignsDirectory campaigns={campaigns} />
