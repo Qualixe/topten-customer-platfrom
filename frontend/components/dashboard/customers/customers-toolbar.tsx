@@ -12,10 +12,12 @@ import {
 import type {
   CityFilter,
   CustomerTypeFilter,
+  SpendRangeFilter,
   StatusFilter,
 } from "@/components/dashboard/customers/customers-url";
 import { BD_DISTRICTS } from "@/lib/bd-districts";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
+import { SPEND_RANGES } from "@/lib/spend-ranges";
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   all: "All Statuses",
@@ -33,6 +35,8 @@ export function CustomersToolbar({
   onCustomerTypeFilterChange,
   cityFilter,
   onCityFilterChange,
+  spendRangeFilter,
+  onSpendRangeFilterChange,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
@@ -42,6 +46,8 @@ export function CustomersToolbar({
   onCustomerTypeFilterChange: (value: CustomerTypeFilter) => void;
   cityFilter: CityFilter;
   onCityFilterChange: (value: CityFilter) => void;
+  spendRangeFilter: SpendRangeFilter;
+  onSpendRangeFilterChange: (value: SpendRangeFilter) => void;
 }) {
   const [types, setTypes] = useState<CustomerTypeOption[]>([]);
 
@@ -121,6 +127,29 @@ export function CustomersToolbar({
             {BD_DISTRICTS.map((district) => (
               <SelectItem key={district} value={district}>
                 {district}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={spendRangeFilter}
+          onValueChange={(value) => onSpendRangeFilterChange(value as SpendRangeFilter)}
+        >
+          <SelectTrigger className="w-full sm:w-40" aria-label="Filter by spend range">
+            <SelectValue>
+              {(value: SpendRangeFilter) =>
+                value === "all"
+                  ? "All Spend"
+                  : (SPEND_RANGES.find((range) => range.key === value)?.label ?? "…")
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Spend</SelectItem>
+            {SPEND_RANGES.map((range) => (
+              <SelectItem key={range.key} value={range.key}>
+                {range.label}
               </SelectItem>
             ))}
           </SelectContent>

@@ -1,6 +1,7 @@
 import { CustomersDirectory } from "@/components/dashboard/customers/customers-directory";
 import type { CustomersUrlParams } from "@/components/dashboard/customers/customers-url";
 import { listCustomers } from "@/lib/api/customers";
+import { SPEND_RANGES } from "@/lib/spend-ranges";
 
 /**
  * Fetches exactly one page of customers for the current URL state. Rendered
@@ -13,12 +14,16 @@ export async function CustomersResults({
 }: {
   current: CustomersUrlParams;
 }) {
+  const spendRange = SPEND_RANGES.find((range) => range.key === current.spendRange);
+
   const { items, total, page, pageSize } = await listCustomers({
     page: current.page,
     search: current.search,
     status: current.status,
     customerTypeId: current.customerTypeId,
     city: current.city,
+    minTotalSpent: spendRange?.min,
+    maxTotalSpent: spendRange?.max,
     sortBy: current.sortBy,
     sortDir: current.sortDir,
   });

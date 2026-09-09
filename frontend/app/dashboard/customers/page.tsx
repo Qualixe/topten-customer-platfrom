@@ -26,6 +26,7 @@ function parseParams(searchParams: RawSearchParams): CustomersUrlParams {
       (firstValue(searchParams.status) as CustomersUrlParams["status"]) ?? "all",
     customerTypeId: firstValue(searchParams.customerTypeId) ?? "all",
     city: firstValue(searchParams.city) ?? "all",
+    spendRange: firstValue(searchParams.spendRange) ?? "all",
     sortBy,
     sortDir: firstValue(searchParams.sortDir) === "desc" ? "desc" : "asc",
     page: Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1,

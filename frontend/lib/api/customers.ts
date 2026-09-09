@@ -34,6 +34,12 @@ export interface ListCustomersParams {
   marketingOptIn?: boolean;
   /** A Bangladesh district name (see BD_DISTRICTS), exact match — or "all". */
   city?: string | "all";
+  /** Total spent >= this (Taka). Paired with maxTotalSpent for the
+   * dashboard's "Spend Range" buckets — see lib/spend-ranges.ts. */
+  minTotalSpent?: number;
+  /** Total spent < this (Taka) — exclusive, so a customer at exactly this
+   * value falls into the next bucket up. */
+  maxTotalSpent?: number;
 }
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -150,6 +156,8 @@ function buildCustomersFilterQuery(
     verified: params.verified,
     marketing_opt_in: params.marketingOptIn,
     city: params.city && params.city !== "all" ? params.city : undefined,
+    min_total_spent: params.minTotalSpent,
+    max_total_spent: params.maxTotalSpent,
   };
 }
 

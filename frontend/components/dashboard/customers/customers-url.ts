@@ -5,12 +5,15 @@ export type StatusFilter = CustomerStatus | "all";
 export type CustomerTypeFilter = string;
 /** A Bangladesh district name (see BD_DISTRICTS), or "all". */
 export type CityFilter = string;
+/** A SpendRange.key (see lib/spend-ranges.ts), or "all". */
+export type SpendRangeFilter = string;
 
 export interface CustomersUrlParams {
   search: string;
   status: StatusFilter;
   customerTypeId: CustomerTypeFilter;
   city: CityFilter;
+  spendRange: SpendRangeFilter;
   sortBy?: CustomersSortBy;
   sortDir: SortDirection;
   page: number;
@@ -39,6 +42,7 @@ export function buildCustomersHref(
   if (next.status !== "all") params.set("status", next.status);
   if (next.customerTypeId !== "all") params.set("customerTypeId", next.customerTypeId);
   if (next.city !== "all") params.set("city", next.city);
+  if (next.spendRange !== "all") params.set("spendRange", next.spendRange);
   if (next.sortBy) {
     params.set("sortBy", next.sortBy);
     params.set("sortDir", next.sortDir);

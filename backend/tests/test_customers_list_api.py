@@ -145,6 +145,75 @@ async def test_city_filter_omitted_returns_everyone(
     assert body["meta"]["total"] == 2
 
 
+async def test_spend_range_filter(client: AsyncClient, db_session: AsyncSession) -> None:
+    await _add_customer(
+        db_session, name="Low Spender", phone="+8801711000101", total_spent="25000"
+    )
+    await _add_customer(
+        db_session, name="Mid Spender", phone="+8801711000102", total_spent="75000"
+    )
+    await _add_customer(
+        db_session, name="High Spender", phone="+8801711000103", total_spent="600000"
+    )
+
+    response = await client.get(
+        "/api/v1/customers",
+        params={"min_total_spent": "50000", "max_total_spent": "100000"},
+    )
+    body = response.json()
+
+    assert body["meta"]["total"] == 1
+    assert body["data"][0]["name"] == "Mid Spender"
+
+
+async def test_spend_range_lower_bound_is_inclusive(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _add_customer(
+        db_session, name="Exactly At Boundary", phone="+8801711000101", total_spent="50000"
+    )
+
+    response = await client.get(
+        "/api/v1/customers",
+        params={"min_total_spent": "50000", "max_total_spent": "100000"},
+    )
+    body = response.json()
+
+    assert body["meta"]["total"] == 1
+
+
+async def test_spend_range_upper_bound_is_exclusive(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A customer at exactly the upper boundary belongs to the *next*
+    bucket, not this one — see the [min, max) reasoning in
+    app.controllers.customers._build_customer_filters."""
+    await _add_customer(
+        db_session, name="Exactly At Boundary", phone="+8801711000101", total_spent="100000"
+    )
+
+    response = await client.get(
+        "/api/v1/customers",
+        params={"min_total_spent": "50000", "max_total_spent": "100000"},
+    )
+    body = response.json()
+
+    assert body["meta"]["total"] == 0
+
+
+async def test_spend_range_open_ended_top_bucket(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _add_customer(
+        db_session, name="Very High Spender", phone="+8801711000101", total_spent="900000"
+    )
+
+    response = await client.get("/api/v1/customers", params={"min_total_spent": "500000"})
+    body = response.json()
+
+    assert body["meta"]["total"] == 1
+
+
 async def test_verified_filter(client: AsyncClient, db_session: AsyncSession) -> None:
     verified = await _add_customer(db_session, name="Verified One", phone="+8801711000101")
     unverified = await _add_customer(db_session, name="Unverified One", phone="+8801711000102")

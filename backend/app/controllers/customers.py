@@ -194,6 +194,8 @@ async def _build_customer_filters(
     created_from: date | None,
     created_to: date | None,
     city: str | None,
+    min_total_spent: Decimal | None,
+    max_total_spent: Decimal | None,
 ) -> list[ColumnElement]:
     """Shared WHERE-clause builder for `GET /customers` and
     `GET /customers/export` — the export must return exactly the rows the
@@ -228,6 +230,17 @@ async def _build_customer_filters(
     # matching unrelated substrings.
     if city:
         filters.append(Customer.city.ilike(city))
+
+    # Spend-range filter (dashboard "Spend Range" dropdown) — each bucket
+    # sends its lower bound as min and, except the open-ended top bucket
+    # ("500k+"), its upper bound as max. Inclusive/exclusive matches how
+    # the frontend's buckets are defined (see lib/spend-ranges.ts):
+    # [min, max) so a customer at exactly a boundary (e.g. 50000.00) falls
+    # into the bucket starting there, not the one below it.
+    if min_total_spent is not None:
+        filters.append(Customer.total_spent >= min_total_spent)
+    if max_total_spent is not None:
+        filters.append(Customer.total_spent < max_total_spent)
 
     # profile_status is derived (see Customer.profile_status), not a stored
     # column — this is that same COMPLETE rule expressed in SQL.
@@ -286,6 +299,8 @@ async def list_customers(
     created_from: date | None = Query(None),
     created_to: date | None = Query(None),
     city: str | None = Query(None, description="A Bangladesh district name, exact match"),
+    min_total_spent: Decimal | None = Query(None, ge=0),
+    max_total_spent: Decimal | None = Query(None, ge=0),
     sort_by: str | None = Query(None),
     sort_dir: Literal["asc", "desc"] = Query("asc"),
 ) -> CustomersListResponse:
@@ -301,6 +316,8 @@ async def list_customers(
         created_from=created_from,
         created_to=created_to,
         city=city,
+        min_total_spent=min_total_spent,
+        max_total_spent=max_total_spent,
     )
 
     count_query = select(func.count()).select_from(Customer)
@@ -416,6 +433,8 @@ async def export_customers_csv(
     created_from: date | None = Query(None),
     created_to: date | None = Query(None),
     city: str | None = Query(None, description="A Bangladesh district name, exact match"),
+    min_total_spent: Decimal | None = Query(None, ge=0),
+    max_total_spent: Decimal | None = Query(None, ge=0),
     sort_by: str | None = Query(None),
     sort_dir: Literal["asc", "desc"] = Query("asc"),
 ) -> StreamingResponse:
@@ -433,6 +452,8 @@ async def export_customers_csv(
         created_from=created_from,
         created_to=created_to,
         city=city,
+        min_total_spent=min_total_spent,
+        max_total_spent=max_total_spent,
     )
     order_column = _SORTABLE_COLUMNS.get(sort_by or "", Customer.name)
     order_clause = order_column.desc() if sort_dir == "desc" else order_column.asc()
