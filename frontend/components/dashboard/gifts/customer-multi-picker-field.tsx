@@ -41,7 +41,10 @@ type SelectionMode = "type" | "specific";
 
 /** Multi-select counterpart to GiftPickerField: opens a dialog that lets
  * the user either pick all customers of a given type (By Customer Type)
- * or hand-pick individual verified customers (Specific Customers). */
+ * or hand-pick individuals (Specific Customers). Not filtered to verified
+ * customers — the backend has no such requirement for gift orders, and
+ * most customers only ever arrive via POS import, never a verification
+ * flow, so requiring it here would leave almost nothing selectable. */
 export function CustomerMultiPickerField({
   selected,
   onChange,
@@ -102,7 +105,6 @@ export function CustomerMultiPickerField({
         for (;;) {
           const result = await listCustomers({
             customerTypeId: selectedTypeId,
-            verified: true,
             page,
             pageSize: TYPE_FETCH_PAGE_SIZE,
           });
@@ -157,7 +159,6 @@ export function CustomerMultiPickerField({
           const result = await listCustomers({
             search: debouncedSearch.trim() || undefined,
             pageSize: PAGE_SIZE,
-            verified: true,
           });
           if (!cancelled) setResults(result.items);
         } finally {
