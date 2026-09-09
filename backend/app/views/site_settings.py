@@ -7,6 +7,7 @@ _HEX_COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 class SiteLogoData(BaseModel):
     logo_url: str | None
+    favicon_url: str | None
     brand_color: str
 
 

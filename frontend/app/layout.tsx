@@ -3,7 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-import { getResolvedBrandColorSafe } from "@/lib/api/site-settings";
+import { getResolvedBrandColorSafe, getResolvedFaviconUrlSafe } from "@/lib/api/site-settings";
 import { buildBrandColorStyle } from "@/lib/theme/brand-color";
 
 const inter = Inter({
@@ -16,10 +16,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "TopTen Customer Platform",
-  description: "Customer management and loyalty platform for TopTen Supermarket",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  // The default lives at public/favicon.ico (a plain static asset), not
+  // app/favicon.ico — Next's app/ file-convention auto-injects its own
+  // <link rel="icon"> in addition to whatever `icons` below resolves to,
+  // rather than replacing it, which would render two competing favicon
+  // links (browsers may keep showing the old one after an admin uploads a
+  // new favicon). Setting `icons` here is the only favicon link emitted.
+  const faviconUrl = await getResolvedFaviconUrlSafe();
+  return {
+    title: "TopTen Customer Platform",
+    description: "Customer management and loyalty platform for TopTen Supermarket",
+    icons: { icon: faviconUrl ?? "/favicon.ico" },
+  };
+}
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const brandColor = await getResolvedBrandColorSafe();

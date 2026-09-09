@@ -6,6 +6,7 @@ import { SettingsCard } from "@/components/dashboard/settings/settings-card";
 import { BrandColorPicker } from "@/components/dashboard/settings/brand-color-picker";
 import { FormField } from "@/components/dashboard/form-field";
 import { SettingsSwitchRow } from "@/components/dashboard/settings/settings-switch-row";
+import { FaviconUpload } from "@/components/dashboard/settings/favicon-upload";
 import { SiteLogoUpload } from "@/components/dashboard/settings/site-logo-upload";
 import { Input } from "@/components/ui/input";
 import { defaultGeneralSettings } from "@/lib/mock/settings";
@@ -19,6 +20,8 @@ export function GeneralSettingsForm() {
       description="Basic information about your store"
     >
       <SiteLogoUpload />
+
+      <FaviconUpload />
 
       <BrandColorPicker />
 

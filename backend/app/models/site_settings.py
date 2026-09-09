@@ -15,6 +15,10 @@ class SiteSettings(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     logo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Browser-tab icon for the whole app (admin dashboard, login, and every
+    # public page) — served the same way as logo_path, via the /branding
+    # StaticFiles mount, and picked up by the root layout's generateMetadata.
+    favicon_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # "#RRGGBB" — drives the app's --primary/--ring CSS variables everywhere
     # (admin sidebar, buttons, focus rings), so the whole UI's accent color
     # is admin-editable rather than hardcoded. Defaults to the red already

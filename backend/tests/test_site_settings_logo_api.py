@@ -27,13 +27,21 @@ def _use_temp_branding_dir(tmp_path, monkeypatch) -> None:
 async def test_logo_starts_unset(client: AsyncClient) -> None:
     response = await client.get("/api/v1/public/site-logo")
     assert response.status_code == 200
-    assert response.json()["data"] == {"logo_url": None, "brand_color": "#EF4444"}
+    assert response.json()["data"] == {
+        "logo_url": None,
+        "favicon_url": None,
+        "brand_color": "#EF4444",
+    }
 
 
 async def test_public_site_logo_requires_no_auth(unauthenticated_client: AsyncClient) -> None:
     response = await unauthenticated_client.get("/api/v1/public/site-logo")
     assert response.status_code == 200
-    assert response.json()["data"] == {"logo_url": None, "brand_color": "#EF4444"}
+    assert response.json()["data"] == {
+        "logo_url": None,
+        "favicon_url": None,
+        "brand_color": "#EF4444",
+    }
 
 
 async def test_uploading_a_logo_returns_a_servable_url(client: AsyncClient) -> None:
@@ -96,11 +104,98 @@ async def test_removing_the_logo_clears_it(client: AsyncClient, tmp_path: Path) 
 
     response = await client.delete("/api/v1/settings/logo")
     assert response.status_code == 200
-    assert response.json()["data"] == {"logo_url": None, "brand_color": "#EF4444"}
+    assert response.json()["data"] == {
+        "logo_url": None,
+        "favicon_url": None,
+        "brand_color": "#EF4444",
+    }
     assert not logo_path.exists()
 
     follow_up = await client.get("/api/v1/public/site-logo")
     assert follow_up.json()["data"]["logo_url"] is None
+
+
+async def test_uploading_a_favicon_returns_a_servable_url(client: AsyncClient) -> None:
+    response = await client.put(
+        "/api/v1/settings/favicon",
+        files={"file": ("favicon.png", PNG_1X1, "image/png")},
+    )
+    assert response.status_code == 200
+
+    favicon_url = response.json()["data"]["favicon_url"]
+    assert favicon_url is not None
+    assert favicon_url.startswith("/branding/")
+
+    follow_up = await client.get("/api/v1/public/site-logo")
+    assert follow_up.json()["data"]["favicon_url"] == favicon_url
+
+
+async def test_favicon_rejects_non_icon_content_type(client: AsyncClient) -> None:
+    response = await client.put(
+        "/api/v1/settings/favicon",
+        files={"file": ("favicon.webp", PNG_1X1, "image/webp")},
+    )
+    assert response.status_code == 422
+
+
+async def test_favicon_rejects_oversized_file(client: AsyncClient) -> None:
+    oversized = b"\x00" * (512 * 1024 + 1)
+    response = await client.put(
+        "/api/v1/settings/favicon",
+        files={"file": ("favicon.png", oversized, "image/png")},
+    )
+    assert response.status_code == 422
+
+
+async def test_uploading_a_new_favicon_removes_the_previous_file(
+    client: AsyncClient, tmp_path: Path
+) -> None:
+    first = await client.put(
+        "/api/v1/settings/favicon", files={"file": ("favicon.png", PNG_1X1, "image/png")}
+    )
+    first_url = first.json()["data"]["favicon_url"]
+    first_path = tmp_path / Path(first_url).name
+    assert first_path.exists()
+
+    second = await client.put(
+        "/api/v1/settings/favicon", files={"file": ("favicon2.png", PNG_1X1, "image/png")}
+    )
+    second_url = second.json()["data"]["favicon_url"]
+
+    assert second_url != first_url
+    assert not first_path.exists()
+
+
+async def test_removing_the_favicon_clears_it(client: AsyncClient, tmp_path: Path) -> None:
+    uploaded = await client.put(
+        "/api/v1/settings/favicon", files={"file": ("favicon.png", PNG_1X1, "image/png")}
+    )
+    favicon_path = tmp_path / Path(uploaded.json()["data"]["favicon_url"]).name
+    assert favicon_path.exists()
+
+    response = await client.delete("/api/v1/settings/favicon")
+    assert response.status_code == 200
+    assert response.json()["data"]["favicon_url"] is None
+    assert not favicon_path.exists()
+
+    follow_up = await client.get("/api/v1/public/site-logo")
+    assert follow_up.json()["data"]["favicon_url"] is None
+
+
+async def test_favicon_and_logo_are_independent(client: AsyncClient) -> None:
+    """Uploading/removing one must never touch the other — they're separate
+    columns sharing only the upload directory and response envelope."""
+    await client.put("/api/v1/settings/logo", files={"file": ("logo.png", PNG_1X1, "image/png")})
+    await client.put(
+        "/api/v1/settings/favicon", files={"file": ("favicon.png", PNG_1X1, "image/png")}
+    )
+
+    await client.delete("/api/v1/settings/favicon")
+
+    response = await client.get("/api/v1/public/site-logo")
+    data = response.json()["data"]
+    assert data["logo_url"] is not None
+    assert data["favicon_url"] is None
 
 
 async def test_brand_color_starts_at_default(client: AsyncClient) -> None:

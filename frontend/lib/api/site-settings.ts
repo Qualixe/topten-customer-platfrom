@@ -7,6 +7,7 @@ export { DEFAULT_BRAND_COLOR };
 
 export interface SiteLogo {
   logoUrl: string | null;
+  faviconUrl: string | null;
   /** "#RRGGBB" — drives --primary/--ring app-wide, admin-editable in
    * Settings → General. */
   brandColor: string;
@@ -44,6 +45,21 @@ export async function getResolvedBrandColorSafe(): Promise<string> {
     return logo.brandColor;
   } catch {
     return DEFAULT_BRAND_COLOR;
+  }
+}
+
+/**
+ * Resolved favicon URL, or null on any failure/when unset — used by the
+ * root layout's generateMetadata to override the default file-convention
+ * favicon.ico. A lookup failure must never break the page, just fall back
+ * to the static default.
+ */
+export async function getResolvedFaviconUrlSafe(): Promise<string | null> {
+  try {
+    const logo = await getSiteLogo();
+    return resolveLogoUrl(logo.faviconUrl);
+  } catch {
+    return null;
   }
 }
 
@@ -97,12 +113,65 @@ export async function uploadSiteLogo(file: File): Promise<SiteLogo> {
   // automatic camelization.
   const envelope = (await response.json()) as ApiEnvelope<{
     logo_url: string | null;
+    favicon_url: string | null;
     brand_color: string;
   }>;
-  return { logoUrl: envelope.data.logo_url, brandColor: envelope.data.brand_color };
+  return {
+    logoUrl: envelope.data.logo_url,
+    faviconUrl: envelope.data.favicon_url,
+    brandColor: envelope.data.brand_color,
+  };
 }
 
 export async function removeSiteLogo(): Promise<SiteLogo> {
   const envelope = await apiDelete<ApiEnvelope<SiteLogo>>("/settings/logo");
+  return envelope.data;
+}
+
+/** Uploads a new favicon (multipart, not JSON) and returns its resulting
+ * URL. Mirrors uploadSiteLogo above — see its comments for why this uses
+ * raw `fetch` instead of `apiFetch`. */
+export async function uploadSiteFavicon(file: File): Promise<SiteLogo> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  let response: Response;
+  try {
+    const authHeader = await getAuthorizationHeader();
+    response = await fetch(`${API_BASE_URL}/settings/favicon`, {
+      method: "PUT",
+      headers: authHeader,
+      body: formData,
+    });
+  } catch (error) {
+    throw new NetworkError(error instanceof Error ? error.message : undefined);
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    let message = body || response.statusText;
+    try {
+      const parsed = JSON.parse(body) as { detail?: string };
+      message = parsed.detail ?? message;
+    } catch {
+      // Not JSON — fall back to the raw text/status above.
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  const envelope = (await response.json()) as ApiEnvelope<{
+    logo_url: string | null;
+    favicon_url: string | null;
+    brand_color: string;
+  }>;
+  return {
+    logoUrl: envelope.data.logo_url,
+    faviconUrl: envelope.data.favicon_url,
+    brandColor: envelope.data.brand_color,
+  };
+}
+
+export async function removeSiteFavicon(): Promise<SiteLogo> {
+  const envelope = await apiDelete<ApiEnvelope<SiteLogo>>("/settings/favicon");
   return envelope.data;
 }

@@ -35,6 +35,17 @@ _EXTENSION_BY_CONTENT_TYPE = {
     "image/webp": ".webp",
 }
 
+# Favicons are conventionally .ico or a small PNG — no JPEG/WEBP (browsers
+# don't reliably accept those as a <link rel="icon"> source).
+ALLOWED_FAVICON_CONTENT_TYPES = {"image/png", "image/x-icon", "image/vnd.microsoft.icon"}
+MAX_FAVICON_SIZE_BYTES = 512 * 1024
+
+_FAVICON_EXTENSION_BY_CONTENT_TYPE = {
+    "image/png": ".png",
+    "image/x-icon": ".ico",
+    "image/vnd.microsoft.icon": ".ico",
+}
+
 
 async def _get_or_create_settings_row(db: AsyncSession) -> SiteSettings:
     row = (await db.execute(select(SiteSettings))).scalars().first()
@@ -52,12 +63,23 @@ def _logo_url(logo_path: str | None) -> str | None:
     return f"/branding/{Path(logo_path).name}"
 
 
+# Same shape as _logo_url — both files live in the same BRANDING_UPLOAD_DIR,
+# served by the same /branding StaticFiles mount (see app.main).
+_favicon_url = _logo_url
+
+
+def _to_data(row: SiteSettings) -> SiteLogoData:
+    return SiteLogoData(
+        logo_url=_logo_url(row.logo_path),
+        favicon_url=_favicon_url(row.favicon_path),
+        brand_color=row.brand_color,
+    )
+
+
 @public_router.get("/site-logo", response_model=SiteLogoResponse)
 async def get_public_site_logo(db: AsyncSession = Depends(get_db)) -> SiteLogoResponse:
     row = await _get_or_create_settings_row(db)
-    return SiteLogoResponse(
-        data=SiteLogoData(logo_url=_logo_url(row.logo_path), brand_color=row.brand_color)
-    )
+    return SiteLogoResponse(data=_to_data(row))
 
 
 @router.put("/brand-color", response_model=SiteLogoResponse)
@@ -70,9 +92,7 @@ async def update_brand_color(
     row.brand_color = payload.brand_color
     await db.commit()
     await db.refresh(row)
-    return SiteLogoResponse(
-        data=SiteLogoData(logo_url=_logo_url(row.logo_path), brand_color=row.brand_color)
-    )
+    return SiteLogoResponse(data=_to_data(row))
 
 
 @router.put("/logo", response_model=SiteLogoResponse)
@@ -108,9 +128,7 @@ async def upload_site_logo(
     if previous_path and previous_path.exists():
         previous_path.unlink()
 
-    return SiteLogoResponse(
-        data=SiteLogoData(logo_url=_logo_url(row.logo_path), brand_color=row.brand_color)
-    )
+    return SiteLogoResponse(data=_to_data(row))
 
 
 @router.delete("/logo", response_model=SiteLogoResponse)
@@ -127,4 +145,57 @@ async def remove_site_logo(
         if old_path.exists():
             old_path.unlink()
 
-    return SiteLogoResponse(data=SiteLogoData(logo_url=None, brand_color=row.brand_color))
+    return SiteLogoResponse(data=_to_data(row))
+
+
+@router.put("/favicon", response_model=SiteLogoResponse)
+async def upload_site_favicon(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("settings.manage")),
+) -> SiteLogoResponse:
+    if file.content_type not in ALLOWED_FAVICON_CONTENT_TYPES:
+        raise ValidationAppError("Favicon must be a PNG or ICO image")
+
+    contents = await file.read()
+    if len(contents) > MAX_FAVICON_SIZE_BYTES:
+        raise ValidationAppError("Favicon must be smaller than 512 KB")
+    if not contents:
+        raise ValidationAppError("Uploaded file is empty")
+
+    upload_dir = Path(settings.BRANDING_UPLOAD_DIR)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    extension = _FAVICON_EXTENSION_BY_CONTENT_TYPE[file.content_type]
+    destination = upload_dir / f"{uuid.uuid4()}{extension}"
+    destination.write_bytes(contents)
+
+    row = await _get_or_create_settings_row(db)
+
+    previous_path = Path(row.favicon_path) if row.favicon_path else None
+
+    row.favicon_path = str(destination)
+    await db.commit()
+    await db.refresh(row)
+
+    if previous_path and previous_path.exists():
+        previous_path.unlink()
+
+    return SiteLogoResponse(data=_to_data(row))
+
+
+@router.delete("/favicon", response_model=SiteLogoResponse)
+async def remove_site_favicon(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("settings.manage")),
+) -> SiteLogoResponse:
+    row = await _get_or_create_settings_row(db)
+
+    if row.favicon_path:
+        old_path = Path(row.favicon_path)
+        row.favicon_path = None
+        await db.commit()
+        if old_path.exists():
+            old_path.unlink()
+
+    return SiteLogoResponse(data=_to_data(row))
