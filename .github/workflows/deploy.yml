@@ -1,0 +1,27 @@
+name: Deploy to production VPS
+
+# Runs deploy.sh on the VPS itself over SSH — that script does the actual
+# git pull/build/up, so this workflow is just the trigger. Requires three
+# repo secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (private half of
+# the keypair whose public half is in the VPS's ~/.ssh/authorized_keys).
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Run deploy.sh on the VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd ~/topten-customer-platfrom && bash deploy.sh"
