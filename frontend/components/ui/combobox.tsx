@@ -93,11 +93,11 @@ function ComboboxContent({
 function ComboboxSearchInput({ className, ...props }: ComboboxPrimitive.Input.Props) {
   return (
     <div className="relative border-b p-1.5">
-      <SearchIcon className="pointer-events-none absolute top-1/2 left-4 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      <SearchIcon className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
       <ComboboxPrimitive.Input
         data-slot="combobox-search-input"
         className={cn(
-          "h-7 w-full rounded-md border-0 bg-transparent pr-2 pl-6 text-sm outline-none placeholder:text-muted-foreground",
+          "h-7 w-full rounded-md border-0 bg-transparent pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground",
           className
         )}
         {...props}
