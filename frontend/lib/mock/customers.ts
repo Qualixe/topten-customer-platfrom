@@ -33,6 +33,11 @@ export interface Customer {
    * lib/api/sendgrid.ts). Absent on mock-generated customers, same
    * availability caveat as dateOfBirth. */
   marketingOptIn?: boolean;
+  /** The customer's own free-text message, opposite of `notes` — collected
+   * via a "Customer Note" form-builder field on the public Forms feature,
+   * never admin-editable. Absent on mock-generated customers, same
+   * availability caveat as dateOfBirth. */
+  customerNote?: string | null;
 }
 
 const FIRST_NAMES = [

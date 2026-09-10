@@ -54,6 +54,7 @@ interface CustomerDto {
   city: string | null;
   dateOfBirth: string | null;
   internalNotes: string | null;
+  customerNote: string | null;
   isVip: boolean;
   marketingOptIn: boolean;
   customerType: CustomerTypeOption;
@@ -128,6 +129,9 @@ function mapDtoToCustomer(dto: CustomerDto): Customer {
     // Staff-only note about this customer — never customer-submitted, see
     // Customer.internal_notes on the backend.
     notes: dto.internalNotes ?? "",
+    // The opposite direction: the customer's own message, see
+    // Customer.customer_note on the backend — never admin-settable.
+    customerNote: dto.customerNote,
     dateOfBirth: dto.dateOfBirth,
     customerType: dto.customerType,
     marketingOptIn: dto.marketingOptIn,

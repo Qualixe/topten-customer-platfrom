@@ -2,6 +2,7 @@ import {
   Calendar,
   Mail,
   MapPin,
+  MessageSquare,
   Phone,
   ShoppingBag,
   StickyNote,
@@ -104,6 +105,19 @@ export function CustomerDetailsDialog({
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">
                   Last purchase {customer.lastPurchaseAt}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-lg border border-dashed p-3">
+              <MessageSquare
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Customer&apos;s Note</p>
+                <p className="mt-1 text-sm whitespace-pre-wrap">
+                  {customer.customerNote || "No note from the customer yet."}
                 </p>
               </div>
             </div>

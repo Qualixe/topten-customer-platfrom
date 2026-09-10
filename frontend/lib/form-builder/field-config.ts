@@ -5,6 +5,7 @@ import {
   Mail,
   MailCheck,
   MapPin,
+  MessageSquare,
   MousePointerClick,
   Phone as PhoneIcon,
   SeparatorHorizontal,
@@ -79,6 +80,16 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
     defaultField: {
       type: "marketing_consent",
       label: "I agree to receive marketing emails and promotions.",
+      required: false,
+    },
+  },
+  customer_note: {
+    label: "Customer Note",
+    icon: MessageSquare,
+    defaultField: {
+      type: "customer_note",
+      label: "Anything you'd like us to know?",
+      placeholder: "Optional message…",
       required: false,
     },
   },

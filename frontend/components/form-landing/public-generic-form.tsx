@@ -17,6 +17,7 @@ const EMPTY_VALUES: GenericFormValues = {
   address: "",
   city: "",
   marketingOptIn: false,
+  customerNote: "",
 };
 // Matches Pathao's own minimum for a shippable address (see
 // app/services/pathao.py) — checked whenever an address is given, not just
@@ -64,6 +65,9 @@ export function PublicGenericForm({
       if (field.type === "marketing_consent" && !values.marketingOptIn) {
         errors.push("Please check the box to agree before submitting.");
       }
+      if (field.type === "customer_note" && !values.customerNote.trim()) {
+        errors.push(`${field.label} is required.`);
+      }
     }
 
     if (values.address.trim() && values.address.trim().length < MIN_ADDRESS_LENGTH) {
@@ -94,6 +98,7 @@ export function PublicGenericForm({
         address: values.address || undefined,
         city: values.city || undefined,
         marketingOptIn: values.marketingOptIn,
+        customerNote: values.customerNote || undefined,
       });
       setSubmitted(true);
     } catch {

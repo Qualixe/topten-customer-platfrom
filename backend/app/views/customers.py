@@ -114,6 +114,7 @@ class CustomerRead(BaseModel):
     city: str | None
     date_of_birth: date | None
     internal_notes: str | None
+    customer_note: str | None
     is_vip: bool
     marketing_opt_in: bool
     marketing_opt_in_at: datetime | None

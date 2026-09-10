@@ -33,6 +33,7 @@ class FormFieldType(str, Enum):
     address = "address"
     city = "city"
     marketing_consent = "marketing_consent"
+    customer_note = "customer_note"
     divider = "divider"
     submit_button = "submit_button"
 
@@ -196,6 +197,7 @@ class GenericFormSubmission(BaseModel):
     address: str | None = None
     city: str | None = None
     marketing_opt_in: bool = False
+    customer_note: str | None = None
 
     @field_validator("name", "phone")
     @classmethod

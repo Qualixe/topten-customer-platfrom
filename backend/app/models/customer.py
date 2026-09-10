@@ -61,6 +61,13 @@ class Customer(Base):
     # prefers SMS") — unlike email/address/city/date_of_birth above, never
     # customer-submitted and never shown on any public page or form.
     internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The opposite of internal_notes: the customer's own free-text message,
+    # collected via a "customer_note" form-builder field on the standalone
+    # public Forms feature (see app.services.forms.submit_generic_form).
+    # Admin-visible (Customer Details dialog) but deliberately read-only in
+    # the dashboard — editing it would misrepresent it as the customer's
+    # own words.
+    customer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Set the first time this customer submits the standalone, tokenless
     # Forms feature (app.services.forms.submit_generic_form) — that flow has
     # no campaign to attach a CampaignRecipient.verification_status to, so

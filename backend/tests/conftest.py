@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.common import rate_limit
 from app.common.dependencies import get_db
 from app.core.config import settings
 from app.core.security import create_access_token
@@ -100,6 +101,17 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
             [{"name": name, "is_system": True} for name in ("General", "VIP", "VVIP")],
         )
     yield
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits() -> None:
+    """`app.common.rate_limit`'s buckets are a module-level in-memory dict,
+    not per-request state — without resetting it, every test client request
+    (they all share one "IP" — the test client itself) counts toward the
+    same fixed window across every test in a run, so a test file with
+    enough rate-limited-route calls eventually starts getting 429s that
+    have nothing to do with what that particular test is checking."""
+    rate_limit._buckets.clear()
 
 
 @pytest_asyncio.fixture

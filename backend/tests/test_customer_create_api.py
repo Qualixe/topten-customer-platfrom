@@ -51,6 +51,18 @@ async def test_create_customer_internal_notes_defaults_to_none(client: AsyncClie
     assert response.json()["data"]["internal_notes"] is None
 
 
+async def test_create_customer_customer_note_defaults_to_none(client: AsyncClient) -> None:
+    """customer_note is read-only from this endpoint — only
+    submit_generic_form (a public, tokenless form submission) ever sets
+    it, never the admin-facing create/update API."""
+    response = await client.post(
+        "/api/v1/customers",
+        json={"name": "No Customer Note", "phone": "01711000104", "customer_note": "ignored"},
+    )
+    assert response.status_code == 201
+    assert response.json()["data"]["customer_note"] is None
+
+
 async def test_create_customer_rejects_invalid_phone(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/customers", json={"name": "Bad Phone", "phone": "123"}

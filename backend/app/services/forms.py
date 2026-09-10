@@ -184,15 +184,15 @@ async def get_published_form_by_slug(db: AsyncSession, slug: str) -> Form | None
 
 
 def _required_field_types(form: Form) -> set[str]:
-    """Which of email/date_of_birth/address/city/marketing_consent this
-    specific form's own config marks required — name/phone are always
-    required regardless (see GenericFormSubmission), since a Customer can't
-    exist without them."""
+    """Which of email/date_of_birth/address/city/marketing_consent/
+    customer_note this specific form's own config marks required —
+    name/phone are always required regardless (see GenericFormSubmission),
+    since a Customer can't exist without them."""
     return {
         field["type"]
         for field in form.builder_data.get("fields", [])
         if field.get("type")
-        in {"email", "date_of_birth", "address", "city", "marketing_consent"}
+        in {"email", "date_of_birth", "address", "city", "marketing_consent", "customer_note"}
         and field.get("required")
     }
 
@@ -203,9 +203,9 @@ async def submit_generic_form(
     """Tokenless public submission — finds or creates a Customer by phone
     (matching the same identity rule POS imports use), rather than updating
     one already identified by a token. Existing date_of_birth/address/email/
-    city are only overwritten with a new, non-blank value — the same "never
-    blank out real data" rule imports and the token-based profile form both
-    already follow (see Customer's docstring)."""
+    city/customer_note are only overwritten with a new, non-blank value —
+    the same "never blank out real data" rule imports and the token-based
+    profile form both already follow (see Customer's docstring)."""
     required = _required_field_types(form)
     missing = [
         label
@@ -214,6 +214,7 @@ async def submit_generic_form(
             ("date_of_birth", "Date of birth"),
             ("address", "Address"),
             ("city", "City"),
+            ("customer_note", "Note"),
         )
         if field_type in required and not getattr(submission, field_type)
     ]
@@ -260,6 +261,8 @@ async def submit_generic_form(
         customer.address = submission.address
     if submission.city:
         customer.city = submission.city
+    if submission.customer_note:
+        customer.customer_note = submission.customer_note
 
     # Only ever turns opt-in on, never off — an unchecked box on a later
     # resubmission must not silently revoke consent already given earlier

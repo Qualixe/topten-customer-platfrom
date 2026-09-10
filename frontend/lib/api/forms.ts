@@ -128,6 +128,7 @@ export interface GenericFormSubmissionInput {
   address?: string;
   city?: string;
   marketingOptIn?: boolean;
+  customerNote?: string;
 }
 
 /** No token — anyone can submit. Finds or creates a Customer by phone
@@ -143,5 +144,6 @@ export async function submitGenericForm(slug: string, input: GenericFormSubmissi
     address: input.address || undefined,
     city: input.city || undefined,
     marketing_opt_in: input.marketingOptIn ?? false,
+    customer_note: input.customerNote || undefined,
   });
 }

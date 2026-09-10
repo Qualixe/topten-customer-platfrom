@@ -1,5 +1,6 @@
 import { AddressField } from "@/components/form-builder/fields/AddressField";
 import { CityField } from "@/components/form-builder/fields/CityField";
+import { CustomerNoteField } from "@/components/form-builder/fields/CustomerNoteField";
 import { DateOfBirthField } from "@/components/form-builder/fields/DateOfBirthField";
 import { DividerField } from "@/components/form-builder/fields/DividerField";
 import { EmailField } from "@/components/form-builder/fields/EmailField";
@@ -18,7 +19,8 @@ export type GenericFormFieldName =
   | "dateOfBirth"
   | "address"
   | "city"
-  | "marketingOptIn";
+  | "marketingOptIn"
+  | "customerNote";
 
 /** Values for a real submission — only present on the public, tokenless
  * /form/[slug] page, where name/phone/email/date_of_birth/address/city turn
@@ -31,6 +33,7 @@ export interface GenericFormValues {
   address: string;
   city: string;
   marketingOptIn: boolean;
+  customerNote: string;
 }
 
 /** Picks the right component for a field's type. Used identically by the
@@ -122,6 +125,17 @@ export function FieldRenderer({
           checked={formValues?.marketingOptIn}
           onChange={
             onFormFieldChange ? (value) => onFormFieldChange("marketingOptIn", value) : undefined
+          }
+        />
+      );
+    case "customer_note":
+      return (
+        <CustomerNoteField
+          field={field}
+          preview={preview}
+          value={formValues?.customerNote}
+          onChange={
+            onFormFieldChange ? (value) => onFormFieldChange("customerNote", value) : undefined
           }
         />
       );

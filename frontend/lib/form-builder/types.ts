@@ -8,6 +8,7 @@ export type FieldType =
   | "address"
   | "city"
   | "marketing_consent"
+  | "customer_note"
   | "divider"
   | "submit_button";
 

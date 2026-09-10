@@ -191,6 +191,93 @@ async def test_submit_twice_with_same_phone_updates_not_duplicates(
     assert customers[0].address == "House 5, Dhaka"
 
 
+async def test_submit_saves_customer_note(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    builder_data = {
+        "version": 1,
+        "fields": [
+            {"id": "f1", "type": "name", "label": "Full Name", "required": True},
+            {"id": "f2", "type": "phone", "label": "Phone", "required": True},
+            {"id": "f3", "type": "customer_note", "label": "Anything to add?", "required": False},
+        ],
+    }
+    await _create_and_publish_form(client, slug="note-signup", builder_data=builder_data)
+
+    response = await client.post(
+        "/api/v1/public/forms/note-signup/submit",
+        json={
+            "name": "Nasrin Akter",
+            "phone": "01711000444",
+            "customer_note": "Please deliver after 6pm.",
+        },
+    )
+    assert response.status_code == 200
+
+    customer = (
+        await db_session.execute(
+            select(Customer).where(Customer.normalized_phone == "+8801711000444")
+        )
+    ).scalar_one()
+    assert customer.customer_note == "Please deliver after 6pm."
+
+
+async def test_submit_rejects_missing_required_customer_note(client: AsyncClient) -> None:
+    builder_data = {
+        "version": 1,
+        "fields": [
+            {"id": "f1", "type": "name", "label": "Full Name", "required": True},
+            {"id": "f2", "type": "phone", "label": "Phone", "required": True},
+            {"id": "f3", "type": "customer_note", "label": "Anything to add?", "required": True},
+        ],
+    }
+    await _create_and_publish_form(
+        client, slug="note-required-signup", builder_data=builder_data
+    )
+
+    response = await client.post(
+        "/api/v1/public/forms/note-required-signup/submit",
+        json={"name": "No Note", "phone": "01711000555"},
+    )
+    assert response.status_code == 422
+
+
+async def test_submit_never_blanks_out_existing_customer_note(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    builder_data = {
+        "version": 1,
+        "fields": [
+            {"id": "f1", "type": "name", "label": "Full Name", "required": True},
+            {"id": "f2", "type": "phone", "label": "Phone", "required": True},
+            {"id": "f3", "type": "customer_note", "label": "Anything to add?", "required": False},
+        ],
+    }
+    await _create_and_publish_form(
+        client, slug="note-resubmit-signup", builder_data=builder_data
+    )
+
+    await client.post(
+        "/api/v1/public/forms/note-resubmit-signup/submit",
+        json={
+            "name": "Farhana",
+            "phone": "01711000666",
+            "customer_note": "Ring the bell twice.",
+        },
+    )
+    await client.post(
+        "/api/v1/public/forms/note-resubmit-signup/submit",
+        json={"name": "Farhana", "phone": "01711000666"},
+    )
+
+    customer = (
+        await db_session.execute(
+            select(Customer).where(Customer.normalized_phone == "+8801711000666")
+        )
+    ).scalar_one()
+    assert customer.customer_note == "Ring the bell twice."
+
+
 async def test_submit_rejects_missing_field_the_form_marks_required(
     client: AsyncClient,
 ) -> None:
