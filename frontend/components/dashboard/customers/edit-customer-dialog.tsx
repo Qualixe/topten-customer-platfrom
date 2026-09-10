@@ -44,7 +44,7 @@ export function EditCustomerDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         {customer && (
           // Keying by id forces a fresh form instance (and initial state)
           // whenever a different row is opened into this shared dialog.
@@ -78,7 +78,6 @@ function EditCustomerForm({
   const [dateOfBirth, setDateOfBirth] = useState((customer.dateOfBirth ?? "").slice(0, 10));
   const [internalNotes, setInternalNotes] = useState(customer.notes);
   const [statusValue, setStatusValue] = useState<CustomerStatus>(customer.status);
-  const [isVip, setIsVip] = useState(customer.tier === "VIP");
   const [marketingOptIn, setMarketingOptIn] = useState(customer.marketingOptIn ?? false);
   const [types, setTypes] = useState<CustomerTypeOption[]>([]);
   const [customerTypeId, setCustomerTypeId] = useState(customer.customerType?.id ?? "");
@@ -113,7 +112,6 @@ function EditCustomerForm({
         city: city.trim() || null,
         dateOfBirth: dateOfBirth || null,
         internalNotes: internalNotes.trim() || null,
-        isVip,
         marketingOptIn,
         status: statusValue,
         customerTypeId: customerTypeId || undefined,
@@ -136,96 +134,91 @@ function EditCustomerForm({
         <DialogDescription>Update {customer.name}&apos;s details.</DialogDescription>
       </DialogHeader>
 
-      <FormField htmlFor="edit-customer-name" label="Name">
-        <Input
-          id="edit-customer-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          required
-        />
-      </FormField>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField htmlFor="edit-customer-name" label="Name">
+          <Input
+            id="edit-customer-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+          />
+        </FormField>
 
-      <FormField htmlFor="edit-customer-phone" label="Phone">
-        <Input
-          id="edit-customer-phone"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-          required
-        />
-      </FormField>
+        <FormField htmlFor="edit-customer-phone" label="Phone">
+          <Input
+            id="edit-customer-phone"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            required
+          />
+        </FormField>
 
-      <FormField htmlFor="edit-customer-email" label="Email (optional)">
-        <Input
-          id="edit-customer-email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </FormField>
+        <FormField htmlFor="edit-customer-email" label="Email (optional)">
+          <Input
+            id="edit-customer-email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </FormField>
 
-      <FormField htmlFor="edit-customer-address" label="Address (optional)">
-        <Textarea
-          id="edit-customer-address"
-          value={address}
-          onChange={(event) => setAddress(event.target.value)}
-          className="min-h-16 resize-none"
-        />
-      </FormField>
+        <FormField htmlFor="edit-customer-city" label="City (optional)">
+          <DistrictSelect id="edit-customer-city" value={city} onChange={setCity} />
+        </FormField>
 
-      <FormField htmlFor="edit-customer-city" label="City (optional)">
-        <DistrictSelect id="edit-customer-city" value={city} onChange={setCity} />
-      </FormField>
+        <FormField htmlFor="edit-customer-address" label="Address (optional)" className="col-span-2">
+          <Textarea
+            id="edit-customer-address"
+            value={address}
+            onChange={(event) => setAddress(event.target.value)}
+            className="min-h-16 resize-none"
+          />
+        </FormField>
 
-      <FormField htmlFor="edit-customer-dob" label="Date of birth (optional)">
-        <DatePicker id="edit-customer-dob" value={dateOfBirth} onChange={setDateOfBirth} />
-      </FormField>
+        <FormField htmlFor="edit-customer-dob" label="Date of birth (optional)">
+          <DatePicker id="edit-customer-dob" value={dateOfBirth} onChange={setDateOfBirth} />
+        </FormField>
 
-      <FormField htmlFor="edit-customer-status" label="Status">
-        <Select
-          value={statusValue}
-          onValueChange={(value) => setStatusValue(value as CustomerStatus)}
-        >
-          <SelectTrigger id="edit-customer-status" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
-
-      <FormField htmlFor="edit-customer-type" label="Customer Type">
-        <div className="flex items-center gap-2">
+        <FormField htmlFor="edit-customer-status" label="Status">
           <Select
-            value={customerTypeId}
-            onValueChange={(value) => setCustomerTypeId(value ?? "")}
+            value={statusValue}
+            onValueChange={(value) => setStatusValue(value as CustomerStatus)}
           >
-            <SelectTrigger id="edit-customer-type" className="w-full">
-              <SelectValue>
-                {(value: string) => selectableTypes.find((t) => t.id === value)?.name ?? "General"}
-              </SelectValue>
+            <SelectTrigger id="edit-customer-status" className="w-full">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {selectableTypes.map((type) => (
-                <SelectItem key={type.id} value={type.id}>
-                  {type.name}
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <ManageCustomerTypesDialog types={types} onTypesChange={setTypes} />
-        </div>
-      </FormField>
+        </FormField>
 
-      <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-        <div className="min-w-0">
-          <Label htmlFor="edit-customer-vip">VIP customer</Label>
-        </div>
-        <Switch id="edit-customer-vip" checked={isVip} onCheckedChange={setIsVip} />
+        <FormField htmlFor="edit-customer-type" label="Customer Type" className="col-span-2">
+          <div className="flex items-center gap-2">
+            <Select
+              value={customerTypeId}
+              onValueChange={(value) => setCustomerTypeId(value ?? "")}
+            >
+              <SelectTrigger id="edit-customer-type" className="w-full">
+                <SelectValue>
+                  {(value: string) => selectableTypes.find((t) => t.id === value)?.name ?? "General"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {selectableTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <ManageCustomerTypesDialog types={types} onTypesChange={setTypes} />
+          </div>
+        </FormField>
       </div>
 
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
