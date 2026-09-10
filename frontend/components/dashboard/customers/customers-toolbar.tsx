@@ -27,6 +27,7 @@ import type {
 } from "@/components/dashboard/customers/customers-url";
 import { BD_DISTRICTS } from "@/lib/bd-districts";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
+import type { CustomersSortBy, SortDirection } from "@/lib/api/customers";
 import { SPEND_RANGES } from "@/lib/spend-ranges";
 
 const CITY_FILTER_ITEMS = ["all", ...BD_DISTRICTS];
@@ -37,6 +38,24 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   Inactive: "Inactive",
   Suspended: "Suspended",
 };
+
+/** Registration-order sort, as a single dropdown value — an alternative,
+ * explicitly-labeled entry point to the exact same sortBy/sortDir state
+ * the "Joined" column header already toggles by clicking. "default" means
+ * "not sorted by join date" (unsorted, or sorted by a clicked column like
+ * Name/Total Spent instead) — it doesn't clear those other sorts. */
+type JoinOrderFilter = "default" | "fifo" | "lifo";
+
+const JOIN_ORDER_LABELS: Record<JoinOrderFilter, string> = {
+  default: "Default Order",
+  fifo: "FIFO (Oldest First)",
+  lifo: "LIFO (Newest First)",
+};
+
+function toJoinOrderFilter(sortBy: CustomersSortBy | undefined, sortDir: SortDirection): JoinOrderFilter {
+  if (sortBy !== "createdAt") return "default";
+  return sortDir === "asc" ? "fifo" : "lifo";
+}
 
 export function CustomersToolbar({
   search,
@@ -49,6 +68,9 @@ export function CustomersToolbar({
   onCityFilterChange,
   spendRangeFilter,
   onSpendRangeFilterChange,
+  sortBy,
+  sortDir,
+  onSortChange,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
@@ -60,6 +82,9 @@ export function CustomersToolbar({
   onCityFilterChange: (value: CityFilter) => void;
   spendRangeFilter: SpendRangeFilter;
   onSpendRangeFilterChange: (value: SpendRangeFilter) => void;
+  sortBy: CustomersSortBy | undefined;
+  sortDir: SortDirection;
+  onSortChange: (sortBy: CustomersSortBy | undefined, sortDir: SortDirection) => void;
 }) {
   const [types, setTypes] = useState<CustomerTypeOption[]>([]);
 
@@ -168,6 +193,29 @@ export function CustomersToolbar({
                 {range.label}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={toJoinOrderFilter(sortBy, sortDir)}
+          onValueChange={(value) => {
+            const order = value as JoinOrderFilter;
+            if (order === "default") {
+              onSortChange(undefined, "asc");
+            } else {
+              onSortChange("createdAt", order === "fifo" ? "asc" : "desc");
+            }
+          }}
+        >
+          <SelectTrigger className="w-full sm:w-44" aria-label="Sort by join order">
+            <SelectValue>
+              {(value: JoinOrderFilter) => JOIN_ORDER_LABELS[value]}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Default Order</SelectItem>
+            <SelectItem value="fifo">FIFO (Oldest First)</SelectItem>
+            <SelectItem value="lifo">LIFO (Newest First)</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -68,6 +68,9 @@ export function CustomersFilterBar({
         onCityFilterChange={(value) => navigate({ city: value })}
         spendRangeFilter={current.spendRange}
         onSpendRangeFilterChange={(value) => navigate({ spendRange: value })}
+        sortBy={current.sortBy}
+        sortDir={current.sortDir}
+        onSortChange={(sortBy, sortDir) => navigate({ sortBy, sortDir })}
       />
       <ExportCustomersButton filters={current} />
     </div>
