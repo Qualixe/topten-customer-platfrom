@@ -118,25 +118,25 @@ export default async function DashboardPage() {
   const birthdayStatDefs: StatDefinition[] = [
     {
       key: "birthday-today",
-      label: "Today",
+      label: "Today Birthday",
       value: todayBirthdays.toLocaleString(),
       icon: Cake,
     },
     {
       key: "birthday-tomorrow",
-      label: "Tomorrow",
+      label: "Tomorrow Birthday",
       value: tomorrowBirthdays.toLocaleString(),
       icon: CalendarDays,
     },
     {
       key: "birthday-week",
-      label: "This Week",
+      label: "This Week Birthday",
       value: thisWeekBirthdays.toLocaleString(),
       icon: CalendarRange,
     },
     {
       key: "birthday-month",
-      label: "This Month",
+      label: "This Month Birthday",
       value: thisMonthBirthdays.toLocaleString(),
       icon: CalendarClock,
     },
