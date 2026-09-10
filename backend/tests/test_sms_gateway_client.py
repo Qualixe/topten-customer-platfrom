@@ -2,6 +2,7 @@
 gateway client — mocks the HTTP layer so these never depend on network
 access or a real provider."""
 
+import re
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -81,7 +82,9 @@ async def test_post_json_uses_custom_field_names_and_request_id() -> None:
     assert body["sid"] == "8809648910392"
     assert body["msisdn"] == "+8801711000101"
     assert body["sms"] == "hi"
-    assert "csms_id" in body and body["csms_id"]  # a generated uuid, non-empty
+    # SSL Wireless accepts a client correlation ID only when it is
+    # alphanumeric and at most 20 characters (not a 36-character UUID).
+    assert re.fullmatch(r"[0-9a-f]{20}", body["csms_id"])
 
 
 async def test_post_form_style() -> None:

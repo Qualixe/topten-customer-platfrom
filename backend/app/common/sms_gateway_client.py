@@ -15,7 +15,8 @@ configurable rather than assumed:
    bulksmsbd.net vs `api_token`/`sid`/`msisdn`/`sms` for SSL Wireless). An
    optional fifth field (`request_id_field`) covers providers that require
    a caller-generated correlation id per request (e.g. SSL Wireless's
-   `csms_id`) — a fresh uuid4 is generated per send when configured.
+   `csms_id`) — a fresh 20-character alphanumeric ID is generated per send
+   when configured.
 
 **Success detection** is the other thing that isn't actually universal:
 many of these gateways return HTTP 200 even on failure, encoding the real
@@ -124,7 +125,12 @@ async def send_sms(
         message_field: message,
     }
     if request_id_field:
-        fields[request_id_field] = str(uuid.uuid4())
+        # SSL Wireless's `csms_id` must be alphanumeric and no longer than
+        # 20 characters. A standard stringified UUID is 36 characters and
+        # includes hyphens, which that API rejects with status code 4020.
+        # UUID4's hexadecimal representation remains effectively unique for
+        # a request correlation ID while meeting that common constraint.
+        fields[request_id_field] = uuid.uuid4().hex[:20]
 
     response = await _send_request(api_url, fields, request_style)
 
