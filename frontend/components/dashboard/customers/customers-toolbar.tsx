@@ -39,22 +39,41 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   Suspended: "Suspended",
 };
 
-/** Registration-order sort, as a single dropdown value — an alternative,
- * explicitly-labeled entry point to the exact same sortBy/sortDir state
- * the "Joined" column header already toggles by clicking. "default" means
- * "not sorted by join date" (unsorted, or sorted by a clicked column like
- * Name/Total Spent instead) — it doesn't clear those other sorts. */
-type JoinOrderFilter = "default" | "fifo" | "lifo";
+/** Each menu choice maps to the same server-side sort state used by the
+ * sortable table headers. Keeping a single value makes choices such as A–Z
+ * unambiguous and lets the selected sort survive a page reload. */
+type CustomerSortOption =
+  | "default"
+  | "name-asc"
+  | "name-desc"
+  | "spend-desc"
+  | "spend-asc"
+  | "joined-desc"
+  | "joined-asc";
 
-const JOIN_ORDER_LABELS: Record<JoinOrderFilter, string> = {
-  default: "Default Order",
-  fifo: "FIFO (Oldest First)",
-  lifo: "LIFO (Newest First)",
+const CUSTOMER_SORT_OPTIONS: Record<
+  CustomerSortOption,
+  { label: string; sortBy?: CustomersSortBy; sortDir: SortDirection }
+> = {
+  default: { label: "Default Order", sortDir: "asc" },
+  "name-asc": { label: "Name (A–Z)", sortBy: "name", sortDir: "asc" },
+  "name-desc": { label: "Name (Z–A)", sortBy: "name", sortDir: "desc" },
+  "spend-desc": { label: "Total Spent (High–Low)", sortBy: "totalSpent", sortDir: "desc" },
+  "spend-asc": { label: "Total Spent (Low–High)", sortBy: "totalSpent", sortDir: "asc" },
+  "joined-desc": { label: "Joined (Newest First)", sortBy: "createdAt", sortDir: "desc" },
+  "joined-asc": { label: "Joined (Oldest First)", sortBy: "createdAt", sortDir: "asc" },
 };
 
-function toJoinOrderFilter(sortBy: CustomersSortBy | undefined, sortDir: SortDirection): JoinOrderFilter {
-  if (sortBy !== "createdAt") return "default";
-  return sortDir === "asc" ? "fifo" : "lifo";
+function toCustomerSortOption(
+  sortBy: CustomersSortBy | undefined,
+  sortDir: SortDirection
+): CustomerSortOption {
+  const matched = (Object.entries(CUSTOMER_SORT_OPTIONS) as [
+    CustomerSortOption,
+    (typeof CUSTOMER_SORT_OPTIONS)[CustomerSortOption],
+  ][]).find(([, option]) => option.sortBy === sortBy && option.sortDir === sortDir);
+
+  return matched?.[0] ?? "default";
 }
 
 export function CustomersToolbar({
@@ -197,25 +216,25 @@ export function CustomersToolbar({
         </Select>
 
         <Select
-          value={toJoinOrderFilter(sortBy, sortDir)}
+          value={toCustomerSortOption(sortBy, sortDir)}
           onValueChange={(value) => {
-            const order = value as JoinOrderFilter;
-            if (order === "default") {
-              onSortChange(undefined, "asc");
-            } else {
-              onSortChange("createdAt", order === "fifo" ? "asc" : "desc");
-            }
+            const option = CUSTOMER_SORT_OPTIONS[value as CustomerSortOption];
+            onSortChange(option.sortBy, option.sortDir);
           }}
         >
-          <SelectTrigger className="w-full sm:w-44" aria-label="Sort by join order">
+          <SelectTrigger className="w-full sm:w-52" aria-label="Sort customers">
             <SelectValue>
-              {(value: JoinOrderFilter) => JOIN_ORDER_LABELS[value]}
+              {(value: CustomerSortOption) => CUSTOMER_SORT_OPTIONS[value].label}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="default">Default Order</SelectItem>
-            <SelectItem value="fifo">FIFO (Oldest First)</SelectItem>
-            <SelectItem value="lifo">LIFO (Newest First)</SelectItem>
+            <SelectItem value="name-asc">Name (A–Z)</SelectItem>
+            <SelectItem value="name-desc">Name (Z–A)</SelectItem>
+            <SelectItem value="spend-desc">Total Spent (High–Low)</SelectItem>
+            <SelectItem value="spend-asc">Total Spent (Low–High)</SelectItem>
+            <SelectItem value="joined-desc">Joined (Newest First)</SelectItem>
+            <SelectItem value="joined-asc">Joined (Oldest First)</SelectItem>
           </SelectContent>
         </Select>
       </div>
