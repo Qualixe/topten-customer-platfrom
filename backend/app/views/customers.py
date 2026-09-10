@@ -75,6 +75,7 @@ class CustomerCreate(BaseModel):
     address: str | None = None
     city: str | None = None
     date_of_birth: date | None = None
+    internal_notes: str | None = None
     is_vip: bool = False
     marketing_opt_in: bool = False
     # Optional — omitted defaults to the built-in "General" type server-side
@@ -90,7 +91,7 @@ class CustomerCreate(BaseModel):
             raise ValueError("Name cannot be blank")
         return stripped
 
-    @field_validator("email", "address", "city")
+    @field_validator("email", "address", "city", "internal_notes")
     @classmethod
     def _blank_to_none(cls, value: str | None) -> str | None:
         if value is None:
@@ -112,6 +113,7 @@ class CustomerRead(BaseModel):
     address: str | None
     city: str | None
     date_of_birth: date | None
+    internal_notes: str | None
     is_vip: bool
     marketing_opt_in: bool
     marketing_opt_in_at: datetime | None
@@ -135,6 +137,7 @@ class CustomerUpdate(BaseModel):
     address: str | None = None
     city: str | None = None
     date_of_birth: date | None = None
+    internal_notes: str | None = None
     is_vip: bool | None = None
     marketing_opt_in: bool | None = None
     status: str | None = None
@@ -150,7 +153,7 @@ class CustomerUpdate(BaseModel):
             raise ValueError("Name cannot be blank")
         return stripped
 
-    @field_validator("email", "address", "city")
+    @field_validator("email", "address", "city", "internal_notes")
     @classmethod
     def _blank_to_none(cls, value: str | None) -> str | None:
         if value is None:

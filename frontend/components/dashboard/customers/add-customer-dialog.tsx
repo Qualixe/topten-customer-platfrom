@@ -72,6 +72,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [internalNotes, setInternalNotes] = useState("");
   const [types, setTypes] = useState<CustomerTypeOption[]>([]);
   // "" (not undefined) from the first render — a Base UI Select is
   // controlled once its value is ever non-undefined, and switching from
@@ -108,6 +109,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
         address: address.trim() || undefined,
         city: city.trim() || undefined,
         dateOfBirth: dateOfBirth || undefined,
+        internalNotes: internalNotes.trim() || undefined,
         customerTypeId: customerTypeId || undefined,
       });
       router.refresh();
@@ -196,6 +198,20 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
           </Select>
           <ManageCustomerTypesDialog types={types} onTypesChange={setTypes} />
         </div>
+      </FormField>
+
+      <FormField
+        htmlFor="add-customer-notes"
+        label="Internal Notes (optional)"
+        description="Staff-only — never shown to the customer."
+      >
+        <Textarea
+          id="add-customer-notes"
+          value={internalNotes}
+          onChange={(event) => setInternalNotes(event.target.value)}
+          className="min-h-16 resize-none"
+          placeholder="e.g. Prefers home delivery, called about a refund on 5 Sep"
+        />
       </FormField>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

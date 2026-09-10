@@ -4,6 +4,7 @@ import {
   MapPin,
   Phone,
   ShoppingBag,
+  StickyNote,
   type LucideIcon,
 } from "lucide-react";
 
@@ -104,7 +105,19 @@ export function CustomerDetailsDialog({
                 <p className="text-xs text-muted-foreground">
                   Last purchase {customer.lastPurchaseAt}
                 </p>
-                <p className="mt-1 text-sm">{customer.notes}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-lg border border-dashed p-3">
+              <StickyNote
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Internal Notes</p>
+                <p className="mt-1 text-sm whitespace-pre-wrap">
+                  {customer.notes || "No notes yet."}
+                </p>
               </div>
             </div>
           </>

@@ -76,6 +76,7 @@ function EditCustomerForm({
   const [address, setAddress] = useState(customer.address ?? "");
   const [city, setCity] = useState(customer.city ?? "");
   const [dateOfBirth, setDateOfBirth] = useState((customer.dateOfBirth ?? "").slice(0, 10));
+  const [internalNotes, setInternalNotes] = useState(customer.notes);
   const [statusValue, setStatusValue] = useState<CustomerStatus>(customer.status);
   const [isVip, setIsVip] = useState(customer.tier === "VIP");
   const [marketingOptIn, setMarketingOptIn] = useState(customer.marketingOptIn ?? false);
@@ -111,6 +112,7 @@ function EditCustomerForm({
         address: address.trim() || null,
         city: city.trim() || null,
         dateOfBirth: dateOfBirth || null,
+        internalNotes: internalNotes.trim() || null,
         isVip,
         marketingOptIn,
         status: statusValue,
@@ -239,6 +241,20 @@ function EditCustomerForm({
           onCheckedChange={setMarketingOptIn}
         />
       </div>
+
+      <FormField
+        htmlFor="edit-customer-notes"
+        label="Internal Notes (optional)"
+        description="Staff-only — never shown to the customer."
+      >
+        <Textarea
+          id="edit-customer-notes"
+          value={internalNotes}
+          onChange={(event) => setInternalNotes(event.target.value)}
+          className="min-h-16 resize-none"
+          placeholder="e.g. Prefers home delivery, called about a refund on 5 Sep"
+        />
+      </FormField>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

@@ -169,6 +169,7 @@ async def create_customer(
         address=payload.address,
         city=payload.city,
         date_of_birth=payload.date_of_birth,
+        internal_notes=payload.internal_notes,
         is_vip=payload.is_vip,
         marketing_opt_in=payload.marketing_opt_in,
         marketing_opt_in_at=datetime.now(UTC) if payload.marketing_opt_in else None,

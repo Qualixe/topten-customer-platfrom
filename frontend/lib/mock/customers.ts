@@ -15,6 +15,8 @@ export interface Customer {
   totalSpent: number;
   joinedAt: string;
   lastPurchaseAt: string;
+  /** Staff-only note about this customer (never customer-submitted, never
+   * shown outside the dashboard) — empty string if none has been saved. */
   notes: string;
   /** Raw "YYYY-MM-DD", present on real API-backed customers so an edit form
    * can pre-fill it; absent (undefined) on mock-generated customers. */

@@ -3,7 +3,18 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,6 +57,10 @@ class Customer(Base):
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Staff-only scratchpad about this customer (e.g. "called on the 5th,
+    # prefers SMS") — unlike email/address/city/date_of_birth above, never
+    # customer-submitted and never shown on any public page or form.
+    internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Set the first time this customer submits the standalone, tokenless
     # Forms feature (app.services.forms.submit_generic_form) — that flow has
     # no campaign to attach a CampaignRecipient.verification_status to, so

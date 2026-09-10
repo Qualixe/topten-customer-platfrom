@@ -30,6 +30,27 @@ async def test_create_customer_persists_and_returns_it(
     assert stored.normalized_phone == "+8801711000101"
 
 
+async def test_create_customer_with_internal_notes(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/customers",
+        json={
+            "name": "Karim Hossain",
+            "phone": "01711000102",
+            "internal_notes": "Prefers home delivery",
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["data"]["internal_notes"] == "Prefers home delivery"
+
+
+async def test_create_customer_internal_notes_defaults_to_none(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/customers", json={"name": "No Notes", "phone": "01711000103"}
+    )
+    assert response.status_code == 201
+    assert response.json()["data"]["internal_notes"] is None
+
+
 async def test_create_customer_rejects_invalid_phone(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/customers", json={"name": "Bad Phone", "phone": "123"}

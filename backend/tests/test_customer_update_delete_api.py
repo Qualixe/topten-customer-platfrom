@@ -39,6 +39,29 @@ async def test_update_can_clear_an_optional_field(client: AsyncClient) -> None:
     assert response.json()["data"]["email"] is None
 
 
+async def test_update_sets_internal_notes(client: AsyncClient) -> None:
+    created = await _create_customer(client)
+    customer_id = created["id"]
+
+    response = await client.patch(
+        f"/api/v1/customers/{customer_id}",
+        json={"internal_notes": "Called about a refund on 5 Sep"},
+    )
+    assert response.status_code == 200
+    assert response.json()["data"]["internal_notes"] == "Called about a refund on 5 Sep"
+
+
+async def test_update_can_clear_internal_notes(client: AsyncClient) -> None:
+    created = await _create_customer(client, internal_notes="Old note")
+    customer_id = created["id"]
+
+    response = await client.patch(
+        f"/api/v1/customers/{customer_id}", json={"internal_notes": None}
+    )
+    assert response.status_code == 200
+    assert response.json()["data"]["internal_notes"] is None
+
+
 async def test_update_changes_phone_and_reindexes_normalized_phone(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:

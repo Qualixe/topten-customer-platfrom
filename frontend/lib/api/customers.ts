@@ -53,6 +53,7 @@ interface CustomerDto {
   address: string | null;
   city: string | null;
   dateOfBirth: string | null;
+  internalNotes: string | null;
   isVip: boolean;
   marketingOptIn: boolean;
   customerType: CustomerTypeOption;
@@ -124,7 +125,9 @@ function mapDtoToCustomer(dto: CustomerDto): Customer {
     totalSpent: Number(dto.totalSpent),
     joinedAt: formatJoinedDate(dto.createdAt),
     lastPurchaseAt: "—",
-    notes: "",
+    // Staff-only note about this customer — never customer-submitted, see
+    // Customer.internal_notes on the backend.
+    notes: dto.internalNotes ?? "",
     dateOfBirth: dto.dateOfBirth,
     customerType: dto.customerType,
     marketingOptIn: dto.marketingOptIn,
@@ -484,6 +487,8 @@ export interface CreateCustomerInput {
   city?: string;
   /** "YYYY-MM-DD", e.g. straight from an `<input type="date">`. */
   dateOfBirth?: string;
+  /** Staff-only note — never shown to the customer. */
+  internalNotes?: string;
   isVip?: boolean;
   marketingOptIn?: boolean;
   /** Omitted defaults to the built-in "General" type server-side. */
@@ -500,6 +505,7 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Custom
     address: input.address,
     city: input.city,
     date_of_birth: input.dateOfBirth,
+    internal_notes: input.internalNotes,
     is_vip: input.isVip ?? false,
     marketing_opt_in: input.marketingOptIn ?? false,
     customer_type_id: input.customerTypeId,
@@ -516,6 +522,8 @@ export interface UpdateCustomerInput {
   address?: string | null;
   city?: string | null;
   dateOfBirth?: string | null;
+  /** Staff-only note — never shown to the customer. `null` clears it. */
+  internalNotes?: string | null;
   isVip?: boolean;
   marketingOptIn?: boolean;
   status?: CustomerStatus;
@@ -534,6 +542,7 @@ export async function updateCustomer(id: string, input: UpdateCustomerInput): Pr
   if (input.address !== undefined) body.address = input.address;
   if (input.city !== undefined) body.city = input.city;
   if (input.dateOfBirth !== undefined) body.date_of_birth = input.dateOfBirth;
+  if (input.internalNotes !== undefined) body.internal_notes = input.internalNotes;
   if (input.isVip !== undefined) body.is_vip = input.isVip;
   if (input.marketingOptIn !== undefined) body.marketing_opt_in = input.marketingOptIn;
   if (input.status !== undefined) body.status = input.status.toLowerCase();

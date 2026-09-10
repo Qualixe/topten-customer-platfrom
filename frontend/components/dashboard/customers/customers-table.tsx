@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Pencil, Trash2, Users } from "lucide-react";
 
+import { CustomerNotePopover } from "@/components/dashboard/customers/customer-note-popover";
 import { CustomerStatusBadge } from "@/components/dashboard/customers/status-badge";
 import { CustomerTypeBadge } from "@/components/dashboard/customers/customer-type-badge";
 import { usePermissions } from "@/components/providers/permissions-provider";
@@ -182,6 +183,7 @@ export function CustomersTable({
                     </Button>
                     {canManage && (
                       <>
+                        <CustomerNotePopover customer={customer} />
                         <Button
                           variant="ghost"
                           size="icon-sm"
