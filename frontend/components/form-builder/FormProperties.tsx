@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { FIELD_DEFINITIONS } from "@/lib/form-builder/field-config";
 import type { FormField } from "@/lib/form-builder/types";
 
@@ -30,19 +31,40 @@ export function FormProperties({
   field,
   onChange,
   onDelete,
+  note,
+  onNoteChange,
+  noteDisabled,
 }: {
   field: FormField | null;
   onChange: (id: string, patch: Partial<FormField>) => void;
   onDelete: (id: string) => void;
+  /** Internal-only note about the form itself (Form.description on the
+   * backend) — never shown to customers or on the public form, just a
+   * staff scratchpad while building/maintaining it. */
+  note: string;
+  onNoteChange: (value: string) => void;
+  noteDisabled?: boolean;
 }) {
   if (!field) {
     return (
-      <div className="flex h-full min-h-64 items-center justify-center rounded-lg border bg-background">
+      <div className="flex h-full min-h-64 flex-col gap-4 rounded-lg border bg-background p-4">
         <EmptyState
           icon={Settings2}
           title="No field selected"
           description="Select a field on the canvas to edit its properties."
         />
+        <Separator />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="form-note">Internal note</Label>
+          <Textarea
+            id="form-note"
+            className="min-h-24 resize-none"
+            value={note}
+            onChange={(event) => onNoteChange(event.target.value)}
+            placeholder="Staff-only notes about this form — never shown to customers or on the public page."
+            disabled={noteDisabled}
+          />
+        </div>
       </div>
     );
   }

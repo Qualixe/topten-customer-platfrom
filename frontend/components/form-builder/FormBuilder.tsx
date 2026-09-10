@@ -35,6 +35,11 @@ export function FormBuilder({ formId }: { formId: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fields, setFields] = useState<FormField[]>([]);
   const [name, setName] = useState("");
+  // Internal-only note about the form itself (never shown publicly — see
+  // Form.description on the backend) — edited via FormProperties' "no
+  // field selected" state rather than a dedicated field type, since it's
+  // a property of the form, not something that renders on the canvas.
+  const [description, setDescription] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "unsaved" | "saving">("saved");
@@ -46,6 +51,7 @@ export function FormBuilder({ formId }: { formId: string }) {
         setForm(loaded);
         setFields(loaded.builderData.fields);
         setName(loaded.name);
+        setDescription(loaded.description);
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 404) {
@@ -141,12 +147,21 @@ export function FormBuilder({ formId }: { formId: string }) {
     markUnsaved();
   }
 
+  function handleDescriptionChange(value: string) {
+    setDescription(value);
+    markUnsaved();
+  }
+
   async function handleSave() {
     if (!name.trim()) return;
     setSaveStatus("saving");
     setSaveError(null);
     try {
-      const updated = await updateForm(formId, { name, builderData: { version: 1, fields } });
+      const updated = await updateForm(formId, {
+        name,
+        description,
+        builderData: { version: 1, fields },
+      });
       setForm(updated);
       setSaveStatus("saved");
     } catch (err) {
@@ -187,7 +202,14 @@ export function FormBuilder({ formId }: { formId: string }) {
     />
   );
   const properties = (
-    <FormProperties field={selectedField} onChange={handlePropertyChange} onDelete={handleDelete} />
+    <FormProperties
+      field={selectedField}
+      onChange={handlePropertyChange}
+      onDelete={handleDelete}
+      note={description}
+      onNoteChange={handleDescriptionChange}
+      noteDisabled={previewMode || !canManage}
+    />
   );
   const sidebar = <FormSidebar onAddField={handleAddField} />;
   const liveUrl =
