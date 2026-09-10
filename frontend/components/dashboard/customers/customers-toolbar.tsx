@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxSearchInput,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -18,6 +28,8 @@ import type {
 import { BD_DISTRICTS } from "@/lib/bd-districts";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 import { SPEND_RANGES } from "@/lib/spend-ranges";
+
+const CITY_FILTER_ITEMS = ["all", ...BD_DISTRICTS];
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   all: "All Statuses",
@@ -113,24 +125,28 @@ export function CustomersToolbar({
           </SelectContent>
         </Select>
 
-        <Select
+        <Combobox
+          items={CITY_FILTER_ITEMS}
           value={cityFilter}
-          onValueChange={(value) => onCityFilterChange(value as CityFilter)}
+          onValueChange={(value) => onCityFilterChange((value as CityFilter) ?? "all")}
         >
-          <SelectTrigger className="w-full sm:w-36" aria-label="Filter by city">
-            <SelectValue>
+          <ComboboxTrigger className="w-full sm:w-36" aria-label="Filter by city">
+            <ComboboxValue>
               {(value: CityFilter) => (value === "all" ? "All Cities" : value)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Cities</SelectItem>
-            {BD_DISTRICTS.map((district) => (
-              <SelectItem key={district} value={district}>
-                {district}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            </ComboboxValue>
+          </ComboboxTrigger>
+          <ComboboxContent>
+            <ComboboxSearchInput placeholder="Search districts…" />
+            <ComboboxEmpty>No district found.</ComboboxEmpty>
+            <ComboboxList>
+              {(item: string) => (
+                <ComboboxItem key={item} value={item}>
+                  {item === "all" ? "All Cities" : item}
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
 
         <Select
           value={spendRangeFilter}
