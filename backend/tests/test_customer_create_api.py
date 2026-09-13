@@ -1,10 +1,11 @@
 """POST /api/v1/customers — manually adding a single customer."""
 
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customer import Customer
+from app.models.customer_type import CustomerType
 
 
 async def test_create_customer_persists_and_returns_it(
@@ -61,6 +62,27 @@ async def test_create_customer_customer_note_defaults_to_none(client: AsyncClien
     )
     assert response.status_code == 201
     assert response.json()["data"]["customer_note"] is None
+
+
+async def test_create_customer_without_a_type_falls_back_when_general_is_missing(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """An account that has replaced General/VIP/VVIP with its own taxonomy
+    (e.g. via Database Reset predating the fix that re-seeds them) must
+    still be able to add a customer without picking a type explicitly —
+    falling back to whichever type exists, rather than a hard 500."""
+    custom_type = CustomerType(name="Wholesale")
+    db_session.add(custom_type)
+    await db_session.execute(
+        delete(CustomerType).where(CustomerType.name.in_(["General", "VIP", "VVIP"]))
+    )
+    await db_session.commit()
+
+    response = await client.post(
+        "/api/v1/customers", json={"name": "No Type Picked", "phone": "01711000199"}
+    )
+    assert response.status_code == 201
+    assert response.json()["data"]["customer_type"]["name"] == "Wholesale"
 
 
 async def test_create_customer_rejects_invalid_phone(client: AsyncClient) -> None:

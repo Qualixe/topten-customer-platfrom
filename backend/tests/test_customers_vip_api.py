@@ -8,10 +8,12 @@ from datetime import date
 from decimal import Decimal
 
 from httpx import AsyncClient
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customer import Customer
 from app.models.customer_monthly_spending import CustomerMonthlySpending
+from app.models.customer_type import CustomerType
 from tests.support import get_customer_type_id
 
 
@@ -83,6 +85,27 @@ async def test_vip_list_only_returns_vip_and_vvip_types(
     assert vip_row["status"] == "ACTIVE"
     assert vip_row["last_purchase_year"] is None
     assert vip_row["last_purchase_month"] is None
+
+
+async def test_vip_list_is_empty_not_a_500_when_vip_types_dont_exist(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """An account that has replaced VIP/VVIP with its own taxonomy (e.g.
+    via Database Reset predating the fix that re-seeds them) sees an empty
+    VIP Customers page, not a crash — see get_vip_tier_type_ids."""
+    await _add_customer(
+        db_session,
+        name="Regular",
+        phone="+8801711000101",
+        customer_type="General",
+        total_spent="5000",
+    )
+    await db_session.execute(delete(CustomerType).where(CustomerType.name.in_(["VIP", "VVIP"])))
+    await db_session.commit()
+
+    response = await client.get("/api/v1/customers/vip")
+    assert response.status_code == 200
+    assert response.json()["data"] == []
 
 
 async def test_vip_status_is_inactive_when_administratively_not_active(

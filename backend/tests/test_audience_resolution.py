@@ -8,11 +8,13 @@ task, not just the condition builder.
 
 from datetime import UTC, date, datetime
 
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign import Campaign
 from app.models.campaign_recipient import CampaignRecipient
 from app.models.customer import Customer
+from app.models.customer_type import CustomerType
 from app.services.sms_campaigns import count_audience
 from app.services.sms_campaigns_audience import AudienceRule, resolve_since_campaign
 from tests.support import get_customer_type_id, get_customer_type_public_id
@@ -104,6 +106,25 @@ async def test_general_vip_vvip(db_session: AsyncSession) -> None:
     assert await count_audience(db_session, AudienceRule(rule_type="GENERAL")) == 1
     assert await count_audience(db_session, AudienceRule(rule_type="VIP")) == 2
     assert await count_audience(db_session, AudienceRule(rule_type="VVIP")) == 1
+
+
+async def test_general_vip_vvip_match_nobody_when_types_dont_exist(
+    db_session: AsyncSession,
+) -> None:
+    """An account that has replaced all three built-in types with its own
+    taxonomy (e.g. via Database Reset predating the fix that re-seeds them)
+    must not crash resolving a pre-existing campaign stored with one of
+    these rule types — "no such type" and "0 matching customers" are the
+    same observable outcome here."""
+    await _add_customer(db_session, name="A", phone="+8801711000101", customer_type="Wholesale")
+    await db_session.execute(
+        delete(CustomerType).where(CustomerType.name.in_(["General", "VIP", "VVIP"]))
+    )
+    await db_session.commit()
+
+    assert await count_audience(db_session, AudienceRule(rule_type="GENERAL")) == 0
+    assert await count_audience(db_session, AudienceRule(rule_type="VIP")) == 0
+    assert await count_audience(db_session, AudienceRule(rule_type="VVIP")) == 0
 
 
 async def test_customer_type_rule_covers_built_in_and_custom_types(

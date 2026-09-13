@@ -326,7 +326,7 @@ export function QuickSendAudienceSection({
   const advancedSelected = ADVANCED_OPTIONS.find((o) => o.ruleType === selectedType);
   const customerTypeSelected = selectedType === "CUSTOMER_TYPE";
   const selectedCount = staticSelected
-    ? counts[staticSelected.countKey]
+    ? (counts?.[staticSelected.countKey] ?? null)
     : customerTypeSelected
       ? (typeCounts[selectedCustomerTypeId] ?? null)
       : previewCount;
@@ -436,7 +436,13 @@ export function QuickSendAudienceSection({
         <CardContent className="flex flex-col gap-3">
           {STATIC_OPTIONS.map((option) => {
             const isSelected = option.ruleType === selectedType;
-            const count = counts[option.countKey];
+            // `counts` should always be a full object by the time this
+            // renders (see QuickSendAudienceSectionProps), but a transient
+            // fetch failure upstream degrading it to undefined must never
+            // crash the whole composer — show "…" instead, same fallback
+            // the customer-type cards above already use for their own
+            // still-loading state.
+            const count = counts?.[option.countKey];
             return (
               <button
                 key={option.ruleType}
@@ -470,7 +476,7 @@ export function QuickSendAudienceSection({
 
                 <span className="shrink-0 text-right">
                   <span className="block text-sm font-semibold tabular-nums">
-                    {count.toLocaleString("en-US")}
+                    {count === undefined ? "…" : count.toLocaleString("en-US")}
                   </span>
                   <span className="block text-xs text-muted-foreground">recipients</span>
                 </span>

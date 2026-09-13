@@ -63,12 +63,12 @@ async def _clean_tables() -> AsyncGenerator[None, None]:
     """Truncates every import-related table before each test for isolation.
 
     `customer_types` gets General/VIP/VVIP re-seeded immediately after
-    truncating (unlike `gift_categories`, which stays empty) — a real
-    migration guarantees these three always exist in production, and
-    production code relies on that (see `get_seed_customer_type_id`, used
-    by both the default-to-General path on customer creation and public
-    form submission) — so every test should start from that same
-    always-seeded baseline rather than an artificially empty table."""
+    truncating (unlike `gift_categories`, which stays empty) — the normal,
+    freshly-migrated baseline every account starts from (production code
+    tolerates any of the three actually being missing, see
+    `get_seed_customer_type_id_or_none`, but still defaults to using
+    "General" when it exists) — so tests should start from that same
+    baseline rather than an artificially empty table."""
     async with test_engine.begin() as conn:
         await conn.execute(role_permissions.delete())
         for table in (

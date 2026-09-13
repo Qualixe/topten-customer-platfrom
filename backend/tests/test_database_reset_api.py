@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.security import create_access_token, hash_password
 from app.models.campaign import Campaign
 from app.models.customer import Customer
+from app.models.customer_type import CustomerType
 from app.models.integration_credential import IntegrationCredential
 from app.models.role import Role
 from app.models.user import User
@@ -138,3 +139,21 @@ async def test_reset_wipes_business_data_keeps_auth_and_settings(
         )
     ).scalar_one()
     assert credential.data.get("api_key") == "keep-me"
+
+
+async def test_reset_reseeds_builtin_customer_types(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """customer_types is one of the truncated tables — a reset should
+    restore the same General/VIP/VVIP baseline a brand-new install starts
+    from, not silently leave the account looking like it's replaced its
+    own type taxonomy."""
+    response = await client.post(
+        "/api/v1/settings/database/reset", json={"confirm": "RESET"}
+    )
+    assert response.status_code == 200
+
+    types = (await db_session.execute(select(CustomerType))).scalars().all()
+    names_and_system = {(t.name, t.is_system) for t in types}
+    assert names_and_system == {("General", True), ("VIP", True), ("VVIP", True)}
+    assert all(t.is_active for t in types)

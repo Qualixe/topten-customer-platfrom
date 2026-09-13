@@ -125,7 +125,7 @@ export function StepReview({
   }, [audienceRule, staticCountKey]);
 
   const recipientCount = staticCountKey
-    ? audienceCounts[staticCountKey]
+    ? (audienceCounts?.[staticCountKey] ?? 0)
     : audienceRule.ruleType === "SPECIFIC_CUSTOMERS"
       ? audienceRule.customerIds.length
       : (livePreviewCount ?? 0);

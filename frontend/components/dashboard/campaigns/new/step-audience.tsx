@@ -300,12 +300,16 @@ export function StepAudience({
   const staticSelected =
     [...CUSTOMER_TYPE_OPTIONS, ...STATIC_OPTIONS].find((o) => o.ruleType === selectedType);
   const advancedSelected = ADVANCED_OPTIONS.find((o) => o.ruleType === selectedType);
-  const selectedCount = staticSelected ? counts[staticSelected.countKey] : previewCount;
+  const selectedCount = staticSelected ? (counts?.[staticSelected.countKey] ?? null) : previewCount;
   const canContinue = selectedType.length > 0 && (staticSelected !== undefined || previewCount !== null);
 
   function renderOptionButton(option: typeof STATIC_OPTIONS[number]) {
     const isSelected = option.ruleType === selectedType;
-    const count = counts[option.countKey];
+    // `counts` should always be a full object by the time this renders
+    // (see StepAudienceProps), but a transient fetch failure upstream
+    // degrading it to undefined must never crash the whole wizard step —
+    // show "…" instead.
+    const count = counts?.[option.countKey];
     return (
       <button
         key={option.ruleType}
@@ -335,7 +339,7 @@ export function StepAudience({
         </span>
         <span className="shrink-0 text-right">
           <span className="block text-sm font-semibold tabular-nums">
-            {count.toLocaleString("en-US")}
+            {count === undefined ? "…" : count.toLocaleString("en-US")}
           </span>
           <span className="block text-xs text-muted-foreground">recipients</span>
         </span>

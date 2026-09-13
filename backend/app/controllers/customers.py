@@ -23,7 +23,7 @@ from app.models.customer_type import CustomerType
 from app.services.customer_types import (
     create_customer_type,
     get_customer_type_or_404,
-    get_seed_customer_type_id,
+    get_default_customer_type_id,
     get_vip_tier_type_ids,
     list_customer_types,
     update_customer_type,
@@ -159,7 +159,7 @@ async def create_customer(
     if payload.customer_type_id is not None:
         customer_type_id = (await get_customer_type_or_404(db, payload.customer_type_id)).id
     else:
-        customer_type_id = await get_seed_customer_type_id(db, "General")
+        customer_type_id = await get_default_customer_type_id(db)
 
     customer = Customer(
         name=payload.name,

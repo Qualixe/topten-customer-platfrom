@@ -13,13 +13,16 @@ from datetime import UTC, date, datetime, time
 from uuid import UUID
 
 from pydantic import BaseModel, model_validator
-from sqlalchemy import ColumnElement, and_, select
+from sqlalchemy import ColumnElement, and_, false, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign import AudienceRuleType, Campaign, CampaignType
 from app.models.campaign_recipient import CampaignRecipient, VerificationStatus
 from app.models.customer import Customer
-from app.services.customer_types import get_customer_type_or_404, get_seed_customer_type_id
+from app.services.customer_types import (
+    get_customer_type_or_404,
+    get_seed_customer_type_id_or_none,
+)
 
 
 class AudienceRule(BaseModel):
@@ -116,14 +119,17 @@ async def build_condition(db: AsyncSession, rule: AudienceRule) -> ColumnElement
     """`rule.since_campaign_id` must already be resolved (see
     `resolve_since_campaign`) before calling this."""
     if rule.rule_type == AudienceRuleType.GENERAL:
-        type_id = await get_seed_customer_type_id(db, "General")
-        return Customer.customer_type_id == type_id
+        type_id = await get_seed_customer_type_id_or_none(db, "General")
+        # No "General" type on this account (e.g. replaced by its own
+        # taxonomy) — matches nobody, same as "0 customers" rather than an
+        # error; this is a legitimate account state, not a bug.
+        return Customer.customer_type_id == type_id if type_id is not None else false()
     if rule.rule_type == AudienceRuleType.VIP:
-        type_id = await get_seed_customer_type_id(db, "VIP")
-        return Customer.customer_type_id == type_id
+        type_id = await get_seed_customer_type_id_or_none(db, "VIP")
+        return Customer.customer_type_id == type_id if type_id is not None else false()
     if rule.rule_type == AudienceRuleType.VVIP:
-        type_id = await get_seed_customer_type_id(db, "VVIP")
-        return Customer.customer_type_id == type_id
+        type_id = await get_seed_customer_type_id_or_none(db, "VVIP")
+        return Customer.customer_type_id == type_id if type_id is not None else false()
     if rule.rule_type == AudienceRuleType.CUSTOMER_TYPE:
         assert rule.customer_type_id is not None
         customer_type = await get_customer_type_or_404(db, rule.customer_type_id)

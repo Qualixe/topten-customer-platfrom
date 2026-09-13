@@ -17,6 +17,16 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.models.customer_type import CustomerType
+
+# The three built-in customer types every fresh install seeds. Every
+# lookup that resolves them by name now degrades gracefully instead of
+# crashing when one is missing (see
+# app.services.customer_types.get_seed_customer_type_id_or_none), but a
+# reset should still restore the same baseline a brand-new install starts
+# from, not leave the account looking like it's replaced its own taxonomy
+# when nobody asked for that.
+SEED_CUSTOMER_TYPE_NAMES = ("General", "VIP", "VVIP")
 
 # Every business-data table, in no particular order — TRUNCATE ... CASCADE
 # handles FK dependencies, so ordering here is only for readability. Kept
@@ -80,7 +90,15 @@ async def backup_database(backup_dir: Path | None = None) -> Path:
 async def reset_business_data(db: AsyncSession) -> None:
     """Truncates every table in `RESET_TABLES` and restarts their identity
     sequences, in a single statement so Postgres handles all the
-    cross-table FK ordering via CASCADE atomically."""
+    cross-table FK ordering via CASCADE atomically. `customer_types` is one
+    of those tables, so the three built-in rows are re-seeded immediately
+    after — leaving them missing would permanently break anything that
+    resolves them by name (audience counts, new-customer defaults, POS
+    imports) until someone fixed it by hand in the database directly."""
     table_list = ", ".join(RESET_TABLES)
     await db.execute(text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE"))
+    await db.execute(
+        CustomerType.__table__.insert(),
+        [{"name": name, "is_system": True} for name in SEED_CUSTOMER_TYPE_NAMES],
+    )
     await db.commit()
