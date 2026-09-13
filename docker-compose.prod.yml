@@ -156,9 +156,8 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      # Cloudflare Origin Certificate (see topten.conf) — place
-      # cloudflare-origin.pem/.key here on the VPS; gitignored.
-      - ./nginx/certs:/etc/nginx/certs:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
       # Serve backend uploads (branding/gift images) directly via nginx
       - backend_uploads:/app/var:ro
     depends_on:
@@ -167,10 +166,26 @@ services:
     networks:
       - internal
 
+  certbot:
+    image: certbot/certbot
+    container_name: topten-certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    # First issuance is manual (needs the domain reachable on :80 first,
+    # before this container has a cert to renew) — see the deploy runbook:
+    #   docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm certbot certonly \
+    #     --webroot -w /var/www/certbot -d sms.topten.com.bd -d sms-api.topten.com.bd \
+    #     --email you@example.com --agree-tos --no-eff-email
+    # After that, this loop just keeps it renewed.
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
 volumes:
   postgres_data:
   redis_data:
   backend_uploads:
+  certbot_www:
+  certbot_certs:
 
 networks:
   internal:
