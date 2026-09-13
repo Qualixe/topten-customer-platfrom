@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "http", hostname: "localhost", port: "8000" },
       { protocol: "https", hostname: "*.qualixe.com" },
+      { protocol: "https", hostname: "*.topten.com.bd" },
       // Railway backend service public domain
       { protocol: "https", hostname: "*.up.railway.app" },
     ],
