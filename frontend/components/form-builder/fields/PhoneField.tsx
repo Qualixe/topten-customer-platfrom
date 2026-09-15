@@ -1,5 +1,5 @@
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import type { FormField } from "@/lib/form-builder/types";
 
 export function PhoneField({
@@ -21,8 +21,7 @@ export function PhoneField({
         {field.label}
         {field.required && <span className="text-destructive"> *</span>}
       </Label>
-      <Input
-        type="tel"
+      <PhoneInput
         placeholder={field.placeholder}
         disabled={!preview && !onChange}
         value={onChange ? (value ?? "") : undefined}

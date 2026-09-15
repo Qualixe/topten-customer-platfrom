@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { submitGenericForm } from "@/lib/api/forms";
 import type { FormField } from "@/lib/form-builder/types";
+import { validateBdPhone } from "@/lib/validation/bd-phone";
 import { validatePersonName } from "@/lib/validation/person-name";
 
 const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
@@ -69,7 +70,9 @@ export function PublicGenericForm({
 
     const nameError = validatePersonName(values.name);
     if (nameError) errors.name = nameError;
-    if (!values.phone.trim()) errors.phone = "Phone number is required.";
+
+    const phoneError = validateBdPhone(values.phone);
+    if (phoneError) errors.phone = phoneError;
 
     for (const field of fields) {
       if (!field.required) continue;

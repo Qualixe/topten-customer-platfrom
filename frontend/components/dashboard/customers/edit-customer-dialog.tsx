@@ -18,6 +18,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { DistrictSelect } from "@/components/ui/district-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateCustomer, type Customer, type CustomerStatus } from "@/lib/api/customers";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 import { getErrorMessage } from "@/lib/api/types";
+import { validateBdPhone } from "@/lib/validation/bd-phone";
 import { validatePersonName } from "@/lib/validation/person-name";
 
 const STATUS_OPTIONS: CustomerStatus[] = ["Active", "Inactive", "Suspended"];
@@ -109,6 +111,12 @@ function EditCustomerForm({
       return;
     }
 
+    const phoneError = validateBdPhone(phone);
+    if (phoneError) {
+      setError(phoneError);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -153,7 +161,7 @@ function EditCustomerForm({
         </FormField>
 
         <FormField htmlFor="edit-customer-phone" label="Phone">
-          <Input
+          <PhoneInput
             id="edit-customer-phone"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}

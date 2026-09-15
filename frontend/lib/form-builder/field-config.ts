@@ -52,7 +52,7 @@ export const FIELD_DEFINITIONS: Record<FieldType, FieldDefinition> = {
     label: "Phone",
     icon: PhoneIcon,
     // Required by default — same reason as "name" above.
-    defaultField: { type: "phone", label: "Phone Number", placeholder: "+8801XXXXXXXXX", required: true },
+    defaultField: { type: "phone", label: "Phone Number", placeholder: "01712345678", required: true },
   },
   date_of_birth: {
     label: "Date of Birth",

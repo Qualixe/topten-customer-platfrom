@@ -20,6 +20,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { DistrictSelect } from "@/components/ui/district-select";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -31,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createCustomer } from "@/lib/api/customers";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 import { getErrorMessage } from "@/lib/api/types";
+import { validateBdPhone } from "@/lib/validation/bd-phone";
 import { validatePersonName } from "@/lib/validation/person-name";
 
 export function AddCustomerDialog() {
@@ -107,6 +109,12 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
       return;
     }
 
+    const phoneError = validateBdPhone(phone);
+    if (phoneError) {
+      setError(phoneError);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -143,16 +151,12 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
         />
       </FormField>
 
-      <FormField
-        htmlFor="add-customer-phone"
-        label="Phone"
-        description="Bangladeshi number, e.g. 01711000101"
-      >
-        <Input
+      <FormField htmlFor="add-customer-phone" label="Phone">
+        <PhoneInput
           id="add-customer-phone"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
-          placeholder="01711000101"
+          placeholder="01712345678"
           required
         />
       </FormField>
