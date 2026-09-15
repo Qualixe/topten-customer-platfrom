@@ -38,6 +38,11 @@ export interface Customer {
    * never admin-editable. Absent on mock-generated customers, same
    * availability caveat as dateOfBirth. */
   customerNote?: string | null;
+  /** Set directly by an admin (Edit Customer dialog) — independent of
+   * campaign/standalone-form verification, which show up separately on the
+   * Verified Customers page rather than here. Absent on mock-generated
+   * customers, same availability caveat as dateOfBirth. */
+  isVerified?: boolean;
 }
 
 const FIRST_NAMES = [
