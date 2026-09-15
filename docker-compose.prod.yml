@@ -156,8 +156,12 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # Let's Encrypt certs, renewed on the host and copied here as
+      # letsencrypt-fullchain.pem/-privkey.pem (see nginx/conf.d/topten.conf);
+      # gitignored. The certbot_certs volume below is used only by the
+      # certbot service itself, not mounted into nginx.
+      - ./nginx/certs:/etc/nginx/certs:ro
       - certbot_www:/var/www/certbot:ro
-      - certbot_certs:/etc/letsencrypt:ro
       # Serve backend uploads (branding/gift images) directly via nginx
       - backend_uploads:/app/var:ro
     depends_on:
