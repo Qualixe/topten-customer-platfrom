@@ -406,7 +406,7 @@ function UserFormBody({
 
     const nameError = validatePersonName(name);
     if (nameError) {
-      setError(nameError);
+      setError(`Name: ${nameError}`);
       return;
     }
 

@@ -105,13 +105,13 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
 
     const nameError = validatePersonName(name);
     if (nameError) {
-      setError(nameError);
+      setError(`Name: ${nameError}`);
       return;
     }
 
     const phoneError = validateBdPhone(phone);
     if (phoneError) {
-      setError(phoneError);
+      setError(`Phone: ${phoneError}`);
       return;
     }
 

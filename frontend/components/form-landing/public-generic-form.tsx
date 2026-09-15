@@ -30,6 +30,66 @@ const EMPTY_VALUES: GenericFormValues = {
 // when the form marks it required.
 const MIN_ADDRESS_LENGTH = 10;
 
+/** Validates a single field against its current value and that field's own
+ * config on this form (for `required`/`label`) — shared by the on-change
+ * (immediate, per-field) and on-submit (full form) checks so the two can
+ * never drift apart. */
+function validateField(
+  field: GenericFormFieldName,
+  values: GenericFormValues,
+  fields: FormField[]
+): string | undefined {
+  switch (field) {
+    case "name":
+      return validatePersonName(values.name) ?? undefined;
+    case "phone":
+      return validateBdPhone(values.phone) ?? undefined;
+    case "email": {
+      const config = fields.find((f) => f.type === "email");
+      if (config?.required && !values.email.trim()) return `${config.label} is required.`;
+      return undefined;
+    }
+    case "dateOfBirth": {
+      const config = fields.find((f) => f.type === "date_of_birth");
+      if (config?.required && !values.dateOfBirth.trim()) return `${config.label} is required.`;
+      return undefined;
+    }
+    case "address": {
+      const config = fields.find((f) => f.type === "address");
+      const trimmed = values.address.trim();
+      if (config?.required && !trimmed) return `${config.label} is required.`;
+      if (trimmed && trimmed.length < MIN_ADDRESS_LENGTH) return `At least ${MIN_ADDRESS_LENGTH} characters.`;
+      return undefined;
+    }
+    case "city": {
+      const config = fields.find((f) => f.type === "city");
+      if (config?.required && !values.city.trim()) return `${config.label} is required.`;
+      return undefined;
+    }
+    case "marketingOptIn": {
+      const config = fields.find((f) => f.type === "marketing_consent");
+      if (config?.required && !values.marketingOptIn) return "Please check the box.";
+      return undefined;
+    }
+    case "customerNote": {
+      const config = fields.find((f) => f.type === "customer_note");
+      if (config?.required && !values.customerNote.trim()) return `${config.label} is required.`;
+      return undefined;
+    }
+  }
+}
+
+const ALL_FIELD_NAMES: GenericFormFieldName[] = [
+  "name",
+  "phone",
+  "email",
+  "dateOfBirth",
+  "address",
+  "city",
+  "marketingOptIn",
+  "customerNote",
+];
+
 /** Renders a form's fields as a real, working, tokenless public form —
  * decorative fields (heading/paragraph/divider/submit button) via the same
  * FieldRenderer the builder uses, name/phone/email/date_of_birth/address
@@ -54,46 +114,30 @@ export function PublicGenericForm({
   const [submitted, setSubmitted] = useState(false);
 
   function handleFieldChange(field: keyof GenericFormValues, value: string | boolean) {
-    setValues((prev) => ({ ...prev, [field]: value }));
-    // Clear that field's error as soon as the visitor edits it, rather than
-    // leaving a stale message up until the next full submit attempt.
+    const nextValues = { ...values, [field]: value };
+    setValues(nextValues);
+
+    // Validate immediately, not just on submit — the visitor sees a
+    // mistake (or sees it clear) as they type, rather than only after
+    // trying to submit the whole form.
+    const error = validateField(field, nextValues, fields);
     setFieldErrors((prev) => {
-      if (!(field in prev)) return prev;
-      const next = { ...prev };
-      delete next[field];
-      return next;
+      if (!error) {
+        if (!(field in prev)) return prev;
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      }
+      return { ...prev, [field]: error };
     });
   }
 
   function validate(): Partial<Record<GenericFormFieldName, string>> {
     const errors: Partial<Record<GenericFormFieldName, string>> = {};
-
-    const nameError = validatePersonName(values.name);
-    if (nameError) errors.name = nameError;
-
-    const phoneError = validateBdPhone(values.phone);
-    if (phoneError) errors.phone = phoneError;
-
-    for (const field of fields) {
-      if (!field.required) continue;
-      if (field.type === "email" && !values.email.trim()) errors.email = `${field.label} is required.`;
-      if (field.type === "date_of_birth" && !values.dateOfBirth.trim()) {
-        errors.dateOfBirth = `${field.label} is required.`;
-      }
-      if (field.type === "address" && !values.address.trim()) errors.address = `${field.label} is required.`;
-      if (field.type === "city" && !values.city.trim()) errors.city = `${field.label} is required.`;
-      if (field.type === "marketing_consent" && !values.marketingOptIn) {
-        errors.marketingOptIn = "Please check the box to agree before submitting.";
-      }
-      if (field.type === "customer_note" && !values.customerNote.trim()) {
-        errors.customerNote = `${field.label} is required.`;
-      }
+    for (const name of ALL_FIELD_NAMES) {
+      const error = validateField(name, values, fields);
+      if (error) errors[name] = error;
     }
-
-    if (values.address.trim() && values.address.trim().length < MIN_ADDRESS_LENGTH) {
-      errors.address = `Please enter your full address (at least ${MIN_ADDRESS_LENGTH} characters).`;
-    }
-
     return errors;
   }
 

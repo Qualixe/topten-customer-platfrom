@@ -8,14 +8,17 @@ const BD_MOBILE_PATTERN = /^01[3-8]\d{8}$/;
  * Client-side validation only speeds up feedback — the FastAPI backend
  * (see app.common.phone.normalize_phone) re-validates independently and is
  * the actual source of truth.
+ *
+ * Returns a short, specific error message pinpointing what's wrong, or
+ * `null` if the number is fine.
  */
 export function validateBdPhone(value: string): string | null {
   const trimmed = value.trim();
-  if (!trimmed) return "Phone number is required.";
-
-  if (!BD_MOBILE_PATTERN.test(trimmed)) {
-    return "Enter a valid Bangladeshi mobile number starting with 013/014/015/016/017/018, e.g. 01712345678.";
-  }
+  if (!trimmed) return "Required.";
+  if (!/^\d+$/.test(trimmed)) return "Digits only.";
+  if (!trimmed.startsWith("01")) return "Must start with 01.";
+  if (trimmed.length !== 11) return "Must be 11 digits.";
+  if (!BD_MOBILE_PATTERN.test(trimmed)) return "Invalid prefix — use 013–018.";
 
   return null;
 }
