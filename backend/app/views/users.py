@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.common.names import validate_person_name
+
 
 class PermissionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -47,11 +49,8 @@ class UserCreate(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def _name_not_blank(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("Name cannot be blank")
-        return stripped
+    def _validate_name(cls, value: str) -> str:
+        return validate_person_name(value)
 
 
 class UserUpdate(BaseModel):
@@ -66,13 +65,10 @@ class UserUpdate(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def _name_not_blank(cls, value: str | None) -> str | None:
+    def _validate_name(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("Name cannot be blank")
-        return stripped
+        return validate_person_name(value)
 
 
 class UserRead(BaseModel):

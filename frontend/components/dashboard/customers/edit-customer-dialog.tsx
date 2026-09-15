@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateCustomer, type Customer, type CustomerStatus } from "@/lib/api/customers";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
 import { getErrorMessage } from "@/lib/api/types";
+import { validatePersonName } from "@/lib/validation/person-name";
 
 const STATUS_OPTIONS: CustomerStatus[] = ["Active", "Inactive", "Suspended"];
 
@@ -100,8 +101,15 @@ function EditCustomerForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitting(true);
     setError(null);
+
+    const nameError = validatePersonName(name);
+    if (nameError) {
+      setError(nameError);
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
       await updateCustomer(customer.id, {

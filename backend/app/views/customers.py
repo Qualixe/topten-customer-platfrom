@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.common.names import validate_person_name
+
 
 class CustomerTypeCreate(BaseModel):
     name: str = Field(min_length=1, max_length=50)
@@ -85,11 +87,8 @@ class CustomerCreate(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def _name_not_blank(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("Name cannot be blank")
-        return stripped
+    def _validate_name(cls, value: str) -> str:
+        return validate_person_name(value)
 
     @field_validator("email", "address", "city", "internal_notes")
     @classmethod
@@ -146,13 +145,10 @@ class CustomerUpdate(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def _name_not_blank(cls, value: str | None) -> str | None:
+    def _validate_name(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("Name cannot be blank")
-        return stripped
+        return validate_person_name(value)
 
     @field_validator("email", "address", "city", "internal_notes")
     @classmethod

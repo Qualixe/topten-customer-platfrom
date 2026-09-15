@@ -13,6 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.common.names import validate_person_name
+
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 # A published form lives at the site root (mysite.com/{slug}), not under a
@@ -199,9 +201,14 @@ class GenericFormSubmission(BaseModel):
     marketing_opt_in: bool = False
     customer_note: str | None = None
 
-    @field_validator("name", "phone")
+    @field_validator("name")
     @classmethod
-    def _not_blank(cls, value: str) -> str:
+    def _validate_name(cls, value: str) -> str:
+        return validate_person_name(value)
+
+    @field_validator("phone")
+    @classmethod
+    def _phone_not_blank(cls, value: str) -> str:
         stripped = value.strip()
         if not stripped:
             raise ValueError("This field cannot be blank")

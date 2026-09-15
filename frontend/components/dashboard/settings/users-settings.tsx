@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import { getCurrentUser, type AuthUser } from "@/lib/api/auth";
 import { getErrorMessage } from "@/lib/api/types";
+import { validatePersonName } from "@/lib/validation/person-name";
 import {
   createUser,
   deleteUser,
@@ -401,8 +402,15 @@ function UserFormBody({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitting(true);
     setError(null);
+
+    const nameError = validatePersonName(name);
+    if (nameError) {
+      setError(nameError);
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
       if (isEdit && existingUser) {

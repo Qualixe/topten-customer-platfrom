@@ -7,6 +7,7 @@ import { FieldRenderer, type GenericFormValues } from "@/components/form-builder
 import { Button } from "@/components/ui/button";
 import { submitGenericForm } from "@/lib/api/forms";
 import type { FormField } from "@/lib/form-builder/types";
+import { validatePersonName } from "@/lib/validation/person-name";
 
 const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 const EMPTY_VALUES: GenericFormValues = {
@@ -51,7 +52,8 @@ export function PublicGenericForm({
 
   function validate(): string[] {
     const errors: string[] = [];
-    if (!values.name.trim()) errors.push("Name is required.");
+    const nameError = validatePersonName(values.name);
+    if (nameError) errors.push(nameError);
     if (!values.phone.trim()) errors.push("Phone number is required.");
 
     for (const field of fields) {
