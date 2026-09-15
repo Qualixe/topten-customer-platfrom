@@ -33,7 +33,7 @@ import { SPEND_RANGES } from "@/lib/spend-ranges";
 const CITY_FILTER_ITEMS = ["all", ...BD_DISTRICTS];
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
-  all: "All Statuses",
+  all: "Statuses",
   Active: "Active",
   Inactive: "Inactive",
   Suspended: "Suspended",
@@ -155,7 +155,7 @@ export function CustomersToolbar({
           <SelectTrigger className="w-full sm:w-36" aria-label="Filter by customer type">
             <SelectValue>
               {(value: CustomerTypeFilter) =>
-                value === "all" ? "All Types" : (types.find((t) => t.id === value)?.name ?? "…")
+                value === "all" ? "Types" : (types.find((t) => t.id === value)?.name ?? "…")
               }
             </SelectValue>
           </SelectTrigger>
@@ -176,7 +176,7 @@ export function CustomersToolbar({
         >
           <ComboboxTrigger className="w-full sm:w-36" aria-label="Filter by city">
             <ComboboxValue>
-              {(value: CityFilter) => (value === "all" ? "All Cities" : value)}
+              {(value: CityFilter) => (value === "all" ? "Cities" : value)}
             </ComboboxValue>
           </ComboboxTrigger>
           <ComboboxContent>
@@ -200,7 +200,7 @@ export function CustomersToolbar({
             <SelectValue>
               {(value: SpendRangeFilter) =>
                 value === "all"
-                  ? "All Spend"
+                  ? "Spend"
                   : (SPEND_RANGES.find((range) => range.key === value)?.label ?? "…")
               }
             </SelectValue>

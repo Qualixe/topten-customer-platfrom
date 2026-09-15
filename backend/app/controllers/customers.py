@@ -66,6 +66,16 @@ _SORTABLE_COLUMNS: dict[str, ColumnElement] = {
 }
 
 
+def _resolve_order_clause(sort_by: str | None, sort_dir: Literal["asc", "desc"]) -> ColumnElement:
+    """No explicit `sort_by` means "Default Order" on the frontend — newest
+    customer first, regardless of `sort_dir` (there's no meaningful
+    "ascending default"). An explicit `sort_by` honors `sort_dir` as usual."""
+    if sort_by is None:
+        return Customer.created_at.desc()
+    order_column = _SORTABLE_COLUMNS.get(sort_by, Customer.name)
+    return order_column.desc() if sort_dir == "desc" else order_column.asc()
+
+
 def _days_until_next_birthday(dob: date, today: date) -> int:
     try:
         next_birthday = dob.replace(year=today.year)
@@ -329,8 +339,7 @@ async def list_customers(
 
     total = (await db.execute(count_query)).scalar_one()
 
-    order_column = _SORTABLE_COLUMNS.get(sort_by or "", Customer.name)
-    order_clause = order_column.desc() if sort_dir == "desc" else order_column.asc()
+    order_clause = _resolve_order_clause(sort_by, sort_dir)
     list_query = list_query.order_by(order_clause).offset((page - 1) * page_size).limit(page_size)
 
     customers = (await db.execute(list_query)).scalars().all()
@@ -456,8 +465,7 @@ async def export_customers_csv(
         min_total_spent=min_total_spent,
         max_total_spent=max_total_spent,
     )
-    order_column = _SORTABLE_COLUMNS.get(sort_by or "", Customer.name)
-    order_clause = order_column.desc() if sort_dir == "desc" else order_column.asc()
+    order_clause = _resolve_order_clause(sort_by, sort_dir)
 
     filename = f"customers-{datetime.now(UTC):%Y%m%d-%H%M%S}.csv"
     return StreamingResponse(

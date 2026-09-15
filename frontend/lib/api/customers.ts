@@ -90,9 +90,12 @@ function toStatus(status: string): CustomerStatus {
 function formatJoinedDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleString("en-US", {
     month: "short",
+    day: "numeric",
     year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
     timeZone: "Asia/Dhaka",
   });
 }
