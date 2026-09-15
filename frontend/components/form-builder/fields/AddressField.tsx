@@ -7,11 +7,13 @@ export function AddressField({
   preview = false,
   value,
   onChange,
+  error,
 }: {
   field: FormField;
   preview?: boolean;
   value?: string;
   onChange?: (value: string) => void;
+  error?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -25,7 +27,9 @@ export function AddressField({
         value={onChange ? (value ?? "") : undefined}
         onChange={onChange ? (event) => onChange(event.target.value) : undefined}
         className="min-h-16"
+        aria-invalid={Boolean(error)}
       />
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

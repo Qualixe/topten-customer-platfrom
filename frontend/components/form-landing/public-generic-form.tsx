@@ -3,7 +3,11 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Check, RefreshCw } from "lucide-react";
 
-import { FieldRenderer, type GenericFormValues } from "@/components/form-builder/fields";
+import {
+  FieldRenderer,
+  type GenericFormFieldName,
+  type GenericFormValues,
+} from "@/components/form-builder/fields";
 import { Button } from "@/components/ui/button";
 import { submitGenericForm } from "@/lib/api/forms";
 import type { FormField } from "@/lib/form-builder/types";
@@ -41,39 +45,50 @@ export function PublicGenericForm({
   logo: ReactNode;
 }) {
   const [values, setValues] = useState<GenericFormValues>(EMPTY_VALUES);
-  const [fieldErrors, setFieldErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<GenericFormFieldName, string>>>(
+    {}
+  );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   function handleFieldChange(field: keyof GenericFormValues, value: string | boolean) {
     setValues((prev) => ({ ...prev, [field]: value }));
+    // Clear that field's error as soon as the visitor edits it, rather than
+    // leaving a stale message up until the next full submit attempt.
+    setFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   }
 
-  function validate(): string[] {
-    const errors: string[] = [];
+  function validate(): Partial<Record<GenericFormFieldName, string>> {
+    const errors: Partial<Record<GenericFormFieldName, string>> = {};
+
     const nameError = validatePersonName(values.name);
-    if (nameError) errors.push(nameError);
-    if (!values.phone.trim()) errors.push("Phone number is required.");
+    if (nameError) errors.name = nameError;
+    if (!values.phone.trim()) errors.phone = "Phone number is required.";
 
     for (const field of fields) {
       if (!field.required) continue;
-      if (field.type === "email" && !values.email.trim()) errors.push(`${field.label} is required.`);
+      if (field.type === "email" && !values.email.trim()) errors.email = `${field.label} is required.`;
       if (field.type === "date_of_birth" && !values.dateOfBirth.trim()) {
-        errors.push(`${field.label} is required.`);
+        errors.dateOfBirth = `${field.label} is required.`;
       }
-      if (field.type === "address" && !values.address.trim()) errors.push(`${field.label} is required.`);
-      if (field.type === "city" && !values.city.trim()) errors.push(`${field.label} is required.`);
+      if (field.type === "address" && !values.address.trim()) errors.address = `${field.label} is required.`;
+      if (field.type === "city" && !values.city.trim()) errors.city = `${field.label} is required.`;
       if (field.type === "marketing_consent" && !values.marketingOptIn) {
-        errors.push("Please check the box to agree before submitting.");
+        errors.marketingOptIn = "Please check the box to agree before submitting.";
       }
       if (field.type === "customer_note" && !values.customerNote.trim()) {
-        errors.push(`${field.label} is required.`);
+        errors.customerNote = `${field.label} is required.`;
       }
     }
 
     if (values.address.trim() && values.address.trim().length < MIN_ADDRESS_LENGTH) {
-      errors.push(`Please enter your full address (at least ${MIN_ADDRESS_LENGTH} characters).`);
+      errors.address = `Please enter your full address (at least ${MIN_ADDRESS_LENGTH} characters).`;
     }
 
     return errors;
@@ -84,11 +99,11 @@ export function PublicGenericForm({
     setSubmitError(null);
 
     const errors = validate();
-    if (errors.length > 0) {
+    if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
     }
-    setFieldErrors([]);
+    setFieldErrors({});
     setSubmitting(true);
 
     try {
@@ -144,17 +159,14 @@ export function PublicGenericForm({
           formValues={values}
           onFormFieldChange={handleFieldChange}
           submitDisabled={submitting}
+          fieldErrors={fieldErrors}
         />
       ))}
 
-      {fieldErrors.length > 0 && (
-        <div role="alert" className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-          {fieldErrors.map((message) => (
-            <p key={message} className="text-sm text-destructive">
-              {message}
-            </p>
-          ))}
-        </div>
+      {Object.keys(fieldErrors).length > 0 && (
+        <p role="alert" className="text-sm text-destructive">
+          Please fix the highlighted field{Object.keys(fieldErrors).length > 1 ? "s" : ""} above.
+        </p>
       )}
 
       {submitError && (

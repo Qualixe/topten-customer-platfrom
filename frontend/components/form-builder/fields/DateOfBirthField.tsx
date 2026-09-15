@@ -7,11 +7,13 @@ export function DateOfBirthField({
   preview = false,
   value,
   onChange,
+  error,
 }: {
   field: FormField;
   preview?: boolean;
   value?: string;
   onChange?: (value: string) => void;
+  error?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -24,6 +26,7 @@ export function DateOfBirthField({
         onChange={onChange ?? (() => {})}
         disabled={!preview && !onChange}
       />
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

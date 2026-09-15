@@ -10,11 +10,13 @@ export function NameField({
   preview = false,
   value,
   onChange,
+  error,
 }: {
   field: FormField;
   preview?: boolean;
   value?: string;
   onChange?: (value: string) => void;
+  error?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -27,7 +29,9 @@ export function NameField({
         disabled={!preview && !onChange}
         value={onChange ? (value ?? "") : undefined}
         onChange={onChange ? (event) => onChange(event.target.value) : undefined}
+        aria-invalid={Boolean(error)}
       />
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

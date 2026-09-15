@@ -47,6 +47,7 @@ export function FieldRenderer({
   formValues,
   onFormFieldChange,
   submitDisabled = false,
+  fieldErrors,
 }: {
   field: FormField;
   preview?: boolean;
@@ -55,6 +56,9 @@ export function FieldRenderer({
   /** Only meaningful for a "submit_button" field on the real public form —
    * disables it while a submission is in flight. */
   submitDisabled?: boolean;
+  /** Per-field validation messages, shown under that field's input — only
+   * ever passed on the real public form (see PublicGenericForm). */
+  fieldErrors?: Partial<Record<GenericFormFieldName, string>>;
 }) {
   switch (field.type) {
     case "heading":
@@ -68,6 +72,7 @@ export function FieldRenderer({
           preview={preview}
           value={formValues?.name}
           onChange={onFormFieldChange ? (value) => onFormFieldChange("name", value) : undefined}
+          error={fieldErrors?.name}
         />
       );
     case "email":
@@ -77,6 +82,7 @@ export function FieldRenderer({
           preview={preview}
           value={formValues?.email}
           onChange={onFormFieldChange ? (value) => onFormFieldChange("email", value) : undefined}
+          error={fieldErrors?.email}
         />
       );
     case "phone":
@@ -86,6 +92,7 @@ export function FieldRenderer({
           preview={preview}
           value={formValues?.phone}
           onChange={onFormFieldChange ? (value) => onFormFieldChange("phone", value) : undefined}
+          error={fieldErrors?.phone}
         />
       );
     case "date_of_birth":
@@ -97,6 +104,7 @@ export function FieldRenderer({
           onChange={
             onFormFieldChange ? (value) => onFormFieldChange("dateOfBirth", value) : undefined
           }
+          error={fieldErrors?.dateOfBirth}
         />
       );
     case "address":
@@ -106,6 +114,7 @@ export function FieldRenderer({
           preview={preview}
           value={formValues?.address}
           onChange={onFormFieldChange ? (value) => onFormFieldChange("address", value) : undefined}
+          error={fieldErrors?.address}
         />
       );
     case "city":
@@ -115,6 +124,7 @@ export function FieldRenderer({
           preview={preview}
           value={formValues?.city}
           onChange={onFormFieldChange ? (value) => onFormFieldChange("city", value) : undefined}
+          error={fieldErrors?.city}
         />
       );
     case "marketing_consent":
@@ -126,6 +136,7 @@ export function FieldRenderer({
           onChange={
             onFormFieldChange ? (value) => onFormFieldChange("marketingOptIn", value) : undefined
           }
+          error={fieldErrors?.marketingOptIn}
         />
       );
     case "customer_note":
@@ -137,6 +148,7 @@ export function FieldRenderer({
           onChange={
             onFormFieldChange ? (value) => onFormFieldChange("customerNote", value) : undefined
           }
+          error={fieldErrors?.customerNote}
         />
       );
     case "divider":
