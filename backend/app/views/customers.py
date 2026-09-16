@@ -329,6 +329,10 @@ class VerifiedCustomerRead(BaseModel):
     date_of_birth: date | None
     address: str | None
     email: str | None
+    # The full customer record — lets the Verified Customers page reuse the
+    # same View/Note/Edit/Delete actions as the main Customers page without
+    # a second round trip per row.
+    customer: CustomerRead
 
 
 class VerifiedCustomersListResponse(BaseModel):

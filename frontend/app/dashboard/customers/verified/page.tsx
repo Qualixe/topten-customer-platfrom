@@ -4,50 +4,17 @@ import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { VerifiedCustomersCampaignFilter } from "@/components/dashboard/customers-verified/verified-customers-campaign-filter";
 import { VerifiedCustomersExportButton } from "@/components/dashboard/customers-verified/verified-customers-export-button";
 import { VerifiedCustomersPagination } from "@/components/dashboard/customers-verified/verified-customers-pagination";
+import { VerifiedCustomersTable } from "@/components/dashboard/customers-verified/verified-customers-table";
 import { VerifiedCustomersToolbar } from "@/components/dashboard/customers-verified/verified-customers-toolbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { listCampaigns } from "@/lib/api/campaigns";
-import {
-  listVerifiedCustomers,
-  type CustomerStatus,
-  type VerifiedCustomerSource,
-} from "@/lib/api/customers";
+import { listVerifiedCustomers, type CustomerStatus } from "@/lib/api/customers";
 import { settleOk } from "@/lib/api/settle";
 import { SPEND_RANGES } from "@/lib/spend-ranges";
 
 export const dynamic = "force-dynamic";
-
-// campaign's own row always has a real campaignName, so this is never
-// actually rendered for that source — present only to keep the Record
-// exhaustive over VerifiedCustomerSource.
-const SOURCE_LABELS: Record<VerifiedCustomerSource, string> = {
-  campaign: "",
-  form: "Standalone form",
-  admin: "Manually verified",
-};
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Asia/Dhaka",
-  });
-}
 
 type RawSearchParams = Record<string, string | string[] | undefined>;
 
@@ -136,40 +103,7 @@ export default async function VerifiedCustomersPage({
               description="Try adjusting your search or filters."
             />
           ) : (
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Campaign</TableHead>
-                    <TableHead>Customer Type</TableHead>
-                    <TableHead>Verified At</TableHead>
-                    <TableHead>DOB</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Email</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((row) => (
-                    <TableRow key={`${row.id}-${row.source}`}>
-                      <TableCell className="font-medium">{row.name}</TableCell>
-                      <TableCell>{row.phone}</TableCell>
-                      <TableCell>
-                        {row.campaignName ?? (
-                          <span className="text-muted-foreground">{SOURCE_LABELS[row.source]}</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{row.customerType.name}</TableCell>
-                      <TableCell>{formatDateTime(row.verifiedAt)}</TableCell>
-                      <TableCell>{row.dateOfBirth ?? "—"}</TableCell>
-                      <TableCell className="max-w-48 truncate">{row.address ?? "—"}</TableCell>
-                      <TableCell>{row.email ?? "—"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <VerifiedCustomersTable items={items} />
           )}
 
           <VerifiedCustomersPagination

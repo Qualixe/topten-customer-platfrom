@@ -877,6 +877,7 @@ async def _fetch_verified_customers(
             date_of_birth=customer.date_of_birth,
             address=customer.address,
             email=customer.email,
+            customer=CustomerRead.model_validate(customer),
         )
         for recipient, customer, campaign in campaign_rows
     ]
@@ -913,6 +914,7 @@ async def _fetch_verified_customers(
                 date_of_birth=customer.date_of_birth,
                 address=customer.address,
                 email=customer.email,
+                customer=CustomerRead.model_validate(customer),
             )
             for customer in form_customers
         )
@@ -947,6 +949,7 @@ async def _fetch_verified_customers(
                 date_of_birth=customer.date_of_birth,
                 address=customer.address,
                 email=customer.email,
+                customer=CustomerRead.model_validate(customer),
             )
             for customer in admin_customers
         )

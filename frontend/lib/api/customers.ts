@@ -348,6 +348,10 @@ export interface VerifiedCustomerRow {
   dateOfBirth: string | null;
   address: string | null;
   email: string | null;
+  /** The full customer record — lets the Verified Customers page reuse the
+   * same View/Note/Edit/Delete actions as the main Customers page without
+   * a second round trip per row. */
+  customer: Customer;
 }
 
 interface VerifiedCustomerDto {
@@ -362,6 +366,7 @@ interface VerifiedCustomerDto {
   dateOfBirth: string | null;
   address: string | null;
   email: string | null;
+  customer: CustomerDto;
 }
 
 function mapDtoToVerifiedCustomerRow(dto: VerifiedCustomerDto): VerifiedCustomerRow {
@@ -377,6 +382,7 @@ function mapDtoToVerifiedCustomerRow(dto: VerifiedCustomerDto): VerifiedCustomer
     dateOfBirth: dto.dateOfBirth,
     address: dto.address,
     email: dto.email,
+    customer: mapDtoToCustomer(dto.customer),
   };
 }
 
