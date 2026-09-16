@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { CustomerTypeSelect } from "@/components/dashboard/customers/customer-type-select";
 import { FormField } from "@/components/dashboard/form-field";
 import { ManageCustomerTypesDialog } from "@/components/dashboard/customers/manage-customer-types-dialog";
 import { Button } from "@/components/ui/button";
@@ -215,23 +216,14 @@ function EditCustomerForm({
 
         <FormField htmlFor="edit-customer-type" label="Customer Type" className="col-span-2">
           <div className="flex items-center gap-2">
-            <Select
+            <CustomerTypeSelect
+              id="edit-customer-type"
+              options={selectableTypes}
+              types={types}
+              onTypesChange={setTypes}
               value={customerTypeId}
-              onValueChange={(value) => setCustomerTypeId(value ?? "")}
-            >
-              <SelectTrigger id="edit-customer-type" className="w-full">
-                <SelectValue>
-                  {(value: string) => selectableTypes.find((t) => t.id === value)?.name ?? "General"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {selectableTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    {type.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={setCustomerTypeId}
+            />
             <ManageCustomerTypesDialog types={types} onTypesChange={setTypes} />
           </div>
         </FormField>

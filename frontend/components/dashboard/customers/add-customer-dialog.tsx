@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { UserPlus } from "lucide-react";
 
+import { CustomerTypeSelect } from "@/components/dashboard/customers/customer-type-select";
 import { FormField } from "@/components/dashboard/form-field";
 import { ManageCustomerTypesDialog } from "@/components/dashboard/customers/manage-customer-types-dialog";
 import { usePermissions } from "@/components/providers/permissions-provider";
@@ -21,13 +22,6 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { DistrictSelect } from "@/components/ui/district-select";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createCustomer } from "@/lib/api/customers";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
@@ -191,23 +185,14 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
 
       <FormField htmlFor="add-customer-type" label="Customer Type">
         <div className="flex items-center gap-2">
-          <Select
+          <CustomerTypeSelect
+            id="add-customer-type"
+            options={activeTypes}
+            types={types}
+            onTypesChange={setTypes}
             value={customerTypeId}
-            onValueChange={(value) => setCustomerTypeId(value ?? "")}
-          >
-            <SelectTrigger id="add-customer-type" className="w-full">
-              <SelectValue>
-                {(value: string) => activeTypes.find((t) => t.id === value)?.name ?? "General"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {activeTypes.map((type) => (
-                <SelectItem key={type.id} value={type.id}>
-                  {type.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={setCustomerTypeId}
+          />
           <ManageCustomerTypesDialog types={types} onTypesChange={setTypes} />
         </div>
       </FormField>
