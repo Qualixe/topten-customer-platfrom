@@ -2,7 +2,6 @@ import { ShieldCheck } from "lucide-react";
 
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { VerifiedCustomersCampaignFilter } from "@/components/dashboard/customers-verified/verified-customers-campaign-filter";
-import { VerifiedCustomersExportButton } from "@/components/dashboard/customers-verified/verified-customers-export-button";
 import { VerifiedCustomersPagination } from "@/components/dashboard/customers-verified/verified-customers-pagination";
 import { VerifiedCustomersToolbar } from "@/components/dashboard/customers-verified/verified-customers-toolbar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,18 +16,8 @@ import {
 } from "@/components/ui/table";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { listCampaigns } from "@/lib/api/campaigns";
-import { listVerifiedCustomers, type CustomerStatus, type VerifiedCustomerSource } from "@/lib/api/customers";
+import { listVerifiedCustomers } from "@/lib/api/customers";
 import { settleOk } from "@/lib/api/settle";
-import { SPEND_RANGES } from "@/lib/spend-ranges";
-
-// campaign's own row always has a real campaignName, so this is never
-// actually rendered for that source — present only to keep the Record
-// exhaustive over VerifiedCustomerSource.
-const SOURCE_LABELS: Record<VerifiedCustomerSource, string> = {
-  campaign: "",
-  form: "Standalone form",
-  admin: "Manually verified",
-};
 
 export const dynamic = "force-dynamic";
 
@@ -64,24 +53,10 @@ export default async function VerifiedCustomersPage({
   const search = firstValue(raw.search) ?? "";
   const campaignId = firstValue(raw.campaignId);
   const customerTypeId = firstValue(raw.customerTypeId) ?? "all";
-  const status = (firstValue(raw.status) as CustomerStatus | undefined) ?? "all";
-  const city = firstValue(raw.city) ?? "all";
-  const spendRange = SPEND_RANGES.find((range) => range.key === firstValue(raw.spendRange));
 
   const [user, customersResult, campaignsResult] = await Promise.all([
     getCurrentUserSafeCached(),
-    settleOk(
-      listVerifiedCustomers({
-        page,
-        search,
-        campaignId,
-        customerTypeId,
-        status,
-        city,
-        minTotalSpent: spendRange?.min,
-        maxTotalSpent: spendRange?.max,
-      })
-    ),
+    settleOk(listVerifiedCustomers({ page, search, campaignId, customerTypeId })),
     settleOk(listCampaigns({ pageSize: 100 })),
   ]);
   if (!user?.permissions.includes("customers.view")) {
@@ -103,9 +78,8 @@ export default async function VerifiedCustomersPage({
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Verified Customers</h2>
         <p className="text-sm text-muted-foreground">
-          Customers who completed at least one campaign profile form, the standalone Forms
-          feature, or were manually verified by an admin. A customer verified through multiple
-          campaigns appears once per campaign.
+          Customers who completed at least one campaign profile form, or the standalone Forms
+          feature. A customer verified through multiple campaigns appears once per campaign.
         </p>
       </div>
 
@@ -122,7 +96,6 @@ export default async function VerifiedCustomersPage({
                 date: campaign.scheduledAt ?? campaign.createdAt,
               }))}
             />
-            <VerifiedCustomersExportButton />
           </div>
 
           {items.length === 0 ? (
@@ -148,12 +121,12 @@ export default async function VerifiedCustomersPage({
                 </TableHeader>
                 <TableBody>
                   {items.map((row) => (
-                    <TableRow key={`${row.id}-${row.source}`}>
+                    <TableRow key={`${row.id}-${row.campaignId ?? "form"}`}>
                       <TableCell className="font-medium">{row.name}</TableCell>
                       <TableCell>{row.phone}</TableCell>
                       <TableCell>
                         {row.campaignName ?? (
-                          <span className="text-muted-foreground">{SOURCE_LABELS[row.source]}</span>
+                          <span className="text-muted-foreground">Standalone form</span>
                         )}
                       </TableCell>
                       <TableCell>{row.customerType.name}</TableCell>

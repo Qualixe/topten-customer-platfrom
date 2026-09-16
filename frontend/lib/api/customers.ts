@@ -60,7 +60,6 @@ interface CustomerDto {
   customerType: CustomerTypeOption;
   totalSpent: string | number;
   status: string;
-  isVerified: boolean;
   createdAt: string;
 }
 
@@ -139,7 +138,6 @@ function mapDtoToCustomer(dto: CustomerDto): Customer {
     dateOfBirth: dto.dateOfBirth,
     customerType: dto.customerType,
     marketingOptIn: dto.marketingOptIn,
-    isVerified: dto.isVerified,
   };
 }
 
@@ -328,21 +326,14 @@ export async function listPosCustomers(
   };
 }
 
-/** How a customer came to be verified — a plain standalone-form
- * verification and an admin's manual toggle both have no campaign
- * (`campaignId`/`campaignName` null), so this is what actually
- * distinguishes them on screen. */
-export type VerifiedCustomerSource = "campaign" | "form" | "admin";
-
 export interface VerifiedCustomerRow {
   id: string;
   name: string;
   phone: string;
-  /** Null for a customer verified via the standalone Forms feature or an
-   * admin's manual toggle — neither has a campaign. */
+  /** Null for a customer verified via the standalone Forms feature — that
+   * flow has no campaign. */
   campaignId: string | null;
   campaignName: string | null;
-  source: VerifiedCustomerSource;
   customerType: CustomerTypeOption;
   verifiedAt: string;
   dateOfBirth: string | null;
@@ -356,7 +347,6 @@ interface VerifiedCustomerDto {
   phone: string;
   campaignId: string | null;
   campaignName: string | null;
-  source: VerifiedCustomerSource;
   customerType: CustomerTypeOption;
   verifiedAt: string;
   dateOfBirth: string | null;
@@ -371,7 +361,6 @@ function mapDtoToVerifiedCustomerRow(dto: VerifiedCustomerDto): VerifiedCustomer
     phone: dto.phone,
     campaignId: dto.campaignId,
     campaignName: dto.campaignName,
-    source: dto.source,
     customerType: dto.customerType,
     verifiedAt: dto.verifiedAt,
     dateOfBirth: dto.dateOfBirth,
@@ -386,34 +375,8 @@ export interface ListVerifiedCustomersParams {
   search?: string;
   campaignId?: string;
   customerTypeId?: string | "all";
-  /** Same set of filters as the main Customers page. */
-  status?: CustomerStatus | "all";
-  city?: string | "all";
-  minTotalSpent?: number;
-  maxTotalSpent?: number;
   verifiedFrom?: string;
   verifiedTo?: string;
-}
-
-/** Shared by `listVerifiedCustomers` and `exportVerifiedCustomersCsv` — the
- * export must apply the exact same filters as whatever page is on screen. */
-function buildVerifiedCustomersFilterQuery(
-  params: Omit<ListVerifiedCustomersParams, "page" | "pageSize">
-): Record<string, string | number | undefined> {
-  return {
-    search: params.search?.trim() || undefined,
-    campaign_id: params.campaignId,
-    customer_type_id:
-      params.customerTypeId && params.customerTypeId !== "all"
-        ? params.customerTypeId
-        : undefined,
-    status: params.status && params.status !== "all" ? params.status.toLowerCase() : undefined,
-    city: params.city && params.city !== "all" ? params.city : undefined,
-    min_total_spent: params.minTotalSpent,
-    max_total_spent: params.maxTotalSpent,
-    verified_from: params.verifiedFrom,
-    verified_to: params.verifiedTo,
-  };
 }
 
 /** One row per (customer, campaign) verified pair — a customer verified
@@ -424,7 +387,14 @@ export async function listVerifiedCustomers(
   const query = buildQueryString({
     page: params.page ?? 1,
     page_size: params.pageSize ?? DEFAULT_PAGE_SIZE,
-    ...buildVerifiedCustomersFilterQuery(params),
+    search: params.search?.trim() || undefined,
+    campaign_id: params.campaignId,
+    customer_type_id:
+      params.customerTypeId && params.customerTypeId !== "all"
+        ? params.customerTypeId
+        : undefined,
+    verified_from: params.verifiedFrom,
+    verified_to: params.verifiedTo,
   });
 
   const envelope = await apiGet<ApiListEnvelope<VerifiedCustomerDto>>(`/customers/verified${query}`);
@@ -435,43 +405,6 @@ export async function listVerifiedCustomers(
     page: envelope.meta.page,
     pageSize: envelope.meta.pageSize,
   };
-}
-
-/** Downloads `GET /api/v1/customers/verified/export` (every verified
- * customer matching the given filters, not just one page) as a CSV file —
- * same non-`apiFetch` raw-`fetch` approach as `exportCustomersCsv`. */
-export async function exportVerifiedCustomersCsv(
-  params: Omit<ListVerifiedCustomersParams, "page" | "pageSize"> = {}
-): Promise<void> {
-  const query = buildQueryString(buildVerifiedCustomersFilterQuery(params));
-
-  let response: Response;
-  try {
-    const authHeader = await getAuthorizationHeader();
-    response = await fetch(`${API_BASE_URL}/customers/verified/export${query}`, {
-      headers: authHeader,
-    });
-  } catch (error) {
-    throw new NetworkError(error instanceof Error ? error.message : undefined);
-  }
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new ApiError(body || response.statusText, response.status);
-  }
-
-  const blob = await response.blob();
-  const disposition = response.headers.get("Content-Disposition") ?? "";
-  const filename = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? "verified-customers-export.csv";
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 export interface CustomerStats {
@@ -602,9 +535,6 @@ export interface UpdateCustomerInput {
   marketingOptIn?: boolean;
   status?: CustomerStatus;
   customerTypeId?: string;
-  /** Manually add/remove this customer from the Verified Customers list —
-   * independent of campaign or standalone-form verification. */
-  isVerified?: boolean;
 }
 
 /** Updates a real customer row via `PATCH /api/v1/customers/{id}`. Only the
@@ -624,7 +554,6 @@ export async function updateCustomer(id: string, input: UpdateCustomerInput): Pr
   if (input.marketingOptIn !== undefined) body.marketing_opt_in = input.marketingOptIn;
   if (input.status !== undefined) body.status = input.status.toLowerCase();
   if (input.customerTypeId !== undefined) body.customer_type_id = input.customerTypeId;
-  if (input.isVerified !== undefined) body.verified = input.isVerified;
 
   const envelope = await apiPatch<ApiEnvelope<CustomerDto>>(`/customers/${id}`, body);
   return mapDtoToCustomer(envelope.data);

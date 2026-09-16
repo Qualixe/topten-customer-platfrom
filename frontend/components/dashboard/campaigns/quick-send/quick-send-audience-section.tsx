@@ -49,8 +49,7 @@ type StaticRuleType =
   | "MISSING_ADDRESS"
   | "MISSING_DOB_AND_ADDRESS"
   | "NEVER_VERIFIED"
-  | "TARGETED_NOT_VERIFIED"
-  | "NEVER_CAMPAIGNED";
+  | "TARGETED_NOT_VERIFIED";
 
 const STATIC_OPTIONS: {
   ruleType: StaticRuleType;
@@ -86,14 +85,7 @@ const STATIC_OPTIONS: {
     description: "Customers who have never completed a campaign profile form",
     countKey: "neverVerified",
     icon: ShieldQuestion,
-  },
-  {
-    ruleType: "NEVER_CAMPAIGNED",
-    label: "Never campaigned",
-    description: "New customers who have never been sent any campaign, of any type",
-    countKey: "neverCampaigned",
-    icon: History,
-  },
+  }
 ];
 
 type AdvancedRuleType =
@@ -414,6 +406,52 @@ export function QuickSendAudienceSection({
                 </button>
               );
             })}
+
+            {/* Pinned alongside the customer-type cards (not tucked under
+             * "More audiences") since picking new, never-yet-campaigned
+             * customers is common enough to need one click, not two. */}
+            {(() => {
+              const isSelected = selectedType === "NEVER_CAMPAIGNED";
+              const count = counts?.neverCampaigned;
+              return (
+                <button
+                  type="button"
+                  onClick={() => setSelectedType("NEVER_CAMPAIGNED")}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    "group flex w-full items-center gap-4 rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                    isSelected
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border hover:border-primary/40 hover:bg-muted/50"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-md border",
+                      isSelected
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : "border-border bg-muted text-muted-foreground"
+                    )}
+                  >
+                    <History className="size-4" aria-hidden="true" />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">New Customers</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      Never received any campaign
+                    </span>
+                  </span>
+
+                  <span className="shrink-0 text-right">
+                    <span className="block text-sm font-semibold tabular-nums">
+                      {count === undefined ? "…" : count.toLocaleString("en-US")}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">recipients</span>
+                  </span>
+                </button>
+              );
+            })()}
           </div>
         </CardContent>
         <div className="px-(--card-spacing) pt-1">

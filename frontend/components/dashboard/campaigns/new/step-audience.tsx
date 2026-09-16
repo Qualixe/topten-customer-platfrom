@@ -50,8 +50,7 @@ type StaticRuleType =
   | "MISSING_ADDRESS"
   | "MISSING_DOB_AND_ADDRESS"
   | "NEVER_VERIFIED"
-  | "TARGETED_NOT_VERIFIED"
-  | "NEVER_CAMPAIGNED";
+  | "TARGETED_NOT_VERIFIED";
 
 const CUSTOMER_TYPE_OPTIONS: {
   ruleType: StaticRuleType;
@@ -124,13 +123,6 @@ const STATIC_OPTIONS: {
     description: "Sent at least one campaign but never completed a profile form",
     countKey: "targetedNotVerified",
     icon: ShieldQuestion,
-  },
-  {
-    ruleType: "NEVER_CAMPAIGNED",
-    label: "Never campaigned",
-    description: "New customers who have never been sent any campaign, of any type",
-    countKey: "neverCampaigned",
-    icon: History,
   },
 ];
 

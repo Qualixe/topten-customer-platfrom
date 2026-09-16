@@ -76,14 +76,6 @@ class Customer(Base):
     # for that one) and never cleared once set — resubmitting the same or
     # another standalone form just leaves it as-is.
     form_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # Set/cleared directly by an admin from the Edit Customer dialog — unlike
-    # form_verified_at above, this one is meant to be toggled both ways (see
-    # CustomerUpdate.verified / app.controllers.customers.update_customer).
-    # Lets an admin add a customer to the Verified Customers list without
-    # them having gone through a campaign or the standalone Forms feature.
-    verified_by_admin_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
 
     is_vip: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
@@ -137,13 +129,6 @@ class Customer(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
-
-    @property
-    def is_verified(self) -> bool:
-        """Reflects only the admin-set flag above — campaign and standalone-
-        form verification are surfaced separately via the dedicated
-        `GET /customers/verified` list, not here."""
-        return self.verified_by_admin_at is not None
 
     @property
     def profile_status(self) -> str:

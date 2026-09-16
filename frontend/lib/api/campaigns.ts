@@ -42,8 +42,7 @@ export type AudienceRuleType =
   | "RECEIVED_TYPE_BEFORE_DATE"
   | "SPECIFIC_CUSTOMERS"
   | "NEVER_VERIFIED"
-  | "TARGETED_NOT_VERIFIED"
-  | "NEVER_CAMPAIGNED";
+  | "TARGETED_NOT_VERIFIED";
 
 type NoParamRuleType =
   | "GENERAL"
@@ -53,8 +52,7 @@ type NoParamRuleType =
   | "MISSING_ADDRESS"
   | "MISSING_DOB_AND_ADDRESS"
   | "NEVER_VERIFIED"
-  | "TARGETED_NOT_VERIFIED"
-  | "NEVER_CAMPAIGNED";
+  | "TARGETED_NOT_VERIFIED";
 
 /** Which customers a campaign targets. A discriminated union since several
  * of the rule types need extra input the others don't — see backend
@@ -348,12 +346,11 @@ export interface AudienceCounts {
   missingDobAndAddress: number;
   neverVerified: number;
   targetedNotVerified: number;
-  neverCampaigned: number;
 }
 
-/** Live recipient counts for the unparametrized audience rules, computed
- * server-side (SQL COUNT — no customer rows are loaded), for previewing
- * before a campaign is saved. The three parametrized rules
+/** Live recipient counts for the six unparametrized audience rules,
+ * computed server-side (SQL COUNT — no customer rows are loaded), for
+ * previewing before a campaign is saved. The three parametrized rules
  * (NEW_SINCE_DATE, NEVER_RECEIVED_TYPE, RECEIVED_TYPE_BEFORE_DATE) aren't
  * included here since they need input first — see `getAudiencePreviewCount`. */
 export async function getAudienceCounts(): Promise<AudienceCounts> {

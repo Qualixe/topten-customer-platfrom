@@ -31,9 +31,9 @@ from app.views.sms_campaigns import CampaignRecipientRead, CampaignStats, SmsOve
 
 SMS_GATEWAY_PROVIDER = "sms_gateway"
 
-# The audience rules with no parameters — what GET /audience-counts
+# The six audience rules with no parameters — what GET /audience-counts
 # reports all at once so the campaign composer can show every option's size
-# without a round trip per option. The parametrized rules (NEW_SINCE_DATE,
+# without six round trips. The parametrized rules (NEW_SINCE_DATE,
 # NEVER_RECEIVED_TYPE, RECEIVED_TYPE_BEFORE_DATE) go through
 # GET /audience-preview instead, one at a time, since they need input.
 STATIC_RULE_TYPES = [
@@ -45,7 +45,6 @@ STATIC_RULE_TYPES = [
     AudienceRuleType.MISSING_DOB_AND_ADDRESS,
     AudienceRuleType.NEVER_VERIFIED,
     AudienceRuleType.TARGETED_NOT_VERIFIED,
-    AudienceRuleType.NEVER_CAMPAIGNED,
 ]
 
 
