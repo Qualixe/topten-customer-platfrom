@@ -17,11 +17,24 @@ import {
 } from "@/components/ui/table";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { listCampaigns } from "@/lib/api/campaigns";
-import { listVerifiedCustomers, type CustomerStatus } from "@/lib/api/customers";
+import {
+  listVerifiedCustomers,
+  type CustomerStatus,
+  type VerifiedCustomerSource,
+} from "@/lib/api/customers";
 import { settleOk } from "@/lib/api/settle";
 import { SPEND_RANGES } from "@/lib/spend-ranges";
 
 export const dynamic = "force-dynamic";
+
+// campaign's own row always has a real campaignName, so this is never
+// actually rendered for that source — present only to keep the Record
+// exhaustive over VerifiedCustomerSource.
+const SOURCE_LABELS: Record<VerifiedCustomerSource, string> = {
+  campaign: "",
+  form: "Standalone form",
+  admin: "Manually verified",
+};
 
 function formatDateTime(iso: string): string {
   const date = new Date(iso);
@@ -94,8 +107,9 @@ export default async function VerifiedCustomersPage({
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Verified Customers</h2>
         <p className="text-sm text-muted-foreground">
-          Customers who completed at least one campaign profile form, or the standalone Forms
-          feature. A customer verified through multiple campaigns appears once per campaign.
+          Customers who completed at least one campaign profile form, the standalone Forms
+          feature, or were manually verified by an admin. A customer verified through multiple
+          campaigns appears once per campaign.
         </p>
       </div>
 
@@ -138,12 +152,12 @@ export default async function VerifiedCustomersPage({
                 </TableHeader>
                 <TableBody>
                   {items.map((row) => (
-                    <TableRow key={`${row.id}-${row.campaignId ?? "form"}`}>
+                    <TableRow key={`${row.id}-${row.source}`}>
                       <TableCell className="font-medium">{row.name}</TableCell>
                       <TableCell>{row.phone}</TableCell>
                       <TableCell>
                         {row.campaignName ?? (
-                          <span className="text-muted-foreground">Standalone form</span>
+                          <span className="text-muted-foreground">{SOURCE_LABELS[row.source]}</span>
                         )}
                       </TableCell>
                       <TableCell>{row.customerType.name}</TableCell>

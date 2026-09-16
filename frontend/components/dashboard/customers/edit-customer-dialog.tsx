@@ -83,6 +83,7 @@ function EditCustomerForm({
   const [internalNotes, setInternalNotes] = useState(customer.notes);
   const [statusValue, setStatusValue] = useState<CustomerStatus>(customer.status);
   const [marketingOptIn, setMarketingOptIn] = useState(customer.marketingOptIn ?? false);
+  const [verified, setVerified] = useState(customer.isVerified ?? false);
   const [types, setTypes] = useState<CustomerTypeOption[]>([]);
   const [customerTypeId, setCustomerTypeId] = useState(customer.customerType?.id ?? "");
   const [submitting, setSubmitting] = useState(false);
@@ -130,6 +131,7 @@ function EditCustomerForm({
         dateOfBirth: dateOfBirth || null,
         internalNotes: internalNotes.trim() || null,
         marketingOptIn,
+        isVerified: verified,
         status: statusValue,
         customerTypeId: customerTypeId || undefined,
       });
@@ -241,6 +243,16 @@ function EditCustomerForm({
           checked={marketingOptIn}
           onCheckedChange={setMarketingOptIn}
         />
+      </div>
+
+      <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+        <div className="min-w-0">
+          <Label htmlFor="edit-customer-verified">Verified customer</Label>
+          <p className="text-xs text-muted-foreground">
+            Manually add or remove this customer from the Verified Customers list.
+          </p>
+        </div>
+        <Switch id="edit-customer-verified" checked={verified} onCheckedChange={setVerified} />
       </div>
 
       <FormField

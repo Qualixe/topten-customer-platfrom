@@ -184,6 +184,7 @@ async def create_customer(
         marketing_opt_in=payload.marketing_opt_in,
         marketing_opt_in_at=datetime.now(UTC) if payload.marketing_opt_in else None,
         customer_type_id=customer_type_id,
+        verified_by_admin_at=datetime.now(UTC) if payload.verified else None,
     )
     db.add(customer)
     await db.commit()
@@ -810,12 +811,13 @@ async def _fetch_verified_customers(
     verified_to: date | None,
 ) -> list[VerifiedCustomerRead]:
     """One row per customer — their single most recent VERIFIED event,
-    whichever of (a) any campaign's profile form or (b) the standalone,
-    tokenless Forms feature (no campaign — see Customer.form_verified_at)
-    happened last. A customer verified through several campaigns, or both
-    a campaign and the standalone form, still shows once, keeping only the
-    latest `verified_at` — a later verification effectively replaces an
-    earlier one in this list rather than adding another row. Reads only
+    whichever of (a) any campaign's profile form, (b) the standalone,
+    tokenless Forms feature (no campaign — see Customer.form_verified_at),
+    or (c) an admin manually marking them verified (see
+    Customer.verified_by_admin_at) happened last. A customer verified
+    through several of these still shows once, keeping only the latest
+    `verified_at` — a later verification effectively replaces an earlier
+    one in this list rather than adding another row. Reads only
     `CampaignRecipient.verification_status`, never `status` (SMS delivery
     is a different thing — see VerificationStatus's docstring); `status`
     here filters by the customer's account status instead, same as on
@@ -826,12 +828,12 @@ async def _fetch_verified_customers(
     customer_id) constraint, so at most one row per customer exists for
     that campaign already.
 
-    Both sources are loaded in full (filtered, not paginated — shared by
-    the paginated list endpoint and the unpaginated CSV export) and
-    merged/deduped/sorted in Python — the two shapes don't share a query,
-    so there's no single SQL statement that could do this together. Fine
-    at this table's expected scale (an admin-only view); revisit if it
-    ever needs to scale past that."""
+    All three sources are loaded in full (filtered, not paginated — shared
+    by the paginated list endpoint and the unpaginated CSV export) and
+    merged/deduped/sorted in Python — the shapes don't share a query, so
+    there's no single SQL statement that could do this together. Fine at
+    this table's expected scale (an admin-only view); revisit if it ever
+    needs to scale past that."""
     search = (search or "").strip()
     common_filters = _verified_customers_common_filters(
         search, status, city, min_total_spent, max_total_spent
@@ -869,6 +871,7 @@ async def _fetch_verified_customers(
             phone=customer.phone,
             campaign_id=campaign.public_id,
             campaign_name=campaign.name,
+            source="campaign",
             customer_type=_customer_type_to_read(customer.customer_type),
             verified_at=recipient.verified_at,
             date_of_birth=customer.date_of_birth,
@@ -878,10 +881,10 @@ async def _fetch_verified_customers(
         for recipient, customer, campaign in campaign_rows
     ]
 
-    # A standalone-form verification has no campaign, so a campaign_id
-    # filter (asking for one specific campaign's verifications) can never
-    # match it — skip this source entirely in that case rather than
-    # returning rows the filter didn't ask for.
+    # Neither a standalone-form nor an admin-set verification has a
+    # campaign, so a campaign_id filter (asking for one specific campaign's
+    # verifications) can never match either — skip both sources entirely in
+    # that case rather than returning rows the filter didn't ask for.
     if campaign_id is None:
         form_filters: list[ColumnElement] = [Customer.form_verified_at.is_not(None), *common_filters]
         if customer_type_id is not None:
@@ -904,6 +907,7 @@ async def _fetch_verified_customers(
                 phone=customer.phone,
                 campaign_id=None,
                 campaign_name=None,
+                source="form",
                 customer_type=_customer_type_to_read(customer.customer_type),
                 verified_at=customer.form_verified_at,
                 date_of_birth=customer.date_of_birth,
@@ -913,12 +917,47 @@ async def _fetch_verified_customers(
             for customer in form_customers
         )
 
-    # No campaign filter means both sources were queried, so the same
-    # customer can appear once per campaign they verified through plus
-    # once more for a standalone-form verification — collapse those down
-    # to just their latest verification. Skipped when campaign_id is set:
-    # CampaignRecipient's own (campaign_id, customer_id) unique constraint
-    # already guarantees at most one row per customer in that branch.
+        admin_filters: list[ColumnElement] = [
+            Customer.verified_by_admin_at.is_not(None),
+            *common_filters,
+        ]
+        if customer_type_id is not None:
+            resolved_type = await get_customer_type_or_404(db, customer_type_id)
+            admin_filters.append(Customer.customer_type_id == resolved_type.id)
+        if verified_from is not None:
+            admin_filters.append(Customer.verified_by_admin_at >= verified_from)
+        if verified_to is not None:
+            admin_filters.append(Customer.verified_by_admin_at < verified_to + timedelta(days=1))
+
+        admin_query = select(Customer)
+        for condition in admin_filters:
+            admin_query = admin_query.where(condition)
+
+        admin_customers = (await db.execute(admin_query)).scalars().all()
+        data.extend(
+            VerifiedCustomerRead(
+                id=customer.public_id,
+                name=customer.name,
+                phone=customer.phone,
+                campaign_id=None,
+                campaign_name=None,
+                source="admin",
+                customer_type=_customer_type_to_read(customer.customer_type),
+                verified_at=customer.verified_by_admin_at,
+                date_of_birth=customer.date_of_birth,
+                address=customer.address,
+                email=customer.email,
+            )
+            for customer in admin_customers
+        )
+
+    # No campaign filter means multiple sources were queried, so the same
+    # customer can appear once per campaign they verified through, plus
+    # once more for a standalone-form verification, plus once more for an
+    # admin verification — collapse those down to just their latest.
+    # Skipped when campaign_id is set: CampaignRecipient's own
+    # (campaign_id, customer_id) unique constraint already guarantees at
+    # most one row per customer in that branch.
     if campaign_id is None:
         latest_by_customer: dict[UUID, VerifiedCustomerRead] = {}
         for row in data:
@@ -974,6 +1013,7 @@ _VERIFIED_EXPORT_COLUMNS = (
     "Customer ID",
     "Name",
     "Phone",
+    "Verified Via",
     "Campaign",
     "Customer Type",
     "Verified At",
@@ -982,13 +1022,20 @@ _VERIFIED_EXPORT_COLUMNS = (
     "Email",
 )
 
+_VERIFIED_SOURCE_LABELS: dict[str, str] = {
+    "campaign": "Campaign",
+    "form": "Standalone Form",
+    "admin": "Manually Verified",
+}
+
 
 def _verified_customer_export_row(row: VerifiedCustomerRead) -> tuple[str, ...]:
     return (
         str(row.id),
         row.name,
         row.phone,
-        row.campaign_name or "Standalone form",
+        _VERIFIED_SOURCE_LABELS[row.source],
+        row.campaign_name or "",
         row.customer_type.name,
         row.verified_at.isoformat(),
         row.date_of_birth.isoformat() if row.date_of_birth else "",
@@ -1099,6 +1146,15 @@ async def update_customer(
         customer.marketing_opt_in_at = datetime.now(UTC)
     elif updates.get("marketing_opt_in") is False:
         customer.marketing_opt_in_at = None
+
+    if "verified" in updates:
+        # Not a real column — see Customer.verified_by_admin_at — so it's
+        # popped here rather than left for the generic setattr loop below.
+        is_verified = updates.pop("verified")
+        if is_verified and customer.verified_by_admin_at is None:
+            customer.verified_by_admin_at = datetime.now(UTC)
+        elif not is_verified:
+            customer.verified_by_admin_at = None
 
     for field, value in updates.items():
         setattr(customer, field, value)

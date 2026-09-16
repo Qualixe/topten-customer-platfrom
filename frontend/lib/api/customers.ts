@@ -60,6 +60,7 @@ interface CustomerDto {
   customerType: CustomerTypeOption;
   totalSpent: string | number;
   status: string;
+  isVerified: boolean;
   createdAt: string;
 }
 
@@ -138,6 +139,7 @@ function mapDtoToCustomer(dto: CustomerDto): Customer {
     dateOfBirth: dto.dateOfBirth,
     customerType: dto.customerType,
     marketingOptIn: dto.marketingOptIn,
+    isVerified: dto.isVerified,
   };
 }
 
@@ -326,14 +328,21 @@ export async function listPosCustomers(
   };
 }
 
+/** How a customer came to be verified — a plain standalone-form
+ * verification and an admin's manual toggle both have no campaign
+ * (`campaignId`/`campaignName` null), so this is what actually
+ * distinguishes them on screen. */
+export type VerifiedCustomerSource = "campaign" | "form" | "admin";
+
 export interface VerifiedCustomerRow {
   id: string;
   name: string;
   phone: string;
-  /** Null for a customer verified via the standalone Forms feature — that
-   * flow has no campaign. */
+  /** Null for a customer verified via the standalone Forms feature or an
+   * admin's manual toggle — neither has a campaign. */
   campaignId: string | null;
   campaignName: string | null;
+  source: VerifiedCustomerSource;
   customerType: CustomerTypeOption;
   verifiedAt: string;
   dateOfBirth: string | null;
@@ -347,6 +356,7 @@ interface VerifiedCustomerDto {
   phone: string;
   campaignId: string | null;
   campaignName: string | null;
+  source: VerifiedCustomerSource;
   customerType: CustomerTypeOption;
   verifiedAt: string;
   dateOfBirth: string | null;
@@ -361,6 +371,7 @@ function mapDtoToVerifiedCustomerRow(dto: VerifiedCustomerDto): VerifiedCustomer
     phone: dto.phone,
     campaignId: dto.campaignId,
     campaignName: dto.campaignName,
+    source: dto.source,
     customerType: dto.customerType,
     verifiedAt: dto.verifiedAt,
     dateOfBirth: dto.dateOfBirth,
@@ -556,6 +567,10 @@ export interface CreateCustomerInput {
   marketingOptIn?: boolean;
   /** Omitted defaults to the built-in "General" type server-side. */
   customerTypeId?: string;
+  /** Manually adds this customer to the Verified Customers list at
+   * creation time — independent of campaign or standalone-form
+   * verification. */
+  isVerified?: boolean;
 }
 
 /** Creates a real customer row via `POST /api/v1/customers`. Throws `ApiError`
@@ -572,6 +587,7 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Custom
     is_vip: input.isVip ?? false,
     marketing_opt_in: input.marketingOptIn ?? false,
     customer_type_id: input.customerTypeId,
+    verified: input.isVerified,
   });
 
   return mapDtoToCustomer(envelope.data);
@@ -591,6 +607,9 @@ export interface UpdateCustomerInput {
   marketingOptIn?: boolean;
   status?: CustomerStatus;
   customerTypeId?: string;
+  /** Manually add/remove this customer from the Verified Customers list —
+   * independent of campaign or standalone-form verification. */
+  isVerified?: boolean;
 }
 
 /** Updates a real customer row via `PATCH /api/v1/customers/{id}`. Only the
@@ -610,6 +629,7 @@ export async function updateCustomer(id: string, input: UpdateCustomerInput): Pr
   if (input.marketingOptIn !== undefined) body.marketing_opt_in = input.marketingOptIn;
   if (input.status !== undefined) body.status = input.status.toLowerCase();
   if (input.customerTypeId !== undefined) body.customer_type_id = input.customerTypeId;
+  if (input.isVerified !== undefined) body.verified = input.isVerified;
 
   const envelope = await apiPatch<ApiEnvelope<CustomerDto>>(`/customers/${id}`, body);
   return mapDtoToCustomer(envelope.data);

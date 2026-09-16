@@ -39,6 +39,24 @@ async def test_update_can_clear_an_optional_field(client: AsyncClient) -> None:
     assert response.json()["data"]["email"] is None
 
 
+async def test_update_can_set_and_clear_verified(client: AsyncClient) -> None:
+    created = await _create_customer(client)
+    customer_id = created["id"]
+    assert created["is_verified"] is False
+
+    verified_response = await client.patch(
+        f"/api/v1/customers/{customer_id}", json={"verified": True}
+    )
+    assert verified_response.status_code == 200
+    assert verified_response.json()["data"]["is_verified"] is True
+
+    cleared_response = await client.patch(
+        f"/api/v1/customers/{customer_id}", json={"verified": False}
+    )
+    assert cleared_response.status_code == 200
+    assert cleared_response.json()["data"]["is_verified"] is False
+
+
 async def test_update_sets_internal_notes(client: AsyncClient) -> None:
     created = await _create_customer(client)
     customer_id = created["id"]

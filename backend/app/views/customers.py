@@ -84,6 +84,10 @@ class CustomerCreate(BaseModel):
     # (see app.controllers.customers.create_customer), matching the old
     # fixed-enum column's default before customer types became admin-editable.
     customer_type_id: UUID | None = None
+    # Not a stored column — see Customer.verified_by_admin_at /
+    # create_customer, which turns this into that timestamp being set at
+    # creation time.
+    verified: bool | None = None
 
     @field_validator("name")
     @classmethod
@@ -122,6 +126,7 @@ class CustomerRead(BaseModel):
     total_spent: Decimal
     status: str
     profile_status: Literal["COMPLETE", "INCOMPLETE"]
+    is_verified: bool
     created_at: datetime
 
 
@@ -142,6 +147,10 @@ class CustomerUpdate(BaseModel):
     marketing_opt_in: bool | None = None
     status: str | None = None
     customer_type_id: UUID | None = None
+    # Not a stored column — see Customer.verified_by_admin_at /
+    # update_customer, which turns this into that timestamp being set or
+    # cleared.
+    verified: bool | None = None
 
     @field_validator("name")
     @classmethod
@@ -303,18 +312,18 @@ class VipCustomerStatsResponse(BaseModel):
 
 class VerifiedCustomerRead(BaseModel):
     """One row per customer — their single most recent verification, via
-    whichever campaign or the standalone Forms feature happened last
-    (campaign_id/campaign_name null for a standalone verification, since
-    that flow has no campaign) — see
+    whichever campaign, the standalone Forms feature, or an admin's manual
+    toggle happened last (campaign_id/campaign_name null for either of the
+    latter two, since neither has a campaign) — see
     app.controllers.customers.list_verified_customers. A customer who
-    verified through more than one campaign, or both a campaign and the
-    standalone form, still appears only once here."""
+    verified through more than one of these still appears only once here."""
 
     id: UUID
     name: str
     phone: str
     campaign_id: UUID | None
     campaign_name: str | None
+    source: Literal["campaign", "form", "admin"]
     customer_type: CustomerTypeRead
     verified_at: datetime
     date_of_birth: date | None

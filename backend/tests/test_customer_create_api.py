@@ -123,6 +123,24 @@ async def test_create_customer_allows_marking_vip(client: AsyncClient) -> None:
     assert response.json()["data"]["is_vip"] is True
 
 
+async def test_create_customer_allows_marking_verified(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/customers",
+        json={"name": "Verified Customer", "phone": "01711000199", "verified": True},
+    )
+    assert response.status_code == 201
+    assert response.json()["data"]["is_verified"] is True
+
+
+async def test_create_customer_defaults_to_not_verified(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/customers",
+        json={"name": "Unverified Customer", "phone": "01711000198"},
+    )
+    assert response.status_code == 201
+    assert response.json()["data"]["is_verified"] is False
+
+
 async def test_create_customer_persists_city(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/customers",

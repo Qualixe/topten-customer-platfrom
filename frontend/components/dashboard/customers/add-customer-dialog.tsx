@@ -21,7 +21,9 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { DistrictSelect } from "@/components/ui/district-select";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { createCustomer } from "@/lib/api/customers";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
@@ -76,6 +78,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
   // uncontrolled to controlled after the async fetch resolves logs a
   // React warning.
   const [customerTypeId, setCustomerTypeId] = useState("");
+  const [verified, setVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Only active types are offered for a brand-new customer — an inactive
@@ -121,6 +124,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
         dateOfBirth: dateOfBirth || undefined,
         internalNotes: internalNotes.trim() || undefined,
         customerTypeId: customerTypeId || undefined,
+        isVerified: verified,
       });
       router.refresh();
       onClose();
@@ -196,6 +200,16 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
           <ManageCustomerTypesDialog types={types} onTypesChange={setTypes} />
         </div>
       </FormField>
+
+      <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+        <div className="min-w-0">
+          <Label htmlFor="add-customer-verified">Verified customer</Label>
+          <p className="text-xs text-muted-foreground">
+            Manually add this customer to the Verified Customers list.
+          </p>
+        </div>
+        <Switch id="add-customer-verified" checked={verified} onCheckedChange={setVerified} />
+      </div>
 
       <FormField
         htmlFor="add-customer-notes"

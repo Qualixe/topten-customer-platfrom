@@ -194,6 +194,28 @@ async def test_verified_customers_includes_standalone_form_verifications(
     assert data[0]["campaign_name"] is None
 
 
+async def test_verified_customers_includes_admin_verified(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A customer an admin manually toggled verified (Customer.
+    verified_by_admin_at set, no campaign, no standalone form) shows up
+    here too — with a null campaign, same as the standalone-form source."""
+    await _create_customer(
+        db_session,
+        name="Admin Verified",
+        phone="+8801711000120",
+        verified_by_admin_at=datetime.now(UTC),
+    )
+
+    response = await client.get("/api/v1/customers/verified")
+    data = response.json()["data"]
+    assert len(data) == 1
+    assert data[0]["name"] == "Admin Verified"
+    assert data[0]["source"] == "admin"
+    assert data[0]["campaign_id"] is None
+    assert data[0]["campaign_name"] is None
+
+
 async def test_verified_customers_combines_both_sources_sorted_by_verified_at(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
