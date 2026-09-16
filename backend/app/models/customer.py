@@ -141,10 +141,16 @@ class Customer(Base):
 
     @property
     def is_verified(self) -> bool:
-        """Reflects only the admin-set flag above — campaign and standalone-
-        form verification are surfaced separately via the dedicated
-        `GET /customers/verified` list, not here."""
-        return self.verified_by_admin_at is not None
+        """True if verified by either of the two "sticky" per-customer
+        flags — the admin toggle or the standalone Forms feature. Campaign
+        verification (CampaignRecipient.verification_status) isn't included
+        here since that would need a per-row query everywhere a Customer is
+        read; GET /customers/verified is the accurate, all-three-sources
+        view. Toggling this off (see CustomerUpdate.verified) only ever
+        clears verified_by_admin_at — if form_verified_at is also set, this
+        stays True and the customer remains on the Verified Customers list
+        regardless of the toggle."""
+        return self.verified_by_admin_at is not None or self.form_verified_at is not None
 
     @property
     def profile_status(self) -> str:

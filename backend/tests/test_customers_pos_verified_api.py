@@ -130,6 +130,23 @@ async def test_verified_customer_filtering_by_campaign(
     assert data[0]["campaign_name"] == "Campaign A"
 
 
+async def test_verified_customers_nested_customer_is_verified_regardless_of_source(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Each row's nested `customer.is_verified` must read True no matter
+    which of the three sources put them on this list — including
+    campaign-only, which `Customer.is_verified` can't see on its own (it
+    only checks the two "sticky" columns, not CampaignRecipient) without
+    the override in `_verified_customer_to_read`."""
+    campaign = await _create_campaign(db_session, name="Campaign Only")
+    customer = await _create_customer(db_session, name="Campaign Only Person", phone="+8801711000121")
+    await _add_verified_recipient(db_session, campaign=campaign, customer=customer)
+
+    response = await client.get("/api/v1/customers/verified")
+    data = response.json()["data"]
+    assert data[0]["customer"]["is_verified"] is True
+
+
 async def test_verified_customer_filtering_by_customer_type_and_search(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:

@@ -282,6 +282,15 @@ async def test_verified_filter(client: AsyncClient, db_session: AsyncSession) ->
     assert body["meta"]["total"] == 2
     assert {c["name"] for c in body["data"]} == {"Verified One", "Form Verified"}
 
+    # `is_verified` on GET /customers reflects the two cheap "sticky" flags
+    # (admin toggle, standalone form) but not campaign-only verification —
+    # that would need a per-row query on every list; the `verified` filter
+    # above (a single SQL EXISTS) is the accurate check for that case.
+    by_name = {c["name"]: c for c in (await client.get("/api/v1/customers")).json()["data"]}
+    assert by_name["Form Verified"]["is_verified"] is True
+    assert by_name["Verified One"]["is_verified"] is False
+    assert by_name["Unverified One"]["is_verified"] is False
+
     # false is a real, distinct filter (only unverified), not "no filter".
     unverified_response = await client.get("/api/v1/customers", params={"verified": "false"})
     unverified_body = unverified_response.json()

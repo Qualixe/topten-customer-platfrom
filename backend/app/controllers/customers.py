@@ -110,6 +110,15 @@ def _customer_type_to_read(customer_type: CustomerType) -> CustomerTypeRead:
     )
 
 
+def _verified_customer_to_read(customer: Customer) -> CustomerRead:
+    """Same as `CustomerRead.model_validate(customer)`, except `is_verified`
+    is forced True — every row `_fetch_verified_customers` builds is
+    verified by definition (that's what put it here), including the
+    campaign-only case `Customer.is_verified` can't see on its own (see that
+    property's docstring)."""
+    return CustomerRead.model_validate(customer).model_copy(update={"is_verified": True})
+
+
 @router.get("/types", response_model=CustomerTypesListResponse)
 async def list_customer_types_endpoint(
     db: AsyncSession = Depends(get_db),
@@ -877,7 +886,7 @@ async def _fetch_verified_customers(
             date_of_birth=customer.date_of_birth,
             address=customer.address,
             email=customer.email,
-            customer=CustomerRead.model_validate(customer),
+            customer=_verified_customer_to_read(customer),
         )
         for recipient, customer, campaign in campaign_rows
     ]
@@ -914,7 +923,7 @@ async def _fetch_verified_customers(
                 date_of_birth=customer.date_of_birth,
                 address=customer.address,
                 email=customer.email,
-                customer=CustomerRead.model_validate(customer),
+                customer=_verified_customer_to_read(customer),
             )
             for customer in form_customers
         )
@@ -949,7 +958,7 @@ async def _fetch_verified_customers(
                 date_of_birth=customer.date_of_birth,
                 address=customer.address,
                 email=customer.email,
-                customer=CustomerRead.model_validate(customer),
+                customer=_verified_customer_to_read(customer),
             )
             for customer in admin_customers
         )

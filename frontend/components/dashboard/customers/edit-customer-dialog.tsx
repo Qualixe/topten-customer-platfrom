@@ -249,7 +249,8 @@ function EditCustomerForm({
         <div className="min-w-0">
           <Label htmlFor="edit-customer-verified">Verified customer</Label>
           <p className="text-xs text-muted-foreground">
-            Manually add or remove this customer from the Verified Customers list.
+            Manually add this customer to the Verified Customers list. Also shows on if they
+            verified themselves via a form — turning it off then won&apos;t remove them.
           </p>
         </div>
         <Switch id="edit-customer-verified" checked={verified} onCheckedChange={setVerified} />
