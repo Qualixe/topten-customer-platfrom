@@ -43,11 +43,12 @@ export const NAV_ITEMS: NavItem[] = [
 
   {
     title: "Customers",
-    href: "/dashboard/customers",
+    href: "/dashboard/customers/verified",
     icon: Users,
     section: "Audience",
     permission: "customers.view",
     children: [
+      { title: "All Customer", href: "/dashboard/customers" },
       { title: "Verified Customers", href: "/dashboard/customers/verified" }
     ],
   },
