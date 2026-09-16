@@ -4,7 +4,6 @@ import {
   MapPin,
   MessageSquare,
   Phone,
-  ShoppingBag,
   StickyNote,
   type LucideIcon,
 } from "lucide-react";
@@ -25,17 +24,21 @@ function DetailRow({
   icon: Icon,
   label,
   value,
+  wrap = false,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
+  /** Break long values onto multiple lines instead of truncating — for
+   * fields like a full address that shouldn't be clipped. */
+  wrap?: boolean;
 }) {
   return (
     <div className="flex items-start gap-3">
       <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="truncate text-sm font-medium">{value}</p>
+        <p className={`text-sm font-medium ${wrap ? "break-words" : "truncate"}`}>{value}</p>
       </div>
     </div>
   );
@@ -52,7 +55,7 @@ export function CustomerDetailsDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         {customer && (
           <>
             <DialogHeader>
@@ -70,68 +73,60 @@ export function CustomerDetailsDialog({
               </div>
             </DialogHeader>
 
-            <Separator />
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <DetailRow icon={Mail} label="Email" value={customer.email} />
-              <DetailRow icon={Phone} label="Phone" value={customer.phone} />
-              <DetailRow icon={MapPin} label="City" value={customer.city ?? "—"} />
-              <DetailRow icon={MapPin} label="Address" value={customer.address ?? "—"} />
-              <DetailRow icon={Calendar} label="Joined" value={customer.joinedAt} />
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg bg-muted p-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-lg border bg-muted/40 p-3">
                 <p className="text-xs text-muted-foreground">Total Orders</p>
-                <p className="mt-1 text-lg font-semibold">
-                  {customer.totalOrders}
-                </p>
+                <p className="mt-1 text-lg font-semibold">{customer.totalOrders}</p>
               </div>
-              <div className="rounded-lg bg-muted p-3">
+              <div className="rounded-lg border bg-muted/40 p-3">
                 <p className="text-xs text-muted-foreground">Total Spent</p>
                 <p className="mt-1 text-lg font-semibold">
                   {formatCurrency(customer.totalSpent)}
                 </p>
               </div>
-            </div>
-
-            <div className="flex items-start gap-3 rounded-lg border border-dashed p-3">
-              <ShoppingBag
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">
-                  Last purchase {customer.lastPurchaseAt}
-                </p>
+              <div className="rounded-lg border bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Last Purchase</p>
+                <p className="mt-1 text-lg font-semibold">{customer.lastPurchaseAt}</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 rounded-lg border border-dashed p-3">
-              <MessageSquare
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Customer&apos;s Note</p>
-                <p className="mt-1 text-sm whitespace-pre-wrap">
-                  {customer.customerNote || "No note from the customer yet."}
-                </p>
+            <Separator />
+
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border p-4 sm:grid-cols-2">
+              <DetailRow icon={Mail} label="Email" value={customer.email} />
+              <DetailRow icon={Phone} label="Phone" value={customer.phone} />
+              <DetailRow icon={MapPin} label="City" value={customer.city ?? "—"} />
+              <DetailRow icon={Calendar} label="Joined" value={customer.joinedAt} />
+              <div className="sm:col-span-2">
+                <DetailRow icon={MapPin} label="Address" value={customer.address ?? "—"} wrap />
               </div>
             </div>
 
-            <div className="flex items-start gap-3 rounded-lg border border-dashed p-3">
-              <StickyNote
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Internal Notes</p>
-                <p className="mt-1 text-sm whitespace-pre-wrap">
-                  {customer.notes || "No notes yet."}
-                </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="flex items-start gap-3 rounded-lg border border-dashed p-3">
+                <MessageSquare
+                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Customer&apos;s Note</p>
+                  <p className="mt-1 text-sm break-words whitespace-pre-wrap">
+                    {customer.customerNote || "No note from the customer yet."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-lg border border-dashed p-3">
+                <StickyNote
+                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Internal Notes</p>
+                  <p className="mt-1 text-sm break-words whitespace-pre-wrap">
+                    {customer.notes || "No notes yet."}
+                  </p>
+                </div>
               </div>
             </div>
           </>
