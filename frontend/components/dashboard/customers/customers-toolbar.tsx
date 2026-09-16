@@ -24,6 +24,7 @@ import type {
   CustomerTypeFilter,
   SpendRangeFilter,
   StatusFilter,
+  VerifiedFilter,
 } from "@/components/dashboard/customers/customers-url";
 import { BD_DISTRICTS } from "@/lib/bd-districts";
 import { listCustomerTypes, type CustomerTypeOption } from "@/lib/api/customer-types";
@@ -37,6 +38,16 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   Active: "Active",
   Inactive: "Inactive",
   Suspended: "Suspended",
+};
+
+/** "Verified" here means verified through at least one campaign (see the
+ * `verified` param on `GET /customers`) — distinct from the Verified
+ * Customers page's broader definition (which also counts the standalone
+ * Forms feature and an admin's manual toggle). */
+const VERIFIED_LABELS: Record<VerifiedFilter, string> = {
+  all: "Verified",
+  verified: "Verified",
+  unverified: "Not Verified",
 };
 
 /** Each menu choice maps to the same server-side sort state used by the
@@ -87,6 +98,8 @@ export function CustomersToolbar({
   onCityFilterChange,
   spendRangeFilter,
   onSpendRangeFilterChange,
+  verifiedFilter,
+  onVerifiedFilterChange,
   sortBy,
   sortDir,
   onSortChange,
@@ -101,6 +114,8 @@ export function CustomersToolbar({
   onCityFilterChange: (value: CityFilter) => void;
   spendRangeFilter: SpendRangeFilter;
   onSpendRangeFilterChange: (value: SpendRangeFilter) => void;
+  verifiedFilter: VerifiedFilter;
+  onVerifiedFilterChange: (value: VerifiedFilter) => void;
   sortBy: CustomersSortBy | undefined;
   sortDir: SortDirection;
   onSortChange: (sortBy: CustomersSortBy | undefined, sortDir: SortDirection) => void;
@@ -212,6 +227,20 @@ export function CustomersToolbar({
                 {range.label}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={verifiedFilter}
+          onValueChange={(value) => onVerifiedFilterChange(value as VerifiedFilter)}
+        >
+          <SelectTrigger className="w-full sm:w-36" aria-label="Filter by verification status">
+            <SelectValue>{(value: VerifiedFilter) => VERIFIED_LABELS[value]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Customers</SelectItem>
+            <SelectItem value="verified">Verified</SelectItem>
+            <SelectItem value="unverified">Not Verified</SelectItem>
           </SelectContent>
         </Select>
 

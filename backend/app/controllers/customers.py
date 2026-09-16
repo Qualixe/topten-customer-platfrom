@@ -269,8 +269,8 @@ async def _build_customer_filters(
     # not a stored Customer column — a customer counts as "verified" here
     # if they've completed at least one campaign's profile form, regardless
     # of which campaign or how many.
-    if verified:
-        filters.append(
+    if verified is not None:
+        verified_exists = (
             select(CampaignRecipient.id)
             .where(
                 CampaignRecipient.customer_id == Customer.id,
@@ -278,6 +278,7 @@ async def _build_customer_filters(
             )
             .exists()
         )
+        filters.append(verified_exists if verified else ~verified_exists)
 
     if marketing_opt_in is not None:
         filters.append(Customer.marketing_opt_in == marketing_opt_in)
@@ -302,7 +303,11 @@ async def list_customers(
     customer_type_id: UUID | None = Query(None),
     profile_status: str | None = Query(None, description="COMPLETE or INCOMPLETE"),
     verified: bool | None = Query(
-        None, description="True to only return customers verified through at least one campaign"
+        None,
+        description=(
+            "True for only customers verified through at least one campaign, "
+            "False for only unverified ones, omitted for no filter"
+        ),
     ),
     marketing_opt_in: bool | None = Query(
         None, description="True to only return customers who've opted into marketing email"
@@ -435,7 +440,11 @@ async def export_customers_csv(
     customer_type_id: UUID | None = Query(None),
     profile_status: str | None = Query(None, description="COMPLETE or INCOMPLETE"),
     verified: bool | None = Query(
-        None, description="True to only return customers verified through at least one campaign"
+        None,
+        description=(
+            "True for only customers verified through at least one campaign, "
+            "False for only unverified ones, omitted for no filter"
+        ),
     ),
     marketing_opt_in: bool | None = Query(
         None, description="True to only return customers who've opted into marketing email"

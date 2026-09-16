@@ -7,6 +7,9 @@ export type CustomerTypeFilter = string;
 export type CityFilter = string;
 /** A SpendRange.key (see lib/spend-ranges.ts), or "all". */
 export type SpendRangeFilter = string;
+/** Verified through at least one campaign (see the `verified` param on
+ * `GET /customers`) — "all" means no filter either way. */
+export type VerifiedFilter = "all" | "verified" | "unverified";
 
 export interface CustomersUrlParams {
   search: string;
@@ -14,6 +17,7 @@ export interface CustomersUrlParams {
   customerTypeId: CustomerTypeFilter;
   city: CityFilter;
   spendRange: SpendRangeFilter;
+  verified: VerifiedFilter;
   sortBy?: CustomersSortBy;
   sortDir: SortDirection;
   page: number;
@@ -43,6 +47,7 @@ export function buildCustomersHref(
   if (next.customerTypeId !== "all") params.set("customerTypeId", next.customerTypeId);
   if (next.city !== "all") params.set("city", next.city);
   if (next.spendRange !== "all") params.set("spendRange", next.spendRange);
+  if (next.verified !== "all") params.set("verified", next.verified);
   if (next.sortBy) {
     params.set("sortBy", next.sortBy);
     params.set("sortDir", next.sortDir);

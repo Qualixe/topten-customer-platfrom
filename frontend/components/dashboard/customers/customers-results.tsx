@@ -15,6 +15,7 @@ export async function CustomersResults({
   current: CustomersUrlParams;
 }) {
   const spendRange = SPEND_RANGES.find((range) => range.key === current.spendRange);
+  const verified = current.verified === "all" ? undefined : current.verified === "verified";
 
   const { items, total, page, pageSize } = await listCustomers({
     page: current.page,
@@ -24,6 +25,7 @@ export async function CustomersResults({
     city: current.city,
     minTotalSpent: spendRange?.min,
     maxTotalSpent: spendRange?.max,
+    verified,
     sortBy: current.sortBy,
     sortDir: current.sortDir,
   });

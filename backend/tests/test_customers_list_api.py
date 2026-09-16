@@ -273,6 +273,12 @@ async def test_verified_filter(client: AsyncClient, db_session: AsyncSession) ->
     assert body["meta"]["total"] == 1
     assert body["data"][0]["name"] == "Verified One"
 
+    # false is a real, distinct filter (only unverified), not "no filter".
+    unverified_response = await client.get("/api/v1/customers", params={"verified": "false"})
+    unverified_body = unverified_response.json()
+    assert unverified_body["meta"]["total"] == 1
+    assert unverified_body["data"][0]["name"] == "Unverified One"
+
     # Omitting the filter still returns everyone, verified or not.
     all_response = await client.get("/api/v1/customers")
     assert all_response.json()["meta"]["total"] == 2

@@ -17,15 +17,17 @@ export function ExportCustomersButton({ filters }: { filters: CustomersUrlParams
     setPending(true);
     setError(null);
     try {
-      // `filters.spendRange` is a bucket key, not the min/max
-      // exportCustomersCsv actually sends — resolve it here so the export
-      // matches the same rows the on-screen table is currently filtered
-      // to (same reasoning as CustomersResults).
+      // `filters.spendRange`/`filters.verified` are URL-friendly forms
+      // (a bucket key, and "all"/"verified"/"unverified"), not the shape
+      // exportCustomersCsv actually sends — resolve both here so the
+      // export matches the same rows the on-screen table is currently
+      // filtered to (same reasoning as CustomersResults).
       const spendRange = SPEND_RANGES.find((range) => range.key === filters.spendRange);
       await exportCustomersCsv({
         ...filters,
         minTotalSpent: spendRange?.min,
         maxTotalSpent: spendRange?.max,
+        verified: filters.verified === "all" ? undefined : filters.verified === "verified",
       });
     } catch (err) {
       setError(
