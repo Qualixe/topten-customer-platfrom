@@ -41,6 +41,7 @@ const STATIC_COUNT_KEY: Partial<Record<AudienceRule["ruleType"], keyof AudienceC
   MISSING_DOB: "missingDob",
   MISSING_ADDRESS: "missingAddress",
   MISSING_DOB_AND_ADDRESS: "missingDobAndAddress",
+  NEVER_CAMPAIGNED: "neverCampaigned",
 };
 
 interface StepReviewProps {
