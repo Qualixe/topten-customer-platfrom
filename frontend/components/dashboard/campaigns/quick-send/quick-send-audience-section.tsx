@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -151,19 +152,25 @@ function buildRule(
   sinceDate: string,
   campaignType: string,
   beforeDate: string,
-  customerIds: string[]
+  customerIds: string[],
+  requireNeverCampaigned: boolean
 ): AudienceRule | null {
   if (!isRuleComplete(ruleType, customerTypeId, sinceDate, campaignType, beforeDate, customerIds)) {
     return null;
   }
-  if (ruleType === "CUSTOMER_TYPE") return { ruleType, customerTypeId, customerTypeName };
-  if (ruleType === "NEW_SINCE_DATE") return { ruleType, sinceDate };
-  if (ruleType === "NEVER_RECEIVED_TYPE") return { ruleType, campaignType: campaignType as CampaignType };
-  if (ruleType === "RECEIVED_TYPE_BEFORE_DATE") {
-    return { ruleType, campaignType: campaignType as CampaignType, beforeDate };
-  }
-  if (ruleType === "SPECIFIC_CUSTOMERS") return { ruleType, customerIds };
-  return { ruleType: ruleType as Exclude<AudienceRuleType, AdvancedRuleType | "CUSTOMER_TYPE"> };
+  const base: AudienceRule = (() => {
+    if (ruleType === "CUSTOMER_TYPE") return { ruleType, customerTypeId, customerTypeName };
+    if (ruleType === "NEW_SINCE_DATE") return { ruleType, sinceDate };
+    if (ruleType === "NEVER_RECEIVED_TYPE") return { ruleType, campaignType: campaignType as CampaignType };
+    if (ruleType === "RECEIVED_TYPE_BEFORE_DATE") {
+      return { ruleType, campaignType: campaignType as CampaignType, beforeDate };
+    }
+    if (ruleType === "SPECIFIC_CUSTOMERS") return { ruleType, customerIds };
+    return { ruleType: ruleType as Exclude<AudienceRuleType, AdvancedRuleType | "CUSTOMER_TYPE"> };
+  })();
+  // Customer Type: All Customer / New Customer — ANDs onto whichever
+  // existing audience above was picked, rather than replacing it.
+  return requireNeverCampaigned ? { ...base, requireNeverCampaigned: true } : base;
 }
 
 interface QuickSendAudienceSectionProps {
@@ -213,6 +220,13 @@ export function QuickSendAudienceSection({
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // "Customer Type" filter — All Customer / New Customer. Orthogonal to
+  // `selectedType`: it narrows whichever audience is already picked down to
+  // customers who've never received any campaign, rather than being an
+  // audience choice of its own (see AudienceRule.requireNeverCampaigned).
+  const [requireNeverCampaigned, setRequireNeverCampaigned] = useState(
+    rule?.requireNeverCampaigned ?? false
+  );
 
   const [customerTypes, setCustomerTypes] = useState<CustomerTypeOption[]>([]);
   const [typeCounts, setTypeCounts] = useState<Record<string, number>>({});
@@ -223,32 +237,62 @@ export function QuickSendAudienceSection({
 
   const [show,setShow] = useState(false);
 
+  // Fetched once — the type list itself doesn't depend on the "New
+  // Customer" filter, only each type's count does (see the effect below).
   useEffect(() => {
     let cancelled = false;
     listCustomerTypes()
-      .then(async (types) => {
-        if (cancelled) return;
-        const activeTypes = types.filter((t) => t.isActive);
-        setCustomerTypes(activeTypes);
-        const counts = await Promise.all(
-          activeTypes.map((type) =>
-            getAudiencePreviewCount({ ruleType: "CUSTOMER_TYPE", customerTypeId: type.id })
-          )
-        );
-        if (!cancelled) {
-          setTypeCounts(Object.fromEntries(activeTypes.map((type, i) => [type.id, counts[i]])));
-        }
+      .then((types) => {
+        if (!cancelled) setCustomerTypes(types.filter((t) => t.isActive));
       })
       .catch(() => {
         if (!cancelled) setCustomerTypes([]);
-      })
-      .finally(() => {
-        if (!cancelled) setTypeCountsLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Re-fetched whenever the customer-type list loads OR the "New Customer"
+  // filter is toggled, so every card's count always reflects both. Every
+  // setState call runs inside a .then() callback, never synchronously at
+  // the top of the effect — same react-hooks/set-state-in-effect pattern
+  // as the live-preview effect below.
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.resolve()
+      .then(async () => {
+        if (customerTypes.length === 0) {
+          setTypeCountsLoading(false);
+          return;
+        }
+        setTypeCountsLoading(true);
+        try {
+          const counts = await Promise.all(
+            customerTypes.map((type) =>
+              getAudiencePreviewCount({
+                ruleType: "CUSTOMER_TYPE",
+                customerTypeId: type.id,
+                requireNeverCampaigned,
+              })
+            )
+          );
+          if (!cancelled) {
+            setTypeCounts(Object.fromEntries(customerTypes.map((type, i) => [type.id, counts[i]])));
+          }
+        } finally {
+          if (!cancelled) setTypeCountsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTypeCounts({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [customerTypes, requireNeverCampaigned]);
 
   // Push a complete rule up to the composer whenever the selection changes.
   useEffect(() => {
@@ -264,22 +308,35 @@ export function QuickSendAudienceSection({
       sinceDate,
       historyCampaignType,
       beforeDate,
-      customerIds
+      customerIds,
+      requireNeverCampaigned
     );
     onRuleChange(built);
     // onRuleChange identity isn't stable across renders in the composer;
     // only the rule's own inputs should re-trigger this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedType, selectedCustomerTypeId, sinceDate, historyCampaignType, beforeDate, pickedCustomers, customerTypes]);
+  }, [
+    selectedType,
+    selectedCustomerTypeId,
+    sinceDate,
+    historyCampaignType,
+    beforeDate,
+    pickedCustomers,
+    customerTypes,
+    requireNeverCampaigned,
+  ]);
 
-  // Live count for advanced rules — the five static ones already have
-  // counts fetched up front (see `counts`), customer types have their own
+  // Live count for advanced rules — the static ones already have counts
+  // fetched up front (see `counts`), customer types have their own
   // prefetched `typeCounts`, so only fetch here for the "advanced" rules
   // once their required inputs are filled in. SPECIFIC_CUSTOMERS is the one
   // exception: its count is exactly the number of picks already made in the
-  // UI, so it never needs a round trip to the server.
+  // UI, so it never needs a round trip to the server. The "New Customer"
+  // filter forces a live round trip regardless of which audience is
+  // selected, since it invalidates every prefetched number above.
   useEffect(() => {
     let cancelled = false;
+    const needsLiveCount = isAdvanced || requireNeverCampaigned;
 
     Promise.resolve()
       .then(async () => {
@@ -287,7 +344,7 @@ export function QuickSendAudienceSection({
           setPreviewCount(customerIds.length);
           return;
         }
-        if (!isAdvanced) {
+        if (!selectedType || !needsLiveCount) {
           setPreviewCount(null);
           return;
         }
@@ -298,7 +355,8 @@ export function QuickSendAudienceSection({
           sinceDate,
           historyCampaignType,
           beforeDate,
-          customerIds
+          customerIds,
+          requireNeverCampaigned
         );
         if (!built) {
           setPreviewCount(null);
@@ -320,16 +378,33 @@ export function QuickSendAudienceSection({
     return () => {
       cancelled = true;
     };
-  }, [isAdvanced, selectedType, selectedCustomerTypeId, sinceDate, historyCampaignType, beforeDate, customerIds]);
+  }, [
+    isAdvanced,
+    selectedType,
+    selectedCustomerTypeId,
+    sinceDate,
+    historyCampaignType,
+    beforeDate,
+    customerIds,
+    requireNeverCampaigned,
+  ]);
 
   const staticSelected = STATIC_OPTIONS.find((o) => o.ruleType === selectedType);
   const advancedSelected = ADVANCED_OPTIONS.find((o) => o.ruleType === selectedType);
   const customerTypeSelected = selectedType === "CUSTOMER_TYPE";
-  const selectedCount = staticSelected
-    ? (counts?.[staticSelected.countKey] ?? null)
-    : customerTypeSelected
-      ? (typeCounts[selectedCustomerTypeId] ?? null)
-      : previewCount;
+  const neverCampaignedSelected = selectedType === "NEVER_CAMPAIGNED";
+  // With the "New Customer" filter on, every prefetched number above (for
+  // this or any other card) is for the unfiltered audience — always prefer
+  // the live count in that case, no matter which card is selected.
+  const selectedCount = requireNeverCampaigned
+    ? previewCount
+    : neverCampaignedSelected
+      ? (counts?.neverCampaigned ?? null)
+      : staticSelected
+        ? (counts?.[staticSelected.countKey] ?? null)
+        : customerTypeSelected
+          ? (typeCounts[selectedCustomerTypeId] ?? null)
+          : previewCount;
 
   useEffect(() => {
     onRecipientCountChange(selectedType ? selectedCount : null);
@@ -352,6 +427,28 @@ export function QuickSendAudienceSection({
             Select which customer type will receive this campaign. Recipient
             counts are calculated live from your customer database.
           </CardDescription> */}
+          <CardAction>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="quick-send-customer-type-filter" className="text-xs text-muted-foreground">
+                Customer Type
+              </Label>
+              {/* Narrows whichever audience is picked below down to
+               * customers never sent any campaign — doesn't replace or
+               * change any existing audience's own logic. */}
+              <Select
+                value={requireNeverCampaigned ? "NEW_CUSTOMER" : "ALL_CUSTOMER"}
+                onValueChange={(value) => setRequireNeverCampaigned(value === "NEW_CUSTOMER")}
+              >
+                <SelectTrigger id="quick-send-customer-type-filter" className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL_CUSTOMER">All Customer</SelectItem>
+                  <SelectItem value="NEW_CUSTOMER">New Customer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardAction>
         </CardHeader>
         <CardContent>
           {typeCountsLoading && customerTypes.length === 0 && (
@@ -700,7 +797,8 @@ export function QuickSendAudienceSection({
         onConfirm={onPickedCustomersChange}
       />
 
-      {(staticSelected || advancedSelected || customerTypeSelected) && selectedCount !== null && (
+      {(staticSelected || advancedSelected || customerTypeSelected || neverCampaignedSelected) &&
+        selectedCount !== null && (
         <p className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground">
             {selectedCount.toLocaleString("en-US")} customers

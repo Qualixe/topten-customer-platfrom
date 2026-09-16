@@ -86,6 +86,9 @@ def _audience_rule_query(
     campaign_type: CampaignType | None = Query(None),
     before_date: date | None = Query(None),
     customer_type_id: UUID | None = Query(None),
+    require_never_campaigned: bool = Query(
+        False, description="AND this rule with 'never sent any campaign' — the Customer Type: New Customer filter"
+    ),
 ) -> AudienceRule:
     try:
         return AudienceRule(
@@ -95,6 +98,7 @@ def _audience_rule_query(
             campaign_type=campaign_type,
             before_date=before_date,
             customer_type_id=customer_type_id,
+            require_never_campaigned=require_never_campaigned,
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

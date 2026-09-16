@@ -62,13 +62,20 @@ type NoParamRuleType =
  * CUSTOMER_TYPE is frontend-only display convenience (the picker already
  * has the type's name at hand) — never read by `createCampaign` or sent to
  * the backend, which only ever sees `customerTypeId`. */
-export type AudienceRule =
+type AudienceRuleBase =
   | { ruleType: NoParamRuleType }
   | { ruleType: "CUSTOMER_TYPE"; customerTypeId: string; customerTypeName?: string }
   | { ruleType: "NEW_SINCE_DATE"; sinceDate: string }
   | { ruleType: "NEVER_RECEIVED_TYPE"; campaignType: CampaignType }
   | { ruleType: "RECEIVED_TYPE_BEFORE_DATE"; campaignType: CampaignType; beforeDate: string }
   | { ruleType: "SPECIFIC_CUSTOMERS"; customerIds: string[] };
+
+/** `requireNeverCampaigned` is orthogonal to `ruleType` — the "Customer
+ * Type: All Customer / New Customer" toggle ANDs it onto whichever base
+ * rule above is selected, rather than being a rule type of its own (see
+ * backend AudienceRule.require_never_campaigned). Omitted/false leaves the
+ * existing audience's own logic completely unchanged. */
+export type AudienceRule = AudienceRuleBase & { requireNeverCampaigned?: boolean };
 
 function audienceRuleToQueryParams(rule: AudienceRule): Record<string, string> {
   const params: Record<string, string> = { rule_type: rule.ruleType };
@@ -79,6 +86,7 @@ function audienceRuleToQueryParams(rule: AudienceRule): Record<string, string> {
     params.campaign_type = rule.campaignType;
     params.before_date = rule.beforeDate;
   }
+  if (rule.requireNeverCampaigned) params.require_never_campaigned = "true";
   return params;
 }
 
@@ -246,6 +254,7 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Create
     audienceRuleBody.before_date = rule.beforeDate;
   }
   if (rule.ruleType === "SPECIFIC_CUSTOMERS") audienceRuleBody.customer_ids = rule.customerIds;
+  if (rule.requireNeverCampaigned) audienceRuleBody.require_never_campaigned = true;
 
   const envelope = await apiPost<{
     data: SmsCampaignDto;

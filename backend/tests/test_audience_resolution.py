@@ -267,6 +267,44 @@ async def test_received_type_before_date(db_session: AsyncSession) -> None:
     assert await count_audience(db_session, rule_before_receipt) == 0
 
 
+async def test_require_never_campaigned_ands_onto_customer_type(db_session: AsyncSession) -> None:
+    """The "Customer Type: New Customer" toggle is orthogonal to rule_type —
+    it narrows whatever audience is already selected (here CUSTOMER_TYPE)
+    down to customers never sent any campaign, without changing that
+    audience's own matching logic."""
+    campaign = await _add_campaign(db_session)
+    matches_and_campaigned = await _add_customer(
+        db_session, name="Campaigned", phone="+8801711000101", customer_type="VIP"
+    )
+    await _add_customer(db_session, name="New", phone="+8801711000102", customer_type="VIP")
+    await _add_customer(db_session, name="WrongType", phone="+8801711000103", customer_type="General")
+    await _add_recipient(db_session, campaign=campaign, customer=matches_and_campaigned)
+
+    vip_id = await get_customer_type_public_id(db_session, "VIP")
+
+    # All Customer — unchanged existing behavior, both VIPs count regardless
+    # of campaign history.
+    base_rule = AudienceRule(rule_type="CUSTOMER_TYPE", customer_type_id=vip_id)
+    assert await count_audience(db_session, base_rule) == 2
+
+    # New Customer — same VIP audience, but only the one never campaigned.
+    narrowed_rule = AudienceRule(
+        rule_type="CUSTOMER_TYPE", customer_type_id=vip_id, require_never_campaigned=True
+    )
+    assert await count_audience(db_session, narrowed_rule) == 1
+
+    # storage_params/from_stored round-trip must preserve the flag, exactly
+    # as a real create+resolve would exercise it (see app.tasks.sms_campaigns).
+    stored = AudienceRule.from_stored("CUSTOMER_TYPE", narrowed_rule.storage_params())
+    assert stored.require_never_campaigned is True
+    assert await count_audience(db_session, stored) == 1
+
+    # Confirms it's additive, not a replacement — dropping the flag from
+    # storage_params entirely when False keeps old stored campaigns (with no
+    # such key) resolving exactly as before.
+    assert "require_never_campaigned" not in base_rule.storage_params()
+
+
 async def test_specific_customers(db_session: AsyncSession) -> None:
     picked = await _add_customer(db_session, name="Picked", phone="+8801711000101")
     await _add_customer(db_session, name="NotPicked", phone="+8801711000102")

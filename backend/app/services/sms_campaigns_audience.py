@@ -40,6 +40,13 @@ class AudienceRule(BaseModel):
     before_date: date | None = None
     customer_ids: list[UUID] | None = None
     customer_type_id: UUID | None = None
+    # Orthogonal to `rule_type` — ANDed onto whichever base condition it
+    # resolves to (see `build_condition`), rather than being a rule type of
+    # its own. Lets the frontend's "Customer Type: All Customer / New
+    # Customer" toggle narrow any existing audience (a CustomerType tag,
+    # MISSING_DOB, GENERAL, ...) down to customers never sent any campaign,
+    # without touching that audience's own logic.
+    require_never_campaigned: bool = False
 
     @model_validator(mode="after")
     def _validate_params_for_rule_type(self) -> "AudienceRule":
@@ -67,9 +74,16 @@ class AudienceRule(BaseModel):
         return self
 
     def storage_params(self) -> dict:
-        """Only the params relevant to `rule_type`, JSON-serializable, for
-        persisting on `Campaign.audience_rule_params`. Never includes
-        `since_campaign_id` — that's resolved away before this is called."""
+        """The rule_type-specific params, plus `require_never_campaigned`
+        when set — JSON-serializable, for persisting on
+        `Campaign.audience_rule_params`. Never includes `since_campaign_id`
+        — that's resolved away before this is called."""
+        params = self._rule_type_params()
+        if self.require_never_campaigned:
+            params["require_never_campaigned"] = True
+        return params
+
+    def _rule_type_params(self) -> dict:
         if self.rule_type == AudienceRuleType.CUSTOMER_TYPE:
             assert self.customer_type_id is not None
             return {"customer_type_id": str(self.customer_type_id)}
@@ -115,9 +129,26 @@ def _midnight_utc(value: date) -> datetime:
     return datetime.combine(value, time.min, tzinfo=UTC)
 
 
+def _never_campaigned_condition() -> ColumnElement[bool]:
+    """Zero rows in CampaignRecipient, ever, for this customer — shared by
+    the standalone NEVER_CAMPAIGNED rule type and `require_never_campaigned`
+    (which ANDs this onto any other rule's own condition)."""
+    targeted_subquery = select(CampaignRecipient.id).where(
+        CampaignRecipient.customer_id == Customer.id
+    )
+    return ~targeted_subquery.exists()
+
+
 async def build_condition(db: AsyncSession, rule: AudienceRule) -> ColumnElement[bool]:
     """`rule.since_campaign_id` must already be resolved (see
     `resolve_since_campaign`) before calling this."""
+    base_condition = await _build_base_condition(db, rule)
+    if rule.require_never_campaigned:
+        return and_(base_condition, _never_campaigned_condition())
+    return base_condition
+
+
+async def _build_base_condition(db: AsyncSession, rule: AudienceRule) -> ColumnElement[bool]:
     if rule.rule_type == AudienceRuleType.GENERAL:
         type_id = await get_seed_customer_type_id_or_none(db, "General")
         # No "General" type on this account (e.g. replaced by its own
@@ -191,9 +222,6 @@ async def build_condition(db: AsyncSession, rule: AudienceRule) -> ColumnElement
         return and_(targeted_subquery.exists(), ~verified_subquery.exists())
 
     if rule.rule_type == AudienceRuleType.NEVER_CAMPAIGNED:
-        targeted_subquery = select(CampaignRecipient.id).where(
-            CampaignRecipient.customer_id == Customer.id
-        )
-        return ~targeted_subquery.exists()
+        return _never_campaigned_condition()
 
     raise ValueError(f"Unknown audience rule type: {rule.rule_type!r}")

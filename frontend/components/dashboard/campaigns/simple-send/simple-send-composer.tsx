@@ -81,16 +81,20 @@ const AUDIENCE_LABEL: Record<AudienceRule["ruleType"], string> = {
 
 function describeAudienceRule(rule: AudienceRule): string {
   const base = AUDIENCE_LABEL[rule.ruleType];
-  if (rule.ruleType === "CUSTOMER_TYPE") return rule.customerTypeName || base;
-  if (rule.ruleType === "NEW_SINCE_DATE") return `${base} (${rule.sinceDate})`;
+  // "Customer Type: New Customer" — orthogonal to the audience rule itself,
+  // appended to whichever label is resolved below rather than being its
+  // own case (see AudienceRule.requireNeverCampaigned).
+  const suffix = rule.requireNeverCampaigned ? " (New Customer)" : "";
+  if (rule.ruleType === "CUSTOMER_TYPE") return (rule.customerTypeName || base) + suffix;
+  if (rule.ruleType === "NEW_SINCE_DATE") return `${base} (${rule.sinceDate})${suffix}`;
   if (rule.ruleType === "NEVER_RECEIVED_TYPE") {
-    return `${base}: ${CAMPAIGN_TYPE_LABELS[rule.campaignType]}`;
+    return `${base}: ${CAMPAIGN_TYPE_LABELS[rule.campaignType]}${suffix}`;
   }
   if (rule.ruleType === "RECEIVED_TYPE_BEFORE_DATE") {
-    return `${base}: ${CAMPAIGN_TYPE_LABELS[rule.campaignType]} before ${rule.beforeDate}`;
+    return `${base}: ${CAMPAIGN_TYPE_LABELS[rule.campaignType]} before ${rule.beforeDate}${suffix}`;
   }
-  if (rule.ruleType === "SPECIFIC_CUSTOMERS") return `${base} (${rule.customerIds.length})`;
-  return base;
+  if (rule.ruleType === "SPECIFIC_CUSTOMERS") return `${base} (${rule.customerIds.length})${suffix}`;
+  return base + suffix;
 }
 
 /** Converts an ISO datetime string to the "YYYY-MM-DDTHH:mm" local format

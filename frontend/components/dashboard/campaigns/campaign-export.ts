@@ -41,21 +41,25 @@ export const AUDIENCE_LABELS: Record<AudienceRuleType, string> = {
 export function describeAudience(campaign: SmsCampaign, typeNames: Record<string, string>): string {
   const base = AUDIENCE_LABELS[campaign.audienceRuleType];
   const params = campaign.audienceRuleParams;
+  // "Customer Type: New Customer" — orthogonal to the audience rule itself
+  // (see backend AudienceRule.require_never_campaigned), so it's appended
+  // to whichever label is resolved below rather than being its own case.
+  const suffix = params.requireNeverCampaigned ? " (New Customer)" : "";
 
   if (campaign.audienceRuleType === "CUSTOMER_TYPE" && params.customerTypeId) {
-    return typeNames[params.customerTypeId] ?? base;
+    return (typeNames[params.customerTypeId] ?? base) + suffix;
   }
   if (campaign.audienceRuleType === "NEW_SINCE_DATE" && params.sinceDate) {
-    return `${base} ${params.sinceDate}`;
+    return `${base} ${params.sinceDate}${suffix}`;
   }
   if (campaign.audienceRuleType === "NEVER_RECEIVED_TYPE" && params.campaignType) {
-    return `${base} ${CAMPAIGN_TYPE_LABELS[params.campaignType as CampaignType] ?? params.campaignType}`;
+    return `${base} ${CAMPAIGN_TYPE_LABELS[params.campaignType as CampaignType] ?? params.campaignType}${suffix}`;
   }
   if (campaign.audienceRuleType === "RECEIVED_TYPE_BEFORE_DATE" && params.campaignType) {
     const typeLabel = CAMPAIGN_TYPE_LABELS[params.campaignType as CampaignType] ?? params.campaignType;
-    return `${base} ${typeLabel} (${params.beforeDate})`;
+    return `${base} ${typeLabel} (${params.beforeDate})${suffix}`;
   }
-  return base;
+  return base + suffix;
 }
 
 export function useCustomerTypeNames(): Record<string, string> {
