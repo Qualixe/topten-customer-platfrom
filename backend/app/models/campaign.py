@@ -63,6 +63,10 @@ class AudienceRuleType(str, enum.Enum):
     # for any of them — narrower than NEVER_VERIFIED (excludes customers
     # who were never targeted at all).
     TARGETED_NOT_VERIFIED = "TARGETED_NOT_VERIFIED"
+    # Zero rows in CampaignRecipient, ever — never targeted by any campaign
+    # at all, of any type. Unlike NEVER_RECEIVED_TYPE (scoped to one
+    # campaign_type), this is global across every campaign.
+    NEVER_CAMPAIGNED = "NEVER_CAMPAIGNED"
 
 
 class Campaign(Base):

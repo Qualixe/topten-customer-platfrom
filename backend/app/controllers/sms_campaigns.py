@@ -136,6 +136,7 @@ async def get_audience_counts(
             missing_dob_and_address=counts[AudienceRuleType.MISSING_DOB_AND_ADDRESS.value],
             never_verified=counts[AudienceRuleType.NEVER_VERIFIED.value],
             targeted_not_verified=counts[AudienceRuleType.TARGETED_NOT_VERIFIED.value],
+            never_campaigned=counts[AudienceRuleType.NEVER_CAMPAIGNED.value],
         )
     )
 

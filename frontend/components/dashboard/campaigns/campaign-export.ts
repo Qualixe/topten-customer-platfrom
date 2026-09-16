@@ -32,6 +32,7 @@ export const AUDIENCE_LABELS: Record<AudienceRuleType, string> = {
   SPECIFIC_CUSTOMERS: "Specific customers",
   NEVER_VERIFIED: "Never verified",
   TARGETED_NOT_VERIFIED: "Targeted, not verified",
+  NEVER_CAMPAIGNED: "Never campaigned",
 };
 
 /** Resolves id -> name for CUSTOMER_TYPE rules' display — the backend only

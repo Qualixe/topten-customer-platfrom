@@ -172,6 +172,7 @@ class AudienceCounts(BaseModel):
     missing_dob_and_address: int
     never_verified: int
     targeted_not_verified: int
+    never_campaigned: int
 
 
 class AudienceCountsResponse(BaseModel):

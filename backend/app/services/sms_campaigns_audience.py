@@ -190,4 +190,10 @@ async def build_condition(db: AsyncSession, rule: AudienceRule) -> ColumnElement
         )
         return and_(targeted_subquery.exists(), ~verified_subquery.exists())
 
+    if rule.rule_type == AudienceRuleType.NEVER_CAMPAIGNED:
+        targeted_subquery = select(CampaignRecipient.id).where(
+            CampaignRecipient.customer_id == Customer.id
+        )
+        return ~targeted_subquery.exists()
+
     raise ValueError(f"Unknown audience rule type: {rule.rule_type!r}")
