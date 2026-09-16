@@ -375,8 +375,34 @@ export interface ListVerifiedCustomersParams {
   search?: string;
   campaignId?: string;
   customerTypeId?: string | "all";
+  /** Same set of filters as the main Customers page. */
+  status?: CustomerStatus | "all";
+  city?: string | "all";
+  minTotalSpent?: number;
+  maxTotalSpent?: number;
   verifiedFrom?: string;
   verifiedTo?: string;
+}
+
+/** Shared by `listVerifiedCustomers` and `exportVerifiedCustomersCsv` — the
+ * export must apply the exact same filters as whatever page is on screen. */
+function buildVerifiedCustomersFilterQuery(
+  params: Omit<ListVerifiedCustomersParams, "page" | "pageSize">
+): Record<string, string | number | undefined> {
+  return {
+    search: params.search?.trim() || undefined,
+    campaign_id: params.campaignId,
+    customer_type_id:
+      params.customerTypeId && params.customerTypeId !== "all"
+        ? params.customerTypeId
+        : undefined,
+    status: params.status && params.status !== "all" ? params.status.toLowerCase() : undefined,
+    city: params.city && params.city !== "all" ? params.city : undefined,
+    min_total_spent: params.minTotalSpent,
+    max_total_spent: params.maxTotalSpent,
+    verified_from: params.verifiedFrom,
+    verified_to: params.verifiedTo,
+  };
 }
 
 /** One row per (customer, campaign) verified pair — a customer verified
@@ -387,14 +413,7 @@ export async function listVerifiedCustomers(
   const query = buildQueryString({
     page: params.page ?? 1,
     page_size: params.pageSize ?? DEFAULT_PAGE_SIZE,
-    search: params.search?.trim() || undefined,
-    campaign_id: params.campaignId,
-    customer_type_id:
-      params.customerTypeId && params.customerTypeId !== "all"
-        ? params.customerTypeId
-        : undefined,
-    verified_from: params.verifiedFrom,
-    verified_to: params.verifiedTo,
+    ...buildVerifiedCustomersFilterQuery(params),
   });
 
   const envelope = await apiGet<ApiListEnvelope<VerifiedCustomerDto>>(`/customers/verified${query}`);
@@ -405,6 +424,43 @@ export async function listVerifiedCustomers(
     page: envelope.meta.page,
     pageSize: envelope.meta.pageSize,
   };
+}
+
+/** Downloads `GET /api/v1/customers/verified/export` (every verified
+ * customer matching the given filters, not just one page) as a CSV file —
+ * same non-`apiFetch` raw-`fetch` approach as `exportCustomersCsv`. */
+export async function exportVerifiedCustomersCsv(
+  params: Omit<ListVerifiedCustomersParams, "page" | "pageSize"> = {}
+): Promise<void> {
+  const query = buildQueryString(buildVerifiedCustomersFilterQuery(params));
+
+  let response: Response;
+  try {
+    const authHeader = await getAuthorizationHeader();
+    response = await fetch(`${API_BASE_URL}/customers/verified/export${query}`, {
+      headers: authHeader,
+    });
+  } catch (error) {
+    throw new NetworkError(error instanceof Error ? error.message : undefined);
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new ApiError(body || response.statusText, response.status);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? "verified-customers-export.csv";
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 export interface CustomerStats {

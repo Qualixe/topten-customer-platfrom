@@ -265,10 +265,12 @@ async def _build_customer_filters(
     elif profile_status == "INCOMPLETE":
         filters.append(~is_complete)
 
-    # Verification is a per-(customer, campaign) fact on CampaignRecipient,
-    # not a stored Customer column — a customer counts as "verified" here
-    # if they've completed at least one campaign's profile form, regardless
-    # of which campaign or how many.
+    # A customer counts as "verified" here via either of the two sources
+    # GET /customers/verified also reads: a campaign's profile form
+    # (CampaignRecipient, not a stored Customer column) or the standalone,
+    # tokenless Forms feature (Customer.form_verified_at) — must stay in
+    # sync with list_verified_customers so this filter and that page always
+    # agree on who counts as verified.
     if verified is not None:
         verified_exists = (
             select(CampaignRecipient.id)
@@ -278,7 +280,8 @@ async def _build_customer_filters(
             )
             .exists()
         )
-        filters.append(verified_exists if verified else ~verified_exists)
+        verified_condition = or_(verified_exists, Customer.form_verified_at.is_not(None))
+        filters.append(verified_condition if verified else ~verified_condition)
 
     if marketing_opt_in is not None:
         filters.append(Customer.marketing_opt_in == marketing_opt_in)
@@ -767,18 +770,45 @@ async def get_vip_customer_stats(
     )
 
 
-@router.get("/verified", response_model=VerifiedCustomersListResponse)
-async def list_verified_customers(
-    db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_permission("customers.view")),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    search: str | None = Query(None, description="Matches name or phone"),
-    campaign_id: UUID | None = Query(None),
-    customer_type_id: UUID | None = Query(None),
-    verified_from: date | None = Query(None),
-    verified_to: date | None = Query(None),
-) -> VerifiedCustomersListResponse:
+def _verified_customers_common_filters(
+    search: str,
+    status: str | None,
+    city: str | None,
+    min_total_spent: Decimal | None,
+    max_total_spent: Decimal | None,
+) -> list[ColumnElement]:
+    """Filters that apply identically to both verification sources (campaign
+    / standalone form) — same semantics as the equivalent filters on
+    `GET /customers` (see `_build_customer_filters`), so the two pages never
+    disagree about what "matching the filters" means."""
+    filters: list[ColumnElement] = []
+    if search:
+        pattern = f"%{search}%"
+        filters.append(or_(Customer.name.ilike(pattern), Customer.phone.ilike(pattern)))
+    if status and status != "all":
+        filters.append(Customer.status == status)
+    if city:
+        filters.append(Customer.city.ilike(city))
+    if min_total_spent is not None:
+        filters.append(Customer.total_spent >= min_total_spent)
+    if max_total_spent is not None:
+        filters.append(Customer.total_spent < max_total_spent)
+    return filters
+
+
+async def _fetch_verified_customers(
+    db: AsyncSession,
+    *,
+    search: str | None,
+    campaign_id: UUID | None,
+    customer_type_id: UUID | None,
+    status: str | None,
+    city: str | None,
+    min_total_spent: Decimal | None,
+    max_total_spent: Decimal | None,
+    verified_from: date | None,
+    verified_to: date | None,
+) -> list[VerifiedCustomerRead]:
     """One row per customer — their single most recent VERIFIED event,
     whichever of (a) any campaign's profile form or (b) the standalone,
     tokenless Forms feature (no campaign — see Customer.form_verified_at)
@@ -787,26 +817,30 @@ async def list_verified_customers(
     latest `verified_at` — a later verification effectively replaces an
     earlier one in this list rather than adding another row. Reads only
     `CampaignRecipient.verification_status`, never `status` (SMS delivery
-    is a different thing — see VerificationStatus's docstring).
+    is a different thing — see VerificationStatus's docstring); `status`
+    here filters by the customer's account status instead, same as on
+    `GET /customers`.
 
     When `campaign_id` narrows to one specific campaign, no dedup is
     needed — `CampaignRecipient` already has a unique (campaign_id,
     customer_id) constraint, so at most one row per customer exists for
     that campaign already.
 
-    Both sources are loaded in full (filtered, not yet paginated) and
-    merged/deduped/sorted/paginated in Python — the two shapes don't share
-    a query, so there's no single SQL statement that could do this
-    together. Fine at this table's expected scale (an admin-only view);
-    revisit if it ever needs to scale past that."""
+    Both sources are loaded in full (filtered, not paginated — shared by
+    the paginated list endpoint and the unpaginated CSV export) and
+    merged/deduped/sorted in Python — the two shapes don't share a query,
+    so there's no single SQL statement that could do this together. Fine
+    at this table's expected scale (an admin-only view); revisit if it
+    ever needs to scale past that."""
     search = (search or "").strip()
+    common_filters = _verified_customers_common_filters(
+        search, status, city, min_total_spent, max_total_spent
+    )
 
     campaign_filters: list[ColumnElement] = [
-        CampaignRecipient.verification_status == VerificationStatus.VERIFIED.value
+        CampaignRecipient.verification_status == VerificationStatus.VERIFIED.value,
+        *common_filters,
     ]
-    if search:
-        pattern = f"%{search}%"
-        campaign_filters.append(or_(Customer.name.ilike(pattern), Customer.phone.ilike(pattern)))
     if campaign_id is not None:
         campaign = await _get_campaign_or_404(db, campaign_id)
         campaign_filters.append(CampaignRecipient.campaign_id == campaign.id)
@@ -849,10 +883,7 @@ async def list_verified_customers(
     # match it — skip this source entirely in that case rather than
     # returning rows the filter didn't ask for.
     if campaign_id is None:
-        form_filters: list[ColumnElement] = [Customer.form_verified_at.is_not(None)]
-        if search:
-            pattern = f"%{search}%"
-            form_filters.append(or_(Customer.name.ilike(pattern), Customer.phone.ilike(pattern)))
+        form_filters: list[ColumnElement] = [Customer.form_verified_at.is_not(None), *common_filters]
         if customer_type_id is not None:
             resolved_type = await get_customer_type_or_404(db, customer_type_id)
             form_filters.append(Customer.customer_type_id == resolved_type.id)
@@ -897,6 +928,37 @@ async def list_verified_customers(
         data = list(latest_by_customer.values())
 
     data.sort(key=lambda row: row.verified_at, reverse=True)
+    return data
+
+
+@router.get("/verified", response_model=VerifiedCustomersListResponse)
+async def list_verified_customers(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, description="Matches name or phone"),
+    campaign_id: UUID | None = Query(None),
+    customer_type_id: UUID | None = Query(None),
+    status: str | None = Query(None),
+    city: str | None = Query(None, description="A Bangladesh district name, exact match"),
+    min_total_spent: Decimal | None = Query(None, ge=0),
+    max_total_spent: Decimal | None = Query(None, ge=0),
+    verified_from: date | None = Query(None),
+    verified_to: date | None = Query(None),
+) -> VerifiedCustomersListResponse:
+    data = await _fetch_verified_customers(
+        db,
+        search=search,
+        campaign_id=campaign_id,
+        customer_type_id=customer_type_id,
+        status=status,
+        city=city,
+        min_total_spent=min_total_spent,
+        max_total_spent=max_total_spent,
+        verified_from=verified_from,
+        verified_to=verified_to,
+    )
 
     total = len(data)
     total_pages = max(1, -(-total // page_size))
@@ -905,6 +967,79 @@ async def list_verified_customers(
     return VerifiedCustomersListResponse(
         data=page_data,
         meta=CustomersMeta(page=page, page_size=page_size, total=total, total_pages=total_pages),
+    )
+
+
+_VERIFIED_EXPORT_COLUMNS = (
+    "Customer ID",
+    "Name",
+    "Phone",
+    "Campaign",
+    "Customer Type",
+    "Verified At",
+    "Date of Birth",
+    "Address",
+    "Email",
+)
+
+
+def _verified_customer_export_row(row: VerifiedCustomerRead) -> tuple[str, ...]:
+    return (
+        str(row.id),
+        row.name,
+        row.phone,
+        row.campaign_name or "Standalone form",
+        row.customer_type.name,
+        row.verified_at.isoformat(),
+        row.date_of_birth.isoformat() if row.date_of_birth else "",
+        row.address or "",
+        row.email or "",
+    )
+
+
+@router.get("/verified/export")
+async def export_verified_customers_csv(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("customers.view")),
+    search: str | None = Query(None, description="Matches name or phone"),
+    campaign_id: UUID | None = Query(None),
+    customer_type_id: UUID | None = Query(None),
+    status: str | None = Query(None),
+    city: str | None = Query(None, description="A Bangladesh district name, exact match"),
+    min_total_spent: Decimal | None = Query(None, ge=0),
+    max_total_spent: Decimal | None = Query(None, ge=0),
+    verified_from: date | None = Query(None),
+    verified_to: date | None = Query(None),
+) -> StreamingResponse:
+    """Same filters and merge/dedup as `GET /customers/verified`, minus
+    pagination — every matching row is exported, not just the current
+    page. Small admin-only view (see `_fetch_verified_customers`), so this
+    writes the whole CSV in memory rather than streaming in chunks like
+    `_stream_customers_csv` does for the (much larger) main customer list."""
+    data = await _fetch_verified_customers(
+        db,
+        search=search,
+        campaign_id=campaign_id,
+        customer_type_id=customer_type_id,
+        status=status,
+        city=city,
+        min_total_spent=min_total_spent,
+        max_total_spent=max_total_spent,
+        verified_from=verified_from,
+        verified_to=verified_to,
+    )
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(_VERIFIED_EXPORT_COLUMNS)
+    for row in data:
+        writer.writerow(_verified_customer_export_row(row))
+
+    filename = f"verified-customers-{datetime.now(UTC):%Y%m%d-%H%M%S}.csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

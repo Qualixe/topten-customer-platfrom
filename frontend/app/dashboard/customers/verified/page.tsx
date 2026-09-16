@@ -2,6 +2,7 @@ import { ShieldCheck } from "lucide-react";
 
 import { PermissionDenied } from "@/components/dashboard/permission-denied";
 import { VerifiedCustomersCampaignFilter } from "@/components/dashboard/customers-verified/verified-customers-campaign-filter";
+import { VerifiedCustomersExportButton } from "@/components/dashboard/customers-verified/verified-customers-export-button";
 import { VerifiedCustomersPagination } from "@/components/dashboard/customers-verified/verified-customers-pagination";
 import { VerifiedCustomersToolbar } from "@/components/dashboard/customers-verified/verified-customers-toolbar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,8 +17,9 @@ import {
 } from "@/components/ui/table";
 import { getCurrentUserSafeCached } from "@/lib/api/auth";
 import { listCampaigns } from "@/lib/api/campaigns";
-import { listVerifiedCustomers } from "@/lib/api/customers";
+import { listVerifiedCustomers, type CustomerStatus } from "@/lib/api/customers";
 import { settleOk } from "@/lib/api/settle";
+import { SPEND_RANGES } from "@/lib/spend-ranges";
 
 export const dynamic = "force-dynamic";
 
@@ -53,10 +55,24 @@ export default async function VerifiedCustomersPage({
   const search = firstValue(raw.search) ?? "";
   const campaignId = firstValue(raw.campaignId);
   const customerTypeId = firstValue(raw.customerTypeId) ?? "all";
+  const status = (firstValue(raw.status) as CustomerStatus | undefined) ?? "all";
+  const city = firstValue(raw.city) ?? "all";
+  const spendRange = SPEND_RANGES.find((range) => range.key === firstValue(raw.spendRange));
 
   const [user, customersResult, campaignsResult] = await Promise.all([
     getCurrentUserSafeCached(),
-    settleOk(listVerifiedCustomers({ page, search, campaignId, customerTypeId })),
+    settleOk(
+      listVerifiedCustomers({
+        page,
+        search,
+        campaignId,
+        customerTypeId,
+        status,
+        city,
+        minTotalSpent: spendRange?.min,
+        maxTotalSpent: spendRange?.max,
+      })
+    ),
     settleOk(listCampaigns({ pageSize: 100 })),
   ]);
   if (!user?.permissions.includes("customers.view")) {
@@ -96,6 +112,7 @@ export default async function VerifiedCustomersPage({
                 date: campaign.scheduledAt ?? campaign.createdAt,
               }))}
             />
+            <VerifiedCustomersExportButton />
           </div>
 
           {items.length === 0 ? (
