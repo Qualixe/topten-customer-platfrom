@@ -248,10 +248,17 @@ async def submit_generic_form(
             customer_type_id=await get_default_customer_type_id(db),
         )
         db.add(customer)
-    # An existing customer's name/phone are never overwritten here — this is
-    # a public, tokenless endpoint identified only by phone digits, so
-    # accepting arbitrary name changes for a matched record would let
+    # An existing customer's real name/phone are never overwritten here —
+    # this is a public, tokenless endpoint identified only by phone digits,
+    # so accepting arbitrary name changes for a matched record would let
     # anyone silently rename a real customer they don't otherwise control.
+    # The one exception: a name that's still exactly the customer's own
+    # phone number is itself just the POS-import placeholder for "no name on
+    # file" (see app.services.imports_validation.validate_row) — there's no
+    # real name there to protect, so it's safe to fill in with what they
+    # just typed, validated, into this form.
+    elif customer.name in (customer.phone, customer.normalized_phone):
+        customer.name = submission.name
 
     if submission.email:
         customer.email = submission.email

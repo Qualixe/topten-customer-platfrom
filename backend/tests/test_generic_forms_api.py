@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customer import Customer
+from tests.support import get_customer_type_id
 
 BUILDER_DATA_NAME_PHONE_ONLY = {
     "version": 1,
@@ -189,6 +190,37 @@ async def test_submit_twice_with_same_phone_updates_not_duplicates(
     # Address (omitted the second time) is likewise never blanked out.
     assert customers[0].name == "Karim"
     assert customers[0].address == "House 5, Dhaka"
+
+
+async def test_submit_fills_in_real_name_over_pos_import_placeholder(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A POS import with no name on file uses the phone number itself as a
+    placeholder name (see app.services.imports_validation.validate_row) —
+    unlike a real name, there's nothing to protect there, so submitting this
+    form should fill in the customer's real name where the previous test
+    (test_submit_twice_with_same_phone_updates_not_duplicates) shows a real
+    existing name is left untouched."""
+    customer = Customer(
+        name="01711000333",
+        phone="01711000333",
+        normalized_phone="+8801711000333",
+        customer_type_id=await get_customer_type_id(db_session),
+    )
+    db_session.add(customer)
+    await db_session.commit()
+
+    await _create_and_publish_form(
+        client, slug="placeholder-name-signup", builder_data=BUILDER_DATA_NAME_PHONE_ONLY
+    )
+    response = await client.post(
+        "/api/v1/public/forms/placeholder-name-signup/submit",
+        json={"name": "Nasrin Akter", "phone": "01711000333"},
+    )
+    assert response.status_code == 200
+
+    await db_session.refresh(customer)
+    assert customer.name == "Nasrin Akter"
 
 
 async def test_submit_saves_customer_note(
