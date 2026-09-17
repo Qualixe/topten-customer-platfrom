@@ -160,11 +160,7 @@ export default async function DashboardPage() {
         <div className="lg:col-span-2 flex flex-col">
           <SignupsChart data={overview.signupsByDay} total={overview.totalSignups} />
         </div>
-        <CustomerMixDonut
-          general={overview.customerMix.general}
-          vip={overview.customerMix.vip}
-          vvip={overview.customerMix.vvip}
-        />
+        <CustomerMixDonut segments={overview.customerMix} />
       </div>
     </div>
   );

@@ -12,10 +12,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password
+from app.models.customer import Customer
 from app.models.customer_type import CustomerType
 from app.models.role import Role
 from app.models.user import User
 from tests.support import get_or_create_customer_type
+
+
+async def _add_customer(db_session: AsyncSession, *, name: str, phone: str, type_id: int) -> None:
+    customer = Customer(
+        name=name, phone=phone, normalized_phone=phone, customer_type_id=type_id
+    )
+    db_session.add(customer)
+    await db_session.commit()
 
 
 async def _add_system_type(db_session: AsyncSession, *, name: str) -> CustomerType:
@@ -54,6 +63,26 @@ async def test_list_customer_types_includes_the_three_seeded_ones(
     assert response.status_code == 200
     names = {row["name"] for row in response.json()["data"]}
     assert {"General", "VIP", "VVIP"} <= names
+
+
+async def test_list_customer_types_includes_live_customer_count(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The dashboard's Customer Mix chart (frontend lib/api/dashboard-overview.ts)
+    reads this straight off the type list instead of issuing one /customers
+    request per hardcoded type name — it must reflect real per-type counts,
+    including zero for a type nobody has been assigned."""
+    populated = await get_or_create_customer_type(db_session, "Populated")
+    empty = await get_or_create_customer_type(db_session, "Empty")
+    await _add_customer(db_session, name="Customer One", phone="+8801711000101", type_id=populated.id)
+    await _add_customer(db_session, name="Customer Two", phone="+8801711000102", type_id=populated.id)
+
+    response = await client.get("/api/v1/customers/types")
+    by_name = {row["name"]: row for row in response.json()["data"]}
+
+    assert by_name["Populated"]["customer_count"] == 2
+    assert by_name["Empty"]["customer_count"] == 0
+    assert by_name["General"]["customer_count"] == 0
 
 
 async def test_admin_can_create_customer_type(client: AsyncClient) -> None:

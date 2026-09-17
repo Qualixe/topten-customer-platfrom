@@ -10,6 +10,10 @@ import { listNotifications } from "@/lib/api/notifications";
 
 const TREND_DAYS = 14;
 const TOP_GIFTS_LIMIT = 4;
+// Keeps the Customer Mix donut legend readable for an account with many
+// custom types — the smallest ones beyond this count collapse into "Other"
+// rather than crowding out the chart.
+const MAX_MIX_SEGMENTS = 5;
 
 export interface DayCount {
   /** "YYYY-MM-DD", the store's own calendar day (Asia/Dhaka). */
@@ -19,12 +23,21 @@ export interface DayCount {
   count: number;
 }
 
+export interface CustomerMixSegment {
+  name: string;
+  count: number;
+}
+
 export interface DashboardOverview {
   signupsByDay: DayCount[];
   giftOrdersByDay: DayCount[];
   totalSignups: number;
   totalGiftOrders: number;
-  customerMix: { general: number; vip: number; vvip: number };
+  /** By customer type, whatever types actually exist for this account —
+   * not a hardcoded General/VIP/VVIP split, since an account may have
+   * replaced those with its own taxonomy (e.g. purchase-tier types). See
+   * MAX_MIX_SEGMENTS below for how a long tail is collapsed. */
+  customerMix: CustomerMixSegment[];
   totalCustomers: number;
   verifiedCustomers: number;
   profileCompleteCustomers: number;
@@ -83,28 +96,10 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   const days = lastNDhakaDays(TREND_DAYS);
   const today = days[days.length - 1];
 
-  // Only "General" is guaranteed to exist (see get_seed_customer_type_id
-  // on the backend, which lazily creates it on first POS import) — VIP and
-  // VVIP are ordinary admin-managed types from Settings and may not exist
-  // yet on a given install. A bucket whose id can't be resolved must never
-  // fall back to an unfiltered `listPosCustomers` call (customerTypeId:
-  // undefined means "no filter" server-side, i.e. every customer) — that
-  // silently inflated this exact chart to double-counting the total. Skip
-  // the request entirely for a type that doesn't exist and count it as 0.
-  const types = await listCustomerTypes();
-  const generalId = types.find((t) => t.name === "General")?.id;
-  const vipId = types.find((t) => t.name === "VIP")?.id;
-  const vvipId = types.find((t) => t.name === "VVIP")?.id;
-
-  const countForType = (typeId: string | undefined) =>
-    typeId ? listPosCustomers({ customerTypeId: typeId, pageSize: 1 }) : Promise.resolve({ total: 0 });
-
   const [
     stats,
     verifiedResult,
-    generalResult,
-    vipResult,
-    vvipResult,
+    types,
     profileCompleteResult,
     signupCounts,
     giftOrdersResult,
@@ -115,9 +110,10 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   ] = await Promise.all([
     getCustomerStats(),
     listCustomers({ verified: true, pageSize: 1 }),
-    countForType(generalId),
-    countForType(vipId),
-    countForType(vvipId),
+    // Includes each type's live customer_count — a single grouped query
+    // server-side — so the mix reflects whatever types this account
+    // actually uses instead of assuming General/VIP/VVIP.
+    listCustomerTypes(),
     listPosCustomers({ profileStatus: "COMPLETE", pageSize: 1 }),
     Promise.all(
       days.map((day) =>
@@ -168,16 +164,21 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     (order) => order.sentAt !== null && dhakaDateKey(new Date(order.sentAt)) === today
   ).length;
 
+  const sortedTypes = [...types].sort((a, b) => (b.customerCount ?? 0) - (a.customerCount ?? 0));
+  const topTypes = sortedTypes.slice(0, MAX_MIX_SEGMENTS);
+  const otherCount = sortedTypes
+    .slice(MAX_MIX_SEGMENTS)
+    .reduce((sum, type) => sum + (type.customerCount ?? 0), 0);
+  const customerMix: CustomerMixSegment[] = topTypes
+    .map((type) => ({ name: type.name, count: type.customerCount ?? 0 }))
+    .concat(otherCount > 0 ? [{ name: "Other", count: otherCount }] : []);
+
   return {
     signupsByDay,
     giftOrdersByDay,
     totalSignups: signupsByDay.reduce((sum, day) => sum + day.count, 0),
     totalGiftOrders: giftOrdersByDay.reduce((sum, day) => sum + day.count, 0),
-    customerMix: {
-      general: generalResult.total,
-      vip: vipResult.total,
-      vvip: vvipResult.total,
-    },
+    customerMix,
     totalCustomers: stats.totalCustomers,
     verifiedCustomers: verifiedResult.total,
     profileCompleteCustomers: profileCompleteResult.total,

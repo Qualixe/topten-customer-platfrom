@@ -3,16 +3,18 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { CustomerMixSegment } from "@/lib/api/dashboard-overview";
 import { formatSharePercent } from "@/lib/format-share";
 
-// All three tones derive from the one admin-editable brand color (Settings
-// → General) via color-mix, so this stays on-brand automatically instead
-// of hardcoding a fixed red family.
-const SEGMENT_COLORS = {
-  General: "color-mix(in oklch, var(--primary) 38%, var(--card))",
-  VIP: "var(--primary)",
-  VVIP: "color-mix(in oklch, var(--primary) 65%, black)",
-} as const;
+/** Every tone derives from the one admin-editable brand color (Settings →
+ * General) via color-mix, so this stays on-brand automatically instead of
+ * hardcoding a fixed color family — and works for however many customer
+ * types (segments) an account actually has, not just three. */
+function colorForSegment(index: number, count: number): string {
+  if (count <= 1) return "var(--primary)";
+  const mixPercent = 30 + (index * 55) / (count - 1);
+  return `color-mix(in oklch, var(--primary) ${mixPercent}%, var(--card))`;
+}
 
 function ChartTooltip({
   active,
@@ -31,21 +33,9 @@ function ChartTooltip({
   );
 }
 
-export function CustomerMixDonut({
-  general,
-  vip,
-  vvip,
-}: {
-  general: number;
-  vip: number;
-  vvip: number;
-}) {
-  const total = general + vip + vvip;
-  const data = [
-    { name: "General", value: general },
-    { name: "VIP", value: vip },
-    { name: "VVIP", value: vvip },
-  ];
+export function CustomerMixDonut({ segments }: { segments: CustomerMixSegment[] }) {
+  const total = segments.reduce((sum, segment) => sum + segment.count, 0);
+  const data = segments.map((segment) => ({ name: segment.name, value: segment.count }));
 
   return (
     <Card className="h-full">
@@ -66,8 +56,8 @@ export function CustomerMixDonut({
                 paddingAngle={2}
                 strokeWidth={0}
               >
-                {data.map((entry) => (
-                  <Cell key={entry.name} fill={SEGMENT_COLORS[entry.name as keyof typeof SEGMENT_COLORS]} />
+                {data.map((entry, index) => (
+                  <Cell key={entry.name} fill={colorForSegment(index, data.length)} />
                 ))}
               </Pie>
               <Tooltip content={<ChartTooltip />} />
@@ -80,15 +70,15 @@ export function CustomerMixDonut({
         </div>
 
         <div className="mt-4 flex flex-col gap-2">
-          {data.map((entry) => {
+          {data.map((entry, index) => {
             return (
               <div key={entry.name} className="flex items-center gap-2 text-sm">
                 <span
                   className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: SEGMENT_COLORS[entry.name as keyof typeof SEGMENT_COLORS] }}
+                  style={{ backgroundColor: colorForSegment(index, data.length) }}
                   aria-hidden="true"
                 />
-                <span className="flex-1 text-muted-foreground">{entry.name}</span>
+                <span className="flex-1 truncate text-muted-foreground">{entry.name}</span>
                 <span className="font-medium tabular-nums">{formatSharePercent(entry.value, total)}</span>
               </div>
             );

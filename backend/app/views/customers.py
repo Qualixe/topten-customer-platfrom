@@ -54,6 +54,11 @@ class CustomerTypeRead(BaseModel):
     name: str
     is_system: bool
     is_active: bool
+    # Only populated by GET /customers/types (a single grouped-count query
+    # there — see list_customer_types_endpoint) for the dashboard's Customer
+    # Mix chart. None everywhere else this is nested (CustomerRead etc.),
+    # since counting per customer there would mean a query per row.
+    customer_count: int | None = None
 
 
 class CustomerTypeResponse(BaseModel):

@@ -101,12 +101,15 @@ async def _get_customer_or_404(db: AsyncSession, customer_id: UUID) -> Customer:
     return customer
 
 
-def _customer_type_to_read(customer_type: CustomerType) -> CustomerTypeRead:
+def _customer_type_to_read(
+    customer_type: CustomerType, *, customer_count: int | None = None
+) -> CustomerTypeRead:
     return CustomerTypeRead(
         id=customer_type.public_id,
         name=customer_type.name,
         is_system=customer_type.is_system,
         is_active=customer_type.is_active,
+        customer_count=customer_count,
     )
 
 
@@ -125,8 +128,25 @@ async def list_customer_types_endpoint(
     _: object = Depends(require_permission("customers.view")),
 ) -> CustomerTypesListResponse:
     customer_types = await list_customer_types(db)
+
+    # One grouped query for every type's count (e.g. for the dashboard's
+    # Customer Mix chart) rather than a per-type COUNT — see
+    # frontend's lib/api/dashboard-overview.ts, which used to issue one
+    # /customers request per hardcoded type name instead of using this.
+    count_rows = await db.execute(
+        select(Customer.customer_type_id, func.count(Customer.id)).group_by(
+            Customer.customer_type_id
+        )
+    )
+    counts_by_type_id = dict(count_rows.all())
+
     return CustomerTypesListResponse(
-        data=[_customer_type_to_read(customer_type) for customer_type in customer_types]
+        data=[
+            _customer_type_to_read(
+                customer_type, customer_count=counts_by_type_id.get(customer_type.id, 0)
+            )
+            for customer_type in customer_types
+        ]
     )
 
 

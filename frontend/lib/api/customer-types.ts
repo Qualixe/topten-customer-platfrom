@@ -13,6 +13,10 @@ export interface CustomerTypeOption {
   name: string;
   isSystem: boolean;
   isActive: boolean;
+  /** How many customers currently have this type — only populated by
+   * `listCustomerTypes`, undefined everywhere a `CustomerTypeOption` is
+   * nested inside another resource (e.g. `CustomerRow.customerType`). */
+  customerCount?: number;
 }
 
 /** Fetches the admin-managed customer type list, sorted by name. */
